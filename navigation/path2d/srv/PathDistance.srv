@@ -1,0 +1,5 @@
+geometry_msgs/PoseStamped start_point
+geometry_msgs/PoseStamped goal_point
+---
+float32 path_distance
+float32 straight_distance

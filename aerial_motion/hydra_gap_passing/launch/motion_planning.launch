@@ -1,0 +1,45 @@
+<launch>
+<!-- Debug Info -->
+<arg name="debug" default="false" />
+<arg unless="$(arg debug)" name="launch_prefix" value="" />
+<arg if="$(arg debug)" name="launch_prefix" value="gdb --ex run --args" />
+
+<node name="motion_planning_node" pkg="collision_check" type="motion_planning_node" respawn="false" launch-prefix="$(arg launch_prefix)" output="screen">
+  <rosparam command="load" file="$(find hydra_moveit_config)/config/kinematics.yaml"/>
+  <param name="planning_plugin" value="ompl_interface/OMPLPlanner"/>
+  <rosparam command="load" file="$(find hydra_moveit_config)/config/ompl_planning.yaml"/>
+  <param name="coefficient_rate" value="0.065"/> <!-- propeller center point meter, joint_and_base_mode:0.15-->
+  <param name="planning_mode" value="3"/> 
+  <param name="collision_detection_rate" value="50"/>
+  <param name="ompl_mode" value="0"/> <!-- RRT START -->
+
+<!--
+  <param name="gap_x_offset" value="-0.3"/> 
+  <param name="gap_y_offset" value="0.8"/> 
+-->
+<!--
+  <param name="gap_x_offset" value="0.6"/> 
+  <param name="gap_y_offset" value="0.6"/> 
+
+  <param name="gap_left_width" value="0.4"/> 
+  <param name="gap_right_width" value="0.6"/>  
+
+  <param name="start_state_y" value="0.0"/> 
+-->
+  <param name="gap_x_offset" value="0.45"/> 
+  <param name="gap_y_offset" value="0"/> 
+
+  <param name="gap_left_width" value="0.03"/> 
+  <param name="gap_right_width" value="0.029"/>  
+<!--  <param name="start_state_y" value="-0.2"/> -->
+
+
+  <param name="start_state_joint1" value="1.57"/> 
+  <param name="start_state_joint2" value="1.57"/> 
+  <param name="start_state_joint3" value="1.57"/> 
+  <param name="goal_state_joint1" value="1.57"/> 
+  <param name="goal_state_joint2" value="1.57"/> 
+  <param name="goal_state_joint3" value="1.57"/> 
+
+</node>
+</launch>

@@ -1,0 +1,13 @@
+<launch>
+
+
+<include file="$(find collision_check)/launch/planning_context.launch"/>
+
+
+<!--  <node pkg="tf" type="static_transform_publisher" name="virtual_joint_broadcaster_0" args="0 0 0 0 0 0 world head_cylinder 100" />
+-->
+
+<node name="planning_scene" pkg="collision_check" type="planning_scene_node" respawn="false" output="screen">
+<rosparam command="load" file="$(find hydra_moveit_config)/config/kinematics.yaml"/>
+</node>
+</launch>

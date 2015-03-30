@@ -1,0 +1,23 @@
+<package>
+  <description brief="wave_propagation">
+     wave_propagation
+  </description>
+  <author>bakui</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/wave_propagation</url>
+  <depend package="roscpp"/>
+  <depend package="geometry_msgs"/>
+  <depend package="costmap_2d"/>
+  <depend package="nav_core"/>
+  <depend package="nav_msgs"/>
+  <depend package="tf"/>
+  <depend package="visualization_msgs"/>
+  <depend package="pcl_ros" />
+  <rosdep name="eigen" />
+  <export>
+    <cpp cflags="-I${prefix}/include -I${prefix}/cfg/cpp" lflags="-Wl,-rpath,${prefix}/lib -L${prefix}/lib -lwave_propagation"/>
+  </export>
+</package>
+
+

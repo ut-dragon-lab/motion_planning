@@ -1,0 +1,29 @@
+<?xml version="1.0"?>
+
+<launch>
+  <arg name="costmap_name" default="costmap"/>
+  <arg name="navfn_name" default="navfn"/>
+  <arg name="map_file" default="eng2-1f"/>
+
+  <node name="map_server" pkg="map_server" type="map_server" args="$(find path2d)/raw_maps/$(arg map_file).yaml" output="screen"/> 
+
+  <node name= "path_client" pkg="path2d" type="path_client" output="screen" />
+
+  <node name= "path2d" pkg="path2d" type="path_2d" output="screen">
+    <param name="costmap_name" value="$(arg costmap_name)" />
+    <param name="navfn_name" value="$(arg navfn_name)" />
+    <param name="$(arg costmap_name)/inflation_radius" value="0.55" />
+    <param name="$(arg costmap_name)/robot_radius" value="0.1" />
+    <param name="$(arg navfn_name)/visualize_potential" value="true" />
+    <param name="$(arg navfn_name)/at_start_wave_propagation" value="false" />
+    <param name="$(arg navfn_name)/no_limit_wave_propagation" value="true" />
+
+    <param name="use_wave_propagation" value="true" /> 
+  </node>
+
+  <node name= "tf" pkg="tf" type="static_transform_publisher"
+	args="0.0 0.0 0.0 0 0 0 /base_link /map 100" />
+
+  <node name="rviz" pkg="path2d" type="rviz.sh" args="path2d" respawn="true" />
+
+</launch>
