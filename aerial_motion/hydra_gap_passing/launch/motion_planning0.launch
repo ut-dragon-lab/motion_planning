@@ -10,9 +10,8 @@
 
 <node pkg="tf" type="static_transform_publisher" name="virtual_joint_broadcaster_0" args="0 0 0 0 0 0 world head_cylinder 100" />
 
-<node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher">
-<param name="/use_gui" value="true"/>
-</node>
+<node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher"> </node>
+
 <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" respawn="true" output="screen" />
 <include file="$(find hydra_moveit_config)/launch/moveit_rviz.launch" >
   <arg name="config" value="true"/>

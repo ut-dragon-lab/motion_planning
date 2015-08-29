@@ -1,33 +1,46 @@
-cmake_minimum_required(VERSION 2.4.6)
-include($ENV{ROS_ROOT}/core/rosbuild/rosbuild.cmake)
+cmake_minimum_required(VERSION 2.8.3)
+project(hydra_gap_passing)
 
-# Set the build type.  Options are:
-#  Coverage       : w/ debug symbols, w/o optimization, w/ code-coverage
-#  Debug          : w/ debug symbols, w/o optimization
-#  Release        : w/o debug symbols, w/ optimization
-#  RelWithDebInfo : w/ debug symbols, w/ optimization
-#  MinSizeRel     : w/o debug symbols, w/ optimization, stripped binaries
-#set(ROS_BUILD_TYPE RelWithDebInfo)
+find_package(catkin REQUIRED COMPONENTS
+  roscpp
+  geometry_msgs
+  tf
+  moveit_msgs
+  moveit_core
+  moveit_ros_planning_interface
+  pluginlib
+  aerial_robot_base
+  hydra_transform_control
+  cmake_modules
+)
 
-rosbuild_init()
+find_package(ompl)
 
-#set the default path for built executables to the "bin" directory
-set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
-#set the default path for built libraries to the "lib" directory
-set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
+catkin_package(
+  INCLUDE_DIRS include
+  LIBRARIES motion_planning
+  CATKIN_DEPENDS roscpp  geometry_msgs  tf  moveit_msgs  moveit_core  moveit_ros_planning_interface  pluginlib  hydra_transform_control   aerial_robot_base
+)
 
-#uncomment if you have defined messages
-#rosbuild_genmsg()
-#uncomment if you have defined services
-#rosbuild_gensrv()
 
-#common commands for building c++ executables and libraries
-#rosbuild_add_library(correlation_coefficient_check src/correlation_coefficient_check.cpp)
-rosbuild_add_executable(correlation_coefficient_check_node src/correlation_coefficient_check_node.cpp)
-#target_link_libraries(${PROJECT_NAME} another_library)
-#rosbuild_add_boost_directories()
-#rosbuild_link_boost(${PROJECT_NAME} thread)
-rosbuild_add_executable(collision_env_pub_node src/collision_env_pub.cpp)
-rosbuild_add_executable(planning_scene_node src/planning_scene.cpp)
-rosbuild_add_executable(motion_planning_node src/motion_planning.cpp)
-#target_link_libraries(example ${PROJECT_NAME})
+include_directories(
+  include ${Boost_INCLUDE_DIR} ${catkin_INCLUDE_DIRS} ${OMPL_INCLUDE_DIRS}
+)
+
+
+add_library (motion_planning src/motion_planning.cpp)
+target_link_libraries (motion_planning ${catkin_LIBRARIES}  ${Boost_LIBRARIES} ${OMPL_LIBRARIES}) 
+
+add_executable(motion_planning_node src/motion_planning_node.cpp)
+target_link_libraries (motion_planning_node ${catkin_LIBRARIES}  ${Boost_LIBRARIES} motion_planning ${OMPL_LIBRARIES}) 
+
+
+install(DIRECTORY launch
+  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION})
+
+install(TARGETS motion_planning_node motion_planning
+   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+ )
+

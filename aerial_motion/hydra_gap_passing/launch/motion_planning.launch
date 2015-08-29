@@ -4,14 +4,14 @@
 <arg unless="$(arg debug)" name="launch_prefix" value="" />
 <arg if="$(arg debug)" name="launch_prefix" value="gdb --ex run --args" />
 
-<node name="motion_planning_node" pkg="collision_check" type="motion_planning_node" respawn="false" launch-prefix="$(arg launch_prefix)" output="screen">
+<node name="motion_planning_node" pkg="hydra_gap_passing" type="motion_planning_node" respawn="false" launch-prefix="$(arg launch_prefix)" output="screen">
   <rosparam command="load" file="$(find hydra_moveit_config)/config/kinematics.yaml"/>
   <param name="planning_plugin" value="ompl_interface/OMPLPlanner"/>
   <rosparam command="load" file="$(find hydra_moveit_config)/config/ompl_planning.yaml"/>
-  <param name="coefficient_rate" value="0.065"/> <!-- propeller center point meter, joint_and_base_mode:0.15-->
-  <param name="planning_mode" value="3"/> 
-  <param name="collision_detection_rate" value="50"/>
-  <param name="ompl_mode" value="0"/> <!-- RRT START -->
+  <param name="coefficient_rate" value="0.05"/> 
+  <param name="planning_mode" value="0"/> 
+  <param name="motion_sequence_rate" value="50"/>
+  <param name="ompl_mode" value="0"/> <!-- RRT START:0 -->
 
 <!--
   <param name="gap_x_offset" value="-0.3"/> 
@@ -33,13 +33,19 @@
   <param name="gap_right_width" value="0.029"/>  
 <!--  <param name="start_state_y" value="-0.2"/> -->
 
-
   <param name="start_state_joint1" value="1.57"/> 
   <param name="start_state_joint2" value="1.57"/> 
   <param name="start_state_joint3" value="1.57"/> 
-  <param name="goal_state_joint1" value="1.57"/> 
-  <param name="goal_state_joint2" value="1.57"/> 
-  <param name="goal_state_joint3" value="1.57"/> 
+  <param name="goal_state_joint1" value="-1.57"/> 
+  <param name="goal_state_joint2" value="-1.57"/> 
+  <param name="goal_state_joint3" value="-1.57"/> 
+
+  <param name="state_validity_check_res" value="0.03"/>
+  <param name="valid_segment_count_factor" value="20"/> <!--20-->
+
+  <param name="dist_thre" type="double" value="0.05"/>
+
+  <param name="solving_time_limit" type="double" value="360"/>
 
 </node>
 </launch>
