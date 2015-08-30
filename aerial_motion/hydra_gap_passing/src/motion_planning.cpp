@@ -78,6 +78,7 @@ ompl::base::Cost StabilityObjective::stateCost(const ompl::base::State* state) c
       joint_values[5] = angle3;
     }
 
+
 #if 1
   if(!transform_controller_->distThreCheckFromJointValues(joint_values, 3, false))
     return ompl::base::Cost(std::numeric_limits<double>::infinity());
@@ -322,17 +323,15 @@ MotionPlanning::MotionPlanning(ros::NodeHandle nh, ros::NodeHandle nhp) :nh_(nh)
   else if(planning_mode_ == ORIGINAL_MODE)
     {
 
-      //solved_ = gap_motion_planning(left_half_corner, right_half_corner, transform_controller_, start_state_, goal_state_, original_path_, planning_scene_, collision_object_);
+      //solved_ = gap_motion_planning(left_half_corner, right_half_corner, transform_controller_, start_state_, goal_state_, planning_path_, planning_scene_, collision_object_);
     }
 
 
   current_state.setVariablePositions(joint_values);
 
-#if 1
+
   if(planning_mode_ < ORIGINAL_MODE)
     {
-
-
       ompl::base::ProblemDefinitionPtr pdef(new ompl::base::ProblemDefinition(space_information_));
       pdef->setStartAndGoalStates(start, goal);
 
@@ -404,6 +403,9 @@ MotionPlanning::MotionPlanning(ros::NodeHandle nh, ros::NodeHandle nhp) :nh_(nh)
           if(ompl_mode_ == RRT_START_MODE)
             {
               std::cout << "iteration is "<< rrt_start_planner_->getIterationCount() << "best cost is " << rrt_start_planner_->getBestCost()  << std::endl;
+              std::stringstream ss;
+              ss << rrt_start_planner_->getBestCost();
+              ss >> best_cost_;
             }
 
           calculation_time_ = ros::Time::now().toSec() - start_time.toSec();
@@ -440,15 +442,14 @@ MotionPlanning::MotionPlanning(ros::NodeHandle nh, ros::NodeHandle nhp) :nh_(nh)
                 }
               plan_states_->addState(state2);
             }
+
         }
       else
         std::cout << "No solution found" << std::endl;
 
-
     }
   motion_sequence_timer_ = nhp_.createTimer(ros::Duration(1.0 / motion_sequence_rate_), &MotionPlanning::motionSequenceFunc, this);
 
-#endif
 }
 
 
@@ -481,16 +482,18 @@ void MotionPlanning::motionSequenceFunc(const ros::TimerEvent &e)
 
       if(planning_mode_ == ORIGINAL_MODE)
         {
-          ROS_INFO("size is %d", (int)original_path_.size());
-          if(state_index_ == (int)original_path_.size())
+#if 0
+          ROS_INFO("size is %d", (int)planning_path_.size());
+          if(state_index_ == (int)planning_path_.size())
             state_index_ = 0;
 
-          joint_values[0] = original_path_[state_index_].x;
-          joint_values[1] = original_path_[state_index_].y;
-          joint_values[2] = original_path_[state_index_].theta;
-          joint_values[3] = original_path_[state_index_].joint1;
-          joint_values[4] = original_path_[state_index_].joint2;
-          joint_values[5] = original_path_[state_index_].joint3;
+          joint_values[0] = planning_path_[state_index_].x;
+          joint_values[1] = planning_path_[state_index_].y;
+          joint_values[2] = planning_path_[state_index_].theta;
+          joint_values[3] = planning_path_[state_index_].joint1;
+          joint_values[4] = planning_path_[state_index_].joint2;
+          joint_values[5] = planning_path_[state_index_].joint3;
+#endif
         }
       else
         {
@@ -503,8 +506,8 @@ void MotionPlanning::motionSequenceFunc(const ros::TimerEvent &e)
               joint_values[4] = plan_states_->getState(state_index_)->as<ompl::base::RealVectorStateSpace::StateType>()->values[1];
               joint_values[5] = plan_states_->getState(state_index_)->as<ompl::base::RealVectorStateSpace::StateType>()->values[2];
 
-              
-              bool dist_thre = transform_controller_->distThreCheckFromJointValues(joint_values, 3);
+	      bool dist_thre = transform_controller_->distThreCheckFromJointValues(joint_values, 3);
+
               if(!dist_thre) ROS_ERROR("low dist thre");
 
               std::vector<Eigen::Vector3d> links_origin_from_cog(link_num_);
@@ -512,7 +515,7 @@ void MotionPlanning::motionSequenceFunc(const ros::TimerEvent &e)
               float max_x_length = 0, max_y_length = 0;
               for(int i = 0; i < (int)links_origin_from_cog.size(); i ++)
                 {
-                  //ROS_INFO("x:%f, y:%f",links_origin_from_cog[i](0), links_origin_from_cog[i](1));
+                  ROS_INFO("x:%f, y:%f",links_origin_from_cog[i](0), links_origin_from_cog[i](1));
                   if(max_x_length < fabs(links_origin_from_cog[i](0)))
                     max_x_length = fabs(links_origin_from_cog[i](0));
                   if(max_y_length < fabs(links_origin_from_cog[i](1)))
@@ -589,7 +592,7 @@ void MotionPlanning::motionSequenceFunc(const ros::TimerEvent &e)
             }
         }
 
-      ROS_INFO("index is %d, calculation time is %f, minimum_x_performance is %f, minimum_y_performance is %f", state_index_, calculation_time_, minimum_x_performance, minimum_y_performance);
+      ROS_INFO("index is %d, calculation time is %f, best_cost is %f, minimum_x_performance is %f, minimum_y_performance is %f", state_index_, calculation_time_, best_cost_, minimum_x_performance, minimum_y_performance);
       //ROS_INFO("joint1_x :%f, joint2_x :%f,joint3_x :%f, joint1_y :%f, joint2_y :%f,joint3_y :%f", joint1_x, joint2_x, joint3_x, joint1_y, joint2_y, joint3_y);
 
       state_index_ ++;
@@ -672,8 +675,6 @@ bool  MotionPlanning::isStateValid(const ompl::base::State *state)
       if(planning_mode_ == ONLY_JOINTS_MODE) return true;
     }
 
-  ROS_ERROR("should not be here");
-
   //check collision
   planning_scene_->checkCollision(collision_request, collision_result, robot_state, acm_);
 
@@ -695,7 +696,6 @@ void MotionPlanning::rosParamInit()
   nhp_.param("gap_y_offset", gap_y_offset_, 0.0); //minus: overlap
   nhp_.param("gap_left_width", gap_left_width_, 0.3); //minus: bandwidth
   nhp_.param("gap_right_width", gap_right_width_, 0.3); //minus: bandwidth
-
 
   //nhp_.param("coefficient_rate", coefficient_rate_, 0.035);
   nhp_.param("ompl_mode", ompl_mode_, 0); //RRT_START_MODE

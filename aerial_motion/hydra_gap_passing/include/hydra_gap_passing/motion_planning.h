@@ -40,6 +40,11 @@
 #include <valarray>
 #include <limits>
 #include <vector>
+#include <sstream>
+
+
+
+
 
 
 struct configuration_space{
@@ -49,8 +54,52 @@ struct configuration_space{
   float joint1;
   float joint2;
   float joint3;
+  int stable_mode;
 };
 typedef struct configuration_space conf_values;
+
+class MotionControl
+{
+  /*func
+    1) log
+      - the path info 
+      -- joints entry
+      -- best cost/ calculation time
+      -- full/semi stable
+      - calculate the gains for each state
+        path_states * (link_num * (size_of_float + 12state_gains * size_of_float))  : 1000 * (4* (4 + 12 * 4) ) = 208000bit
+    2) control
+     - get control info
+     -- get the path and gains from file
+     -- get the path and gains realtimely
+
+     - get real-robot-state info
+     -- joints 
+     -- position 
+
+     - transform control
+     -- use the real joints values to search the best entry in the path/gains table, send to robot system(transform)
+     - moving control
+     -- use the real position to calculate the best velocity to robot system
+
+   */
+ public:
+  MotionControl(ros::NodeHandle nh, ros::NodeHandle nhp, bool play_log_path);
+  ~MotionControl();
+  void planStoring(double best_cost, double calculation_time);
+
+ private:
+  ros::NodeHandle nh_;
+  ros::NodeHandle nhp_;
+
+  bool play_log_path_;//if true, use file, if false, get form realtime thing
+
+  std::vector<conf_values> planning_path;
+  std::vector<conf_values> real_robot_path_;
+
+
+};
+
 
 
 class StabilityObjective :public ompl::base::StateCostIntegralObjective
@@ -83,6 +132,7 @@ class StabilityObjective :public ompl::base::StateCostIntegralObjective
   double link_length_;
 
 };
+
 
 
 class MotionPlanning
@@ -164,8 +214,6 @@ private:
   tf::Vector3 right_half_corner;
 
   //original planning
-  std::vector<conf_values> original_path_;
-  std::vector<conf_values> real_robot_path_;
   std::vector<double> start_state_;
   std::vector<double> goal_state_;
 
@@ -186,6 +234,7 @@ private:
   int ompl_mode_;
 
   double stability_cost_thre_;
+  int semi_stable_states_;
 
   int link_num_;
   double link_length_;
@@ -193,6 +242,8 @@ private:
 
   double length_opt_weight_;
   double stability_opt_weight_;
+
+  double best_cost_;
 
   void motionSequenceFunc(const ros::TimerEvent &e);
 

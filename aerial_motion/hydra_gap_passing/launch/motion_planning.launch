@@ -45,18 +45,18 @@
   <param name="valid_segment_count_factor" value="20"/> <!--20-->
 
   <!-- for transform controller -->
-  <param name="dist_thre" type="double" value="0.05"/>
-  <param name="f_max" type="double" value="8.2"/>
-
+  <rosparam file="$(find hydra_transform_control)/config/Hydra3.yaml" command="load" />
+  <param name="debug_log" type="bool" value="false"/>
 
   <param name="solving_time_limit" type="double" value="3600"/>
 
   <param name="semi_stable_cost" type="double" value="1.0"/>
   <param name="full_stable_cost" type="double" value="0.1"/>
 
-  <param name="length_opt_weight" type="double" value="0"/>
-  <param name="stability_opt_weight" type="double" value="1.0"/>
+  <param name="length_opt_weight" type="double" value="1.0"/>
+  <param name="stability_opt_weight" type="double" value="0.0"/>
 
+  <param name="stability_cost_thre" type="double" value="1.2" />
 
 </node>
 </launch>
