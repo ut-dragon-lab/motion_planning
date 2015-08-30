@@ -1,4 +1,8 @@
-/* Author: Sachin Chitta */
+/*
+1. most of the consturctor of pointer should be shared pointer!!
+  e.g. transform_controller
+ */
+
 #include <pluginlib/class_loader.h>
 #include <ros/ros.h>
 #include <tf/transform_listener.h>
@@ -30,8 +34,8 @@
 #include <hydra_transform_control/transform_control.h>
 #include <aerial_robot_base/States.h>
 
-//#include <ompl/base/objectives/PathLengthOptimizationObjective.h>
-//#include <ompl/base/objectives/StateCostIntegralObjective.h>
+#include <ompl/base/objectives/PathLengthOptimizationObjective.h> //include!else error: expected class-name before {
+#include <ompl/base/objectives/StateCostIntegralObjective.h>
 #include <iostream>
 #include <valarray>
 #include <limits>
@@ -48,25 +52,35 @@ struct configuration_space{
 };
 typedef struct configuration_space conf_values;
 
-class StabilityObjective : public ompl::base::StateCostIntegralObjective
+
+class StabilityObjective :public ompl::base::StateCostIntegralObjective
 {
  public:
- StabilityObjective(const ompl::base::SpaceInformationPtr& si, TransformController*  transform_controller,   int planning_mode): ompl::base::StateCostIntegralObjective(si, true)
-    {
-      transform_controller_ =  transform_controller;
-      planning_mode_  = planning_mode
-    }
-  ~StabilityObjective();
+  StabilityObjective(ros::NodeHandle nh, ros::NodeHandle nhp, const ompl::base::SpaceInformationPtr& si, boost::shared_ptr<TransformController>  transform_controller, int planning_mode);
 
-  ompl::base::Cost stateCost(const ompl::base::State* s) const;
+  ~StabilityObjective(){};
 
-  bool distThreCheck(std::vector<double> joint_values);
+  ompl::base::Cost stateCost(const ompl::base::State* state) const;
+
+  static const int ONLY_JOINTS_MODE = 0;
+  static const int ONLY_BASE_MODE = 1;
+  static const int JOINTS_AND_BASE_MODE = 2;
+  static const int ORIGINAL_MODE = 3;
 
 
  private:
-  TransformController*  transform_controller_;
-
+  boost::shared_ptr<TransformController> transform_controller_;
   int planning_mode_;
+
+  ros::NodeHandle nh_;
+  ros::NodeHandle nhp_;
+
+  //ros param
+  double semi_stable_cost_;
+  double full_stable_cost_;
+
+  int link_num_;
+  double link_length_;
 
 };
 
@@ -113,7 +127,8 @@ private:
   ros::Publisher  flight_nav_;
 
   //+++ hydra
-  TransformController*  transform_controller_;
+  //TransformController*  transform_controller_;
+  boost::shared_ptr<TransformController> transform_controller_;
 
   //*** optimation objective
   ompl::base::PathLengthOptimizationObjective* path_length_opt_objective_;
@@ -160,6 +175,7 @@ private:
   ompl::base::StateSpacePtr hydra_space_;
   ompl::base::SpaceInformationPtr space_information_;
   ompl::base::PathPtr path_;
+  ompl::geometric::RRTstar* rrt_start_planner_;
   bool solved_;
   double solving_time_limit_;
 
@@ -168,10 +184,12 @@ private:
   ompl::base::StateStorage* plan_states_;
   int planning_mode_;
   int ompl_mode_;
-  double coefficient_rate_;
 
-  double semi_stable_cost_;
-  double full_stable_cost_;
+  double stability_cost_thre_;
+
+  int link_num_;
+  double link_length_;
+
 
   double length_opt_weight_;
   double stability_opt_weight_;
@@ -182,12 +200,6 @@ private:
 
   void rosParamInit();
 
-  // ompl::base::OptimizationObjectivePtr getThresholdPathLengthObj(const ompl::base::SpaceInformationPtr& si)
-  // {
-  //   ompl::base::OptimizationObjectivePtr obj(new ompl::base::PathLengthOptimizationObjective(si));
-  //   obj->setCostThreshold(ompl::base::Cost(1.51));
-  //   return obj;
-  // }
 
   ompl::base::ValidStateSamplerPtr allocValidStateSampler(const ompl::base::SpaceInformation *si)
     {
@@ -199,5 +211,5 @@ private:
     return sqrt((x1-x2)*(x1-x2) + (y1-y2)*(y1-y2));
   }
 
-
+  ompl::base::Cost onlyJointPathLimit();
 };

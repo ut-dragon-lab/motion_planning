@@ -1,3 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
 <launch>
 <!-- Debug Info -->
 <arg name="debug" default="false" />
@@ -43,9 +44,19 @@
   <param name="state_validity_check_res" value="0.03"/>
   <param name="valid_segment_count_factor" value="20"/> <!--20-->
 
+  <!-- for transform controller -->
   <param name="dist_thre" type="double" value="0.05"/>
+  <param name="f_max" type="double" value="8.2"/>
 
-  <param name="solving_time_limit" type="double" value="360"/>
+
+  <param name="solving_time_limit" type="double" value="3600"/>
+
+  <param name="semi_stable_cost" type="double" value="1.0"/>
+  <param name="full_stable_cost" type="double" value="0.1"/>
+
+  <param name="length_opt_weight" type="double" value="0"/>
+  <param name="stability_opt_weight" type="double" value="1.0"/>
+
 
 </node>
 </launch>
