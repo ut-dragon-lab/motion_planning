@@ -16,10 +16,13 @@ find_package(catkin REQUIRED COMPONENTS
 
 find_package(ompl)
 
+add_message_files(FILES PlanningMode.msg)
+generate_messages(DEPENDENCIES std_msgs)
+
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES motion_planning
-  CATKIN_DEPENDS roscpp  geometry_msgs  tf  moveit_msgs  moveit_core  moveit_ros_planning_interface  pluginlib  hydra_transform_control   aerial_robot_base
+  CATKIN_DEPENDS roscpp  geometry_msgs  tf  moveit_msgs  moveit_core  moveit_ros_planning_interface  pluginlib  hydra_transform_control   aerial_robot_base message_runtime
 )
 
 
@@ -29,9 +32,11 @@ include_directories(
 
 
 add_library (motion_planning src/motion_planning.cpp)
+add_dependencies(motion_planning  ${PROJECT_NAME}_gencpp)
 target_link_libraries (motion_planning ${catkin_LIBRARIES}  ${Boost_LIBRARIES} ${OMPL_LIBRARIES}) 
 
 add_executable(motion_planning_node src/motion_planning_node.cpp)
+add_dependencies(motion_planning  ${PROJECT_NAME}_gencpp)
 target_link_libraries (motion_planning_node ${catkin_LIBRARIES}  ${Boost_LIBRARIES} motion_planning ${OMPL_LIBRARIES}) 
 
 

@@ -48,20 +48,20 @@ void MotionControl::planStoring(const ompl::base::StateStorage* plan_states, int
 
   int state_list = (int)plan_states->size();
 
-  if(planning_mode != ORIGINAL_MODE)
+  if(planning_mode != hydra_gap_passing::PlanningMode::ORIGINAL_MODE)
     {
       for(int i = 0; i < state_list; i++)
         {
-          if(planning_mode == ONLY_JOINTS_MODE || planning_mode == JOINTS_AND_BASE_MODE)
+          if(planning_mode == hydra_gap_passing::PlanningMode::ONLY_JOINTS_MODE || planning_mode == hydra_gap_passing::PlanningMode::JOINTS_AND_BASE_MODE)
             {
-              if(planning_mode == ONLY_JOINTS_MODE)
+              if(planning_mode == hydra_gap_passing::PlanningMode::ONLY_JOINTS_MODE)
                 {
               //joints value
               state.state_values[3] = plan_states->getState(i)->as<ompl::base::RealVectorStateSpace::StateType>()->values[0];
               state.state_values[4] = plan_states->getState(i)->as<ompl::base::RealVectorStateSpace::StateType>()->values[1];
               state.state_values[5] = plan_states->getState(i)->as<ompl::base::RealVectorStateSpace::StateType>()->values[2];
                 }
-              else if(planning_mode == JOINTS_AND_BASE_MODE)
+              else if(planning_mode == hydra_gap_passing::PlanningMode::JOINTS_AND_BASE_MODE)
                 {
                   const ompl::base::CompoundState* state_tmp = dynamic_cast<const ompl::base::CompoundState*>(plan_states->getState(i));
                   state.state_values[0] = state_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->getX();
@@ -109,7 +109,7 @@ void MotionControl::planStoring(const ompl::base::StateStorage* plan_states, int
               else
                   state.stable_mode = TransformController::LQI_FOUR_AXIS_MODE;
             }
-          else if(planning_mode == ONLY_BASE_MODE || planning_mode == ONLY_BASE_MODE + ORIGINAL_MODE)
+          else if(planning_mode == hydra_gap_passing::PlanningMode::ONLY_BASE_MODE || planning_mode == hydra_gap_passing::PlanningMode::ONLY_BASE_MODE + hydra_gap_passing::PlanningMode::ORIGINAL_MODE)
             {
 
               state.state_values[0] = plan_states->getState(i)->as<ompl::base::SE2StateSpace::StateType>()->getX();
@@ -175,7 +175,7 @@ ompl::base::Cost StabilityObjective::stateCost(const ompl::base::State* state) c
   double x,y,theta,angle1, angle2,angle3;
   std::vector<double> joint_values(6,0);
 
-  if(planning_mode_ == ONLY_JOINTS_MODE)
+  if(planning_mode_ == hydra_gap_passing::PlanningMode::ONLY_JOINTS_MODE)
     {
       angle1 = state->as<ompl::base::RealVectorStateSpace::StateType>()->values[0];
       angle2 = state->as<ompl::base::RealVectorStateSpace::StateType>()->values[1];
@@ -185,7 +185,7 @@ ompl::base::Cost StabilityObjective::stateCost(const ompl::base::State* state) c
       joint_values[5] = angle3;
 
     }
-  else if(planning_mode_ == ONLY_BASE_MODE || planning_mode_ == ONLY_BASE_MODE + ORIGINAL_MODE)
+  else if(planning_mode_ == hydra_gap_passing::PlanningMode::ONLY_BASE_MODE || planning_mode_ == hydra_gap_passing::PlanningMode::ONLY_BASE_MODE + hydra_gap_passing::PlanningMode::ORIGINAL_MODE)
     {
       x = state->as<ompl::base::SE2StateSpace::StateType>()->getX();
       y = state->as<ompl::base::SE2StateSpace::StateType>()->getY();
@@ -194,7 +194,7 @@ ompl::base::Cost StabilityObjective::stateCost(const ompl::base::State* state) c
       joint_values[1] = y;
       joint_values[2] = theta;
     }
-  else if(planning_mode_ == JOINTS_AND_BASE_MODE)
+  else if(planning_mode_ == hydra_gap_passing::PlanningMode::JOINTS_AND_BASE_MODE)
     {
       const ompl::base::CompoundState* state_tmp = dynamic_cast<const ompl::base::CompoundState*>(state);
 
@@ -357,7 +357,7 @@ MotionPlanning::MotionPlanning(ros::NodeHandle nh, ros::NodeHandle nhp) :nh_(nh)
   joint_bounds.setHigh(1.58);
   r3->as<ompl::base::RealVectorStateSpace>()->setBounds(joint_bounds);
 
-  if(planning_mode_ == ONLY_JOINTS_MODE)
+  if(planning_mode_ == hydra_gap_passing::PlanningMode::ONLY_JOINTS_MODE)
     {
       hydra_space_ = r3;
       hydra_space_->as<ompl::base::RealVectorStateSpace>()->setValidSegmentCountFactor(valid_segment_count_factor_); 
@@ -369,7 +369,7 @@ MotionPlanning::MotionPlanning(ros::NodeHandle nh, ros::NodeHandle nhp) :nh_(nh)
       space_information_->setup();
 
     }
-  else if(planning_mode_ == ONLY_BASE_MODE || planning_mode_ == ORIGINAL_MODE)
+  else if(planning_mode_ == hydra_gap_passing::PlanningMode::ONLY_BASE_MODE || planning_mode_ == hydra_gap_passing::PlanningMode::ORIGINAL_MODE)
     {
       hydra_space_ = se2;
       hydra_space_->as<ompl::base::SE2StateSpace>()->setValidSegmentCountFactor(valid_segment_count_factor_);
@@ -380,7 +380,7 @@ MotionPlanning::MotionPlanning(ros::NodeHandle nh, ros::NodeHandle nhp) :nh_(nh)
       space_information_->setMotionValidator(ompl::base::MotionValidatorPtr(new ompl::base::DiscreteMotionValidator(space_information_)));
       space_information_->setup();
     }
-  else if(planning_mode_ == JOINTS_AND_BASE_MODE)
+  else if(planning_mode_ == hydra_gap_passing::PlanningMode::JOINTS_AND_BASE_MODE)
     {
       hydra_space_ = se2 + r3;
       space_information_  = boost::shared_ptr<ompl::base::SpaceInformation> (new ompl::base::SpaceInformation(hydra_space_));
@@ -396,7 +396,7 @@ MotionPlanning::MotionPlanning(ros::NodeHandle nh, ros::NodeHandle nhp) :nh_(nh)
 
   ompl::base::ScopedState<> start(hydra_space_);
   ompl::base::ScopedState<> goal(hydra_space_);
-  if(planning_mode_ == ONLY_JOINTS_MODE)
+  if(planning_mode_ == hydra_gap_passing::PlanningMode::ONLY_JOINTS_MODE)
     {
       joint_values[0] = 0;
       joint_values[1] = 0.5;
@@ -413,7 +413,7 @@ MotionPlanning::MotionPlanning(ros::NodeHandle nh, ros::NodeHandle nhp) :nh_(nh)
       goal->as<ompl::base::RealVectorStateSpace::StateType>()->values[2] = goal_state_[5];
 
     }
-  else if(planning_mode_ == ONLY_BASE_MODE)
+  else if(planning_mode_ == hydra_gap_passing::PlanningMode::ONLY_BASE_MODE)
     {
       joint_values[0] = 0;
       joint_values[1] = 0.5;
@@ -428,7 +428,7 @@ MotionPlanning::MotionPlanning(ros::NodeHandle nh, ros::NodeHandle nhp) :nh_(nh)
       goal->as<ompl::base::SE2StateSpace::StateType>()->setYaw(joint_values[2]);
     }
 
-  else if(planning_mode_ == JOINTS_AND_BASE_MODE)
+  else if(planning_mode_ == hydra_gap_passing::PlanningMode::JOINTS_AND_BASE_MODE)
     {
 
       joint_values[0] = 0;
@@ -455,7 +455,7 @@ MotionPlanning::MotionPlanning(ros::NodeHandle nh, ros::NodeHandle nhp) :nh_(nh)
 
 
     }
-  else if(planning_mode_ == ORIGINAL_MODE)
+  else if(planning_mode_ == hydra_gap_passing::PlanningMode::ORIGINAL_MODE)
     {
 
       //solved_ = gap_motion_planning(left_half_corner, right_half_corner, transform_controller_, start_state_, goal_state_, planning_path_, planning_scene_, collision_object_);
@@ -465,7 +465,7 @@ MotionPlanning::MotionPlanning(ros::NodeHandle nh, ros::NodeHandle nhp) :nh_(nh)
   current_state.setVariablePositions(joint_values);
 
 
-  if(planning_mode_ < ORIGINAL_MODE)
+  if(planning_mode_ < hydra_gap_passing::PlanningMode::ORIGINAL_MODE)
     {
       ompl::base::ProblemDefinitionPtr pdef(new ompl::base::ProblemDefinition(space_information_));
       pdef->setStartAndGoalStates(start, goal);
@@ -615,7 +615,7 @@ void MotionPlanning::motionSequenceFunc(const ros::TimerEvent &e)
     {
 
 #if 0
-      if(planning_mode_ == ORIGINAL_MODE)
+      if(planning_mode_ == hydra_gap_passing::PlanningMode::ORIGINAL_MODE)
         {
 
           ROS_INFO("size is %d", (int)planning_path_.size());
@@ -681,7 +681,7 @@ bool  MotionPlanning::isStateValid(const ompl::base::State *state)
 
   double x,y,theta,angle1, angle2,angle3;
 
-  if(planning_mode_ == ONLY_JOINTS_MODE)
+  if(planning_mode_ == hydra_gap_passing::PlanningMode::ONLY_JOINTS_MODE)
     {
       angle1 = state->as<ompl::base::RealVectorStateSpace::StateType>()->values[0];
       angle2 = state->as<ompl::base::RealVectorStateSpace::StateType>()->values[1];
@@ -691,7 +691,7 @@ bool  MotionPlanning::isStateValid(const ompl::base::State *state)
       joint_values[5] = angle3;
 
     }
-  else if(planning_mode_ == ONLY_BASE_MODE || planning_mode_ == ONLY_BASE_MODE + ORIGINAL_MODE)
+  else if(planning_mode_ == hydra_gap_passing::PlanningMode::ONLY_BASE_MODE || planning_mode_ == hydra_gap_passing::PlanningMode::ONLY_BASE_MODE + hydra_gap_passing::PlanningMode::ORIGINAL_MODE)
     {
       x = state->as<ompl::base::SE2StateSpace::StateType>()->getX();
       y = state->as<ompl::base::SE2StateSpace::StateType>()->getY();
@@ -700,7 +700,7 @@ bool  MotionPlanning::isStateValid(const ompl::base::State *state)
       joint_values[1] = y;
       joint_values[2] = theta;
     }
-  else if(planning_mode_ == JOINTS_AND_BASE_MODE)
+  else if(planning_mode_ == hydra_gap_passing::PlanningMode::JOINTS_AND_BASE_MODE)
     {
       const ompl::base::CompoundState* state_tmp = dynamic_cast<const ompl::base::CompoundState*>(state);
 
@@ -721,7 +721,7 @@ bool  MotionPlanning::isStateValid(const ompl::base::State *state)
   robot_state.setVariablePositions(joint_values);
 
   //check distance thresold
-  if(planning_mode_ == JOINTS_AND_BASE_MODE || planning_mode_ == ONLY_JOINTS_MODE)
+  if(planning_mode_ == hydra_gap_passing::PlanningMode::JOINTS_AND_BASE_MODE || planning_mode_ == hydra_gap_passing::PlanningMode::ONLY_JOINTS_MODE)
     {
 #if 1 //a)
       if(stability_opt_weight_ == 0)
@@ -735,7 +735,7 @@ bool  MotionPlanning::isStateValid(const ompl::base::State *state)
             return false;
 
         }
-      if(planning_mode_ == ONLY_JOINTS_MODE) return true;
+      if(planning_mode_ == hydra_gap_passing::PlanningMode::ONLY_JOINTS_MODE) return true;
     }
 
   //check collision

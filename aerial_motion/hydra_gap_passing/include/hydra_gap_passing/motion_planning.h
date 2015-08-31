@@ -7,6 +7,7 @@
 #include <ros/ros.h>
 #include <tf/transform_listener.h>
 
+#include <hydra_gap_passing/PlanningMode.h>
 
 // MoveIt!
 #include <moveit/robot_model_loader/robot_model_loader.h>
@@ -45,11 +46,6 @@
 
 // file
 #include <fstream>
-
-#define ONLY_JOINTS_MODE  0
-#define ONLY_BASE_MODE  1
-#define JOINTS_AND_BASE_MODE 2
-#define ORIGINAL_MODE 3
 
 struct configuration_space{
   std::vector<double> state_values; //x,y,theta,joints
@@ -183,10 +179,6 @@ public:
   }
 
 
-  /* static const int ONLY_JOINTS_MODE = 0; */
-  /* static const int ONLY_BASE_MODE = 1; */
-  /* static const int JOINTS_AND_BASE_MODE = 2; */
-  /* static const int ORIGINAL_MODE = 3; */
 
   static const int RRT_START_MODE = 0;
   static const int LBKPIECE1_MODE = 1;
