@@ -86,7 +86,7 @@ class MotionControl
  public:
   MotionControl(ros::NodeHandle nh, ros::NodeHandle nhp, bool play_log_path);
   ~MotionControl();
-  void planStoring(double best_cost, double calculation_time);
+  void planStoring(ompl::base::StateStorage* plan_states, double best_cost, double calculation_time);
 
  private:
   ros::NodeHandle nh_;
@@ -97,7 +97,14 @@ class MotionControl
   std::vector<conf_values> planning_path;
   std::vector<conf_values> real_robot_path_;
 
+  //gains table
+  //std::vector<
 
+  //some additional 
+  double best_cost_;
+  double calculation_time_;
+  float minimum_x_performance_, minimum_y_performance_;
+  conf_values minimum_x_performance_joints, minimum_y_performance_joints;
 };
 
 
@@ -183,6 +190,9 @@ private:
   //*** optimation objective
   ompl::base::PathLengthOptimizationObjective* path_length_opt_objective_;
   StabilityObjective* stability_objective_;
+
+  //*** planning control
+  MotionControl* motion_control_;
 
   robot_model_loader::RobotModelLoader *robot_model_loader_;
   robot_model::RobotModelPtr kinematic_model_;

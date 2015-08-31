@@ -115,6 +115,7 @@ MotionPlanning::MotionPlanning(ros::NodeHandle nh, ros::NodeHandle nhp) :nh_(nh)
 
   //transform_controller_ = new TransformController(nh_, nhp_, false);
   transform_controller_ = boost::shared_ptr<TransformController>(new TransformController(nh_, nhp_, false));
+  motion_control_ = 
 
   link_num_ = transform_controller_->getLinkNum();
   link_length_ = transform_controller_->getLinkLength(); 
@@ -135,6 +136,7 @@ MotionPlanning::MotionPlanning(ros::NodeHandle nh, ros::NodeHandle nhp) :nh_(nh)
 
   calculation_time_ = 0;
   state_index_ = 0;
+  best_cost_ = -1;
 
   //pub the collision object => gap env
   left_half_corner = tf::Vector3(gap_left_x_, gap_left_y_ , gap_left_width_);
@@ -400,6 +402,13 @@ MotionPlanning::MotionPlanning(ros::NodeHandle nh, ros::NodeHandle nhp) :nh_(nh)
       ompl::base::PlannerStatus solved = planner->solve(solving_time_limit_);
       if (solved)
         {
+
+          calculation_time_ = ros::Time::now().toSec() - start_time.toSec();
+          solved_ = true;
+          path_ = pdef->getSolutionPath();
+          std::cout << "Found solution:" << std::endl;
+          path_->print(std::cout);
+
           if(ompl_mode_ == RRT_START_MODE)
             {
               std::cout << "iteration is "<< rrt_start_planner_->getIterationCount() << "best cost is " << rrt_start_planner_->getBestCost()  << std::endl;
@@ -408,11 +417,6 @@ MotionPlanning::MotionPlanning(ros::NodeHandle nh, ros::NodeHandle nhp) :nh_(nh)
               ss >> best_cost_;
             }
 
-          calculation_time_ = ros::Time::now().toSec() - start_time.toSec();
-          solved_ = true;
-          path_ = pdef->getSolutionPath();
-          std::cout << "Found solution:" << std::endl;
-          path_->print(std::cout);
 
           //visualztion
           plan_states_ = new ompl::base::StateStorage(hydra_space_);
@@ -443,6 +447,8 @@ MotionPlanning::MotionPlanning(ros::NodeHandle nh, ros::NodeHandle nhp) :nh_(nh)
               plan_states_->addState(state2);
             }
 
+          planStoring(plan_states, best_cost_, calculation_time_);
+
         }
       else
         std::cout << "No solution found" << std::endl;
@@ -462,6 +468,8 @@ MotionPlanning::~MotionPlanning()
   delete rrt_start_planner_;
   delete path_length_opt_objective_;
   delete stability_objective_;
+
+  delete motion_control_;
 }
 
 
