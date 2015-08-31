@@ -7,6 +7,7 @@
 #include <ros/ros.h>
 #include <tf/transform_listener.h>
 
+
 // MoveIt!
 #include <moveit/robot_model_loader/robot_model_loader.h>
 #include <moveit/planning_interface/planning_interface.h>
@@ -42,21 +43,21 @@
 #include <vector>
 #include <sstream>
 
+// file
+#include <fstream>
 
-
-
-
+#define ONLY_JOINTS_MODE  0
+#define ONLY_BASE_MODE  1
+#define JOINTS_AND_BASE_MODE 2
+#define ORIGINAL_MODE 3
 
 struct configuration_space{
-  float x;
-  float y;
-  float theta;
-  float joint1;
-  float joint2;
-  float joint3;
-  int stable_mode;
+  std::vector<double> state_values; //x,y,theta,joints
+  int stable_mode; //0: full-stable, 1: semi-stable
+  int dist_thre_value; //0: bad, 1; good
 };
 typedef struct configuration_space conf_values;
+
 
 class MotionControl
 {
@@ -84,18 +85,43 @@ class MotionControl
 
    */
  public:
-  MotionControl(ros::NodeHandle nh, ros::NodeHandle nhp, bool play_log_path);
-  ~MotionControl();
-  void planStoring(ompl::base::StateStorage* plan_states, double best_cost, double calculation_time);
+  MotionControl(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<TransformController>  transform_controller);
+  ~MotionControl(){}
+  void planStoring(const ompl::base::StateStorage* plan_states, int planning_mode, const std::vector<double>& start_state, const std::vector<double>& goal_state, double best_cost, double calculation_time);
+
+  void getPlanningPath(std::vector<conf_values> & planning_path)
+  {
+    for(int i = 0; i < planning_path_.size(); i++)
+      planning_path.push_back(planning_path_[i]);
+  }
+
+  conf_values getState(int index){      return planning_path_[index];  }
+  inline int getPathSize(){return  planning_path_.size();}
+  inline double getMotionCost(){return best_cost_;}
+  inline float getPlanningTime(){return calculation_time_;}
+  inline int getSemiStableStates(){return semi_stable_states_;}
+  void getMinimumDist(std::vector<float>& min_dists)
+  {
+    min_dists[0] = minimum_x_performance_;
+    min_dists[1] = minimum_y_performance_;
+  }
+  void getMinimumDistState(std::vector<int>& min_dist_state_indexs)
+  {
+    min_dist_state_indexs[0] = minimum_x_performance_state_;
+    min_dist_state_indexs[1] = minimum_y_performance_state_;
+  }
 
  private:
   ros::NodeHandle nh_;
   ros::NodeHandle nhp_;
 
-  bool play_log_path_;//if true, use file, if false, get form realtime thing
+  boost::shared_ptr<TransformController> transform_controller_;
 
-  std::vector<conf_values> planning_path;
-  std::vector<conf_values> real_robot_path_;
+  bool play_log_path_;//if true, use file, if false, get form realtime thing
+  bool log_flag_;//log info to file?
+
+  std::vector<conf_values> planning_path_;
+  //std::vector<conf_values> real_robot_path_;
 
   //gains table
   //std::vector<
@@ -103,10 +129,10 @@ class MotionControl
   //some additional 
   double best_cost_;
   double calculation_time_;
+  int semi_stable_states_;
   float minimum_x_performance_, minimum_y_performance_;
-  conf_values minimum_x_performance_joints, minimum_y_performance_joints;
+  int minimum_x_performance_state_, minimum_y_performance_state_;
 };
-
 
 
 class StabilityObjective :public ompl::base::StateCostIntegralObjective
@@ -118,10 +144,6 @@ class StabilityObjective :public ompl::base::StateCostIntegralObjective
 
   ompl::base::Cost stateCost(const ompl::base::State* state) const;
 
-  static const int ONLY_JOINTS_MODE = 0;
-  static const int ONLY_BASE_MODE = 1;
-  static const int JOINTS_AND_BASE_MODE = 2;
-  static const int ORIGINAL_MODE = 3;
 
 
  private:
@@ -161,10 +183,10 @@ public:
   }
 
 
-  static const int ONLY_JOINTS_MODE = 0;
-  static const int ONLY_BASE_MODE = 1;
-  static const int JOINTS_AND_BASE_MODE = 2;
-  static const int ORIGINAL_MODE = 3;
+  /* static const int ONLY_JOINTS_MODE = 0; */
+  /* static const int ONLY_BASE_MODE = 1; */
+  /* static const int JOINTS_AND_BASE_MODE = 2; */
+  /* static const int ORIGINAL_MODE = 3; */
 
   static const int RRT_START_MODE = 0;
   static const int LBKPIECE1_MODE = 1;
@@ -238,7 +260,7 @@ private:
   double solving_time_limit_;
 
   //visualization
-  int state_index_;
+  //int state_index_;
   ompl::base::StateStorage* plan_states_;
   int planning_mode_;
   int ompl_mode_;
@@ -253,6 +275,7 @@ private:
   double length_opt_weight_;
   double stability_opt_weight_;
 
+
   double best_cost_;
 
   void motionSequenceFunc(const ros::TimerEvent &e);
@@ -260,7 +283,6 @@ private:
   bool isStateValid(const ompl::base::State *state);
 
   void rosParamInit();
-
 
   ompl::base::ValidStateSamplerPtr allocValidStateSampler(const ompl::base::SpaceInformation *si)
     {
