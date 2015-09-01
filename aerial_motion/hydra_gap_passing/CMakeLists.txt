@@ -31,13 +31,23 @@ include_directories(
 )
 
 
-add_library (motion_planning src/motion_planning.cpp src/motion_control.cpp)
+add_library (motion_control src/motion_control.cpp)
+add_dependencies(motion_control  ${PROJECT_NAME}_gencpp)
+target_link_libraries (motion_control ${catkin_LIBRARIES}  ${Boost_LIBRARIES} ${OMPL_LIBRARIES}) 
+
+
+add_executable(motion_control_node src/motion_control_node.cpp)
+add_dependencies(motion_control  ${PROJECT_NAME}_gencpp)
+target_link_libraries (motion_control_node ${catkin_LIBRARIES}  ${Boost_LIBRARIES}  motion_control ${OMPL_LIBRARIES}) 
+
+
+Add_library (motion_planning src/motion_planning.cpp )
 add_dependencies(motion_planning  ${PROJECT_NAME}_gencpp)
 target_link_libraries (motion_planning ${catkin_LIBRARIES}  ${Boost_LIBRARIES} ${OMPL_LIBRARIES}) 
 
 add_executable(motion_planning_node src/motion_planning_node.cpp)
 add_dependencies(motion_planning  ${PROJECT_NAME}_gencpp)
-target_link_libraries (motion_planning_node ${catkin_LIBRARIES}  ${Boost_LIBRARIES} motion_planning ${OMPL_LIBRARIES}) 
+target_link_libraries (motion_planning_node ${catkin_LIBRARIES}  ${Boost_LIBRARIES} motion_planning motion_control ${OMPL_LIBRARIES}) 
 
 
 install(DIRECTORY launch

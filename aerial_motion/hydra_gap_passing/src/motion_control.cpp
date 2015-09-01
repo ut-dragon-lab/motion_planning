@@ -14,6 +14,7 @@ MotionControl::MotionControl(ros::NodeHandle nh, ros::NodeHandle nhp, boost::sha
 
   //init
   planning_path_.resize(0);
+  planning_mode_ = hydra_gap_passing::PlanningMode::ONLY_JOINTS_MODE;
 
   minimum_x_performance_ = 1e6;
   minimum_y_performance_ = 1e6;
@@ -28,6 +29,7 @@ void MotionControl::planStoring(const ompl::base::StateStorage* plan_states, int
 {
   best_cost_ = best_cost;
   calculation_time_ = calculation_time;
+  planning_mode_ = planning_mode;
 
   conf_values state;
   //use start state to initialize the state
@@ -137,6 +139,7 @@ void MotionControl::planStoring(const ompl::base::StateStorage* plan_states, int
         goal_state[5] << std::endl;
 
       ofs << "states: " << state_list  << std::endl;
+      ofs << "planning_mode: " << planning_mode << std::endl;
       ofs << "planning_time: " << calculation_time << std::endl;
       ofs << "motion_cost: " << best_cost << std::endl;
       ofs << "minimum_x_dist: " << minimum_x_performance_ << std::endl;
@@ -178,19 +181,20 @@ void MotionControl::planFromFile()
   std::vector<double> start_state(6,0);
   std::vector<double> goal_state(6,0);
   int state_list;
-  std::stringstream ss;
+  std::stringstream ss[11];
   std::string str;
   std::string header;
   //1 start and goal state
   std::getline(ifs, str);
-  ss.str(str);
-  ss >> header >> start_state[0] >> start_state[1] >> start_state[2] 
+  ss[0].str(str);
+  ss[0] >> header >> start_state[0] >> start_state[1] >> start_state[2] 
      >> start_state[3] >> start_state[4] >> start_state[5];
+  std::cout << header << std::endl;
   std::getline(ifs, str);
-  ss.str(str);
-  ss >> header >> goal_state[0] >> goal_state[1] >> goal_state[2] 
+  ss[1].str(str);
+  ss[1] >> header >> goal_state[0] >> goal_state[1] >> goal_state[2] 
      >> goal_state[3] >> goal_state[4] >> goal_state[5];
-
+  std::cout << header << std::endl;
   ROS_WARN("from (%f, %f, %f, %f, %f, %f) to (%f, %f, %f, %f, %f, %f)",
            start_state[0], start_state[1], start_state[2],
            start_state[3], start_state[4], start_state[5],
@@ -199,50 +203,69 @@ void MotionControl::planFromFile()
 
   //states size, planning time, motion cost
   std::getline(ifs, str);
-  ss.str(str);
-  ss >> header >> state_list;
+  ss[2].str(str);
+  ss[2] >> header >> state_list;
+  std::cout << header << state_list <<std::endl;
   std::getline(ifs, str);
-  ss.str(str);
-  ss >> header >> calculation_time_;
+  ss[3].str(str);
+  ss[3] >> header >> planning_mode_;
+  std::cout << header << planning_mode_ <<std::endl;
   std::getline(ifs, str);
-  ss.str(str);
-  ss >> header >> best_cost_;
+  ss[4].str(str);
+  ss[4] >> header >> calculation_time_;
+  std::cout << header << calculation_time_ <<std::endl;
   std::getline(ifs, str);
-  ss.str(str);
-  ss >> header >> minimum_x_performance_;
+  ss[5].str(str);
+  ss[5] >> header >> best_cost_;
+  std::cout << header << best_cost_ <<std::endl;
   std::getline(ifs, str);
-  ss.str(str);
-  ss >> header >> minimum_x_performance_state_;
+  ss[6].str(str);
+  ss[6] >> header >> minimum_x_performance_;
+  std::cout << header << minimum_x_performance_ << std::endl;
   std::getline(ifs, str);
-  ss.str(str);
-  ss >> header >> minimum_y_performance_;
+  ss[7].str(str);
+  ss[7] >> header >> minimum_x_performance_state_;
+  std::cout << header << minimum_x_performance_state_  <<std::endl;
   std::getline(ifs, str);
-  ss.str(str);
-  ss >> header >> minimum_y_performance_state_;
+  ss[8].str(str);
+  ss[8] >> header >> minimum_y_performance_;
+  std::cout << header << minimum_y_performance_ <<std::endl;
   std::getline(ifs, str);
-  ss.str(str);
-  ss >> header >> semi_stable_states_;
+  ss[9].str(str);
+  ss[9] >> header >> minimum_y_performance_state_;
+  std::cout << header << minimum_y_performance_state_  <<std::endl;
+  std::getline(ifs, str);
+  ss[10].str(str);
+  ss[10] >> header >> semi_stable_states_;
+  std::cout << header << semi_stable_states_  <<std::endl;
 
   planning_path_.resize(0);
   for(int k = 0; k < state_list;  k++)
     {
+      std::stringstream ss_tmp[3];
       conf_values state;
       std::getline(ifs, str);
-      ss.str(str);
-      ss >> header >> state.state_values[0] >> state.state_values[1] 
-         >> state.state_values[2] >> state.state_values[3] >> state.state_values[4] 
-         >> state.state_values[5] >> state.stable_mode >> state.dist_thre_value;
+      ss_tmp[0].str(str);
+
+      ss_tmp[0] >> header >> state.state_values[0]
+       >> state.state_values[0] >> state.state_values[1]
+       >> state.state_values[2] >> state.state_values[3] >>state.state_values[4]
+       >> state.state_values[5] >> state.stable_mode >> state.dist_thre_value;
+
       std::getline(ifs, str);
-      ss.str(str);
-      ss >> header;
+      ss_tmp[1].str(str);
+      ss_tmp[1] >> header;
       for(int x = 0; x < state.k.rows(); x++)
         for(int y = 0; y < state.k.cols(); y++)
-          ss>> state.k(x,y);
+          ss_tmp[1] >> state.k(x,y);
 
       std::getline(ifs, str);
-      ss.str(str);
-      ss >> header >> state.angle_cos >> state.angle_sin;
+      ss_tmp[2].str(str);
+      ss_tmp[2] >> header >> state.angle_cos >> state.angle_sin;
 
       planning_path_.push_back(state);
+
+      //debug
+      //ROS_INFO("state%d: joint1: %f",k , planning_path_[k].state_values[3]);
     }
 }

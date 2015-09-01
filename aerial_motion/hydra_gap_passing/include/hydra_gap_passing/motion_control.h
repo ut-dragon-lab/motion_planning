@@ -31,6 +31,17 @@ struct configuration_space{
   float angle_cos;
   float angle_sin;
   int control_mode;
+  configuration_space()
+  {
+    state_values.resize(6);
+    stable_mode = 0;
+    dist_thre_value = 0;
+    k = Eigen::MatrixXd::Zero(4, 12);
+    angle_cos = 1;
+    angle_sin = 0;
+    control_mode = hydra_gap_passing::PlanningMode::POSITION_MODE;
+  }
+
 };
 typedef struct configuration_space conf_values;
 
@@ -105,6 +116,7 @@ class MotionControl
 
   //some additional 
   double best_cost_;
+  int planning_mode_;
   double calculation_time_;
   int semi_stable_states_;
   float minimum_x_performance_, minimum_y_performance_;
