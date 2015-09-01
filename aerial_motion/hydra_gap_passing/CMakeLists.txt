@@ -31,7 +31,7 @@ include_directories(
 )
 
 
-add_library (motion_planning src/motion_planning.cpp)
+add_library (motion_planning src/motion_planning.cpp src/motion_control.cpp)
 add_dependencies(motion_planning  ${PROJECT_NAME}_gencpp)
 target_link_libraries (motion_planning ${catkin_LIBRARIES}  ${Boost_LIBRARIES} ${OMPL_LIBRARIES}) 
 
