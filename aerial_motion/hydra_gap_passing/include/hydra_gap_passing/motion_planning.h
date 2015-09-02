@@ -97,7 +97,6 @@ public:
   }
 
 
-
   static const int RRT_START_MODE = 0;
   static const int LBKPIECE1_MODE = 1;
 
@@ -185,6 +184,7 @@ private:
   double length_opt_weight_;
   double stability_opt_weight_;
 
+  bool play_log_path_;//if true, use file, if false, get form realtime thing
 
   double best_cost_;
 
@@ -193,6 +193,9 @@ private:
   bool isStateValid(const ompl::base::State *state);
 
   void rosParamInit();
+
+  void gapEnvInit();
+  void Planning();
 
   ompl::base::ValidStateSamplerPtr allocValidStateSampler(const ompl::base::SpaceInformation *si)
     {

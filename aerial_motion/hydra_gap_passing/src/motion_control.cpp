@@ -6,9 +6,27 @@ MotionControl::MotionControl(ros::NodeHandle nh, ros::NodeHandle nhp, boost::sha
   nhp_.param("log_flag", log_flag_, false);
   nhp_.param("play_log_path", play_log_path_, false);
 
+  nhp_.param("joint_cmd_rate", joint_cmd_rate_, 50.0);
+  nhp_.param("move_cmd_rate", move_cmd_rate_, 40.0);
+  nhp_.param("gain_cmd_rate", gain_cmd_rate_, 40.0); //old system:20(hz)
+
+  nhp_.param("backward_offset", backward_offset_, 100);
+  nhp_.param("forward_offset", forward_offset_, 100);
+
   if(play_log_path_) log_flag_ = false;
   nhp_.param("file_name", file_name_, std::string("planning_log.txt"));
 
+
+  //subscriber
+  control_flag_sub_ = nh_.subscribe<std_msgs::UInt8>("hydra/motion_control", 1, &MotionControl::controlFlagCallback, this, ros::TransportHints().tcpNoDelay());
+
+  robot_states_sub_ = nh_.subscribe<aerial_robot_base::States>("ground_truth/pose", 1, &MotionControl::robotStateCallback, this, ros::TransportHints().tcpNoDelay());
+
+  joint_values_sub_ = nh_.subscribe<sensor_msgs::JointState>("joint_states", 1, &MotionControl::jointStateCallback, this, ros::TransportHints().udp());
+  //publisher
+  joint_cmd_pub_ = nh_.advertise<sensor_msgs::JointState>("hydra/joints_ctrl", 1);
+  /*TODO*/
+  move_cmd_pub_ = nh_.advertise<aerial_robot_base::FlightNav>("hoge", 1);
 
   transform_controller_ = transform_controller;
 
@@ -23,6 +41,50 @@ MotionControl::MotionControl(ros::NodeHandle nh, ros::NodeHandle nhp, boost::sha
   semi_stable_states_ = 0;
 
   if(play_log_path_) planFromFile();
+
+  //control sub thread
+  if(planning_mode_ != hydra_gap_passing::PlanningMode::ONLY_BASE_MODE)
+    {
+      joint_cmd_thread_ = boost::thread(boost::bind(&MotionControl::jointCmd, this));
+  gain_cmd_thread_ = boost::thread(boost::bind(&MotionControl::gainCmd, this));
+    }
+  if(planning_mode_ != hydra_gap_passing::PlanningMode::ONLY_JOINTS_MODE)
+    move_cmd_thread_ = boost::thread(boost::bind(&MotionControl::moveCmd, this));
+}
+
+MotionControl::~MotionControl()
+{
+  if(planning_mode_ != hydra_gap_passing::PlanningMode::ONLY_BASE_MODE)
+    {
+      joint_cmd_thread_.interrupt();
+      gain_cmd_thread_.interrupt();
+      joint_cmd_thread_.join();
+      gain_cmd_thread_.join();
+    }
+  if(planning_mode_ != hydra_gap_passing::PlanningMode::ONLY_JOINTS_MODE)
+    {
+      move_cmd_thread_.interrupt();
+      move_cmd_thread_.join();
+    }
+}
+
+void MotionControl::getRealStates(std::vector<double>& real_states)
+{
+  boost::lock_guard<boost::mutex> lock(real_state_mutex_);
+  for(int i = 0; i < (int)real_states_.size(); i++)
+    real_states[i] = real_states_[i];
+}
+void MotionControl::setMoveBaseStates(std::vector<double> move_base_states)
+{
+  boost::lock_guard<boost::mutex> lock(real_state_mutex_);
+  for(int i = 0; i < 3; i++)
+    real_states_[i] = move_base_states[i];//x,y, theta
+}
+void MotionControl::setJointStates(std::vector<double> joint_states)
+{
+  boost::lock_guard<boost::mutex> lock(real_state_mutex_);
+  for(int i = 0; i <  (int)joint_states.size(); i ++)
+    real_states_[i + 3] = joint_states[i];
 }
 
 void MotionControl::planStoring(const ompl::base::StateStorage* plan_states, int planning_mode, const std::vector<double>& start_state, const std::vector<double>& goal_state,  double best_cost, double calculation_time)
@@ -37,7 +99,7 @@ void MotionControl::planStoring(const ompl::base::StateStorage* plan_states, int
   state.state_values = start_state;
   state.stable_mode = TransformController::LQI_FOUR_AXIS_MODE;
   state.dist_thre_value = 1;
-  state.k = Eigen::MatrixXd::Zero(4, 12);
+  //state.k = Eigen::MatrixXd::Zero(4, 12);
   state.angle_cos = 1;
   state.angle_sin = 0;
   state.control_mode = hydra_gap_passing::PlanningMode::POSITION_MODE;
@@ -255,6 +317,12 @@ void MotionControl::planFromFile()
       std::getline(ifs, str);
       ss_tmp[1].str(str);
       ss_tmp[1] >> header;
+      int rows =0, cols =0;
+      if(state.stable_mode == TransformController::LQI_FOUR_AXIS_MODE)
+        state.k = Eigen::MatrixXd::Zero(4, 12);
+      if(state.stable_mode == TransformController::LQI_THREE_AXIS_MODE)
+        state.k = Eigen::MatrixXd::Zero(4, 9);
+
       for(int x = 0; x < state.k.rows(); x++)
         for(int y = 0; y < state.k.cols(); y++)
           ss_tmp[1] >> state.k(x,y);
@@ -267,5 +335,108 @@ void MotionControl::planFromFile()
 
       //debug
       //ROS_INFO("state%d: joint1: %f",k , planning_path_[k].state_values[3]);
+    }
+}
+
+void MotionControl::controlFlagCallback(const std_msgs::UInt8ConstPtr& control_msg)
+{
+  if(control_msg->data == 0) 
+    {
+      ROS_WARN("stop motion control");
+      control_flag_ = false;
+    }
+  if(control_msg->data == 1) 
+    {
+      ROS_WARN("start motion control");
+      control_flag_ = true;
+    }
+}
+
+void MotionControl::jointStateCallback(const sensor_msgs::JointStateConstPtr& joint_state_msg)
+{
+  std::vector<double> joint_state;
+  joint_state.resize(0);
+  for(int i = 0; i < (int)joint_state_msg->position.size(); i++)
+    joint_state.push_back(joint_state_msg->position[i]);
+  setJointStates(joint_state);
+}
+void MotionControl::robotStateCallback(const aerial_robot_base::StatesConstPtr& pose_state)
+{
+  std::vector<double> move_base_state;
+  move_base_state.resize(0);
+  move_base_state.push_back(pose_state->states[0].pos); //x
+  move_base_state.push_back(pose_state->states[1].pos); //y
+  move_base_state.push_back(pose_state->states[3].pos); //yaw
+  setMoveBaseStates(move_base_state);
+}
+
+
+void MotionControl::moveCmd()
+{
+  //TODO
+}
+
+void MotionControl::jointCmd()
+{
+  ros::Rate loop_rate(joint_cmd_rate_);
+  int joint_index = 0;
+
+  while(ros::ok())
+    {
+      if(control_flag_) 
+        {
+          sensor_msgs::JointState ctrl_joint_msg;
+          int temp = planning_path_[joint_index].state_values.size();
+          ctrl_joint_msg.position.resize(0);
+          for(int i = 3; i < temp; i ++)
+            ctrl_joint_msg.position.push_back(planning_path_[joint_index].state_values[i]);
+          joint_index ++;
+          //end, stop
+          if(joint_index == planning_path_.size()) break;
+        }
+      loop_rate.sleep();
+    }
+
+}
+
+void MotionControl::gainCmd()
+{
+  ros::Rate loop_rate(gain_cmd_rate_);
+  int control_index = 0;
+
+  while(ros::ok())
+    {
+      if(control_flag_) 
+        {
+          //find the index for real robot state
+          std::vector<double> real_states(6,0);
+          getRealStates(real_states);
+          int start_index = ((control_index - backward_offset_ < 0)?  0 : control_index - backward_offset_);
+          int goal_index =  ((control_index + forward_offset_ > planning_path_.size())? planning_path_.size()  : control_index + forward_offset_);
+          double min = 1e6;
+
+          for(int i = start_index ; i < goal_index; i++)
+            {
+              double diff = 0;
+              for(int j = 3; j < 3+3; j++) //3 is link num
+                diff += ((real_states[i] - planning_path_[i].state_values[i]) *
+                         (real_states[i] - planning_path_[i].state_values[i]));
+              if(diff < min) 
+                {
+                  min =diff;
+                  control_index = i;
+                }
+            }
+          ///debug
+          ROS_INFO("control index is %d", control_index);
+
+          //send gain and rotate angles 
+          transform_controller_->setK(planning_path_[control_index].k, planning_path_[control_index].stable_mode);
+          transform_controller_->setRotateAngle(planning_path_[control_index].angle_cos,planning_path_[control_index].angle_sin);
+
+          //end, stop?
+          if(control_index == planning_path_.size() - 1) break;
+        }
+      loop_rate.sleep();
     }
 }

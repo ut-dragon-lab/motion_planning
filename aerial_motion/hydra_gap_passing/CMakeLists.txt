@@ -4,6 +4,7 @@ project(hydra_gap_passing)
 find_package(catkin REQUIRED COMPONENTS
   roscpp
   geometry_msgs
+  sensor_msgs
   tf
   moveit_msgs
   moveit_core
@@ -22,7 +23,7 @@ generate_messages(DEPENDENCIES std_msgs)
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES motion_planning
-  CATKIN_DEPENDS roscpp  geometry_msgs  tf  moveit_msgs  moveit_core  moveit_ros_planning_interface  pluginlib  hydra_transform_control   aerial_robot_base message_runtime
+  CATKIN_DEPENDS roscpp  geometry_msgs sensor_msgs tf  moveit_msgs  moveit_core  moveit_ros_planning_interface  pluginlib  hydra_transform_control   aerial_robot_base message_runtime
 )
 
 

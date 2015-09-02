@@ -95,24 +95,6 @@ MotionPlanning::MotionPlanning(ros::NodeHandle nh, ros::NodeHandle nhp) :nh_(nh)
 
   planning_scene_diff_pub_ = nh_.advertise<moveit_msgs::PlanningScene>("planning_scene", 1);
 
-#if 0
-  //
-  if(real_robot_move_base_)
-    {
-      get_init_state_ = false;
-      real_robot_state_sub_ = nh_.subscribe<aerial_robot_base::States>("ground_truth/pose", 1, &MotionPlanning::poseCallback, this, ros::TransportHints().tcpNoDelay());
-
-      while(1)
-        {
-          //for start state: mocap center
-          if(get_init_state_) break;
-        }
-      //for goal state
-      //TODO goal state
-    }
-#endif
-
-  //transform_controller_ = new TransformController(nh_, nhp_, false);
   transform_controller_ = boost::shared_ptr<TransformController>(new TransformController(nh_, nhp_, false));
   motion_control_ = new MotionControl(nh, nhp, transform_controller_);
 
@@ -136,7 +118,171 @@ MotionPlanning::MotionPlanning(ros::NodeHandle nh, ros::NodeHandle nhp) :nh_(nh)
   calculation_time_ = 0;
   best_cost_ = -1;
 
-  //pub the collision object => gap env
+  gapEnvInit();
+
+  if(!play_log_path_) Planning();
+
+  motion_sequence_timer_ = nhp_.createTimer(ros::Duration(1.0 / motion_sequence_rate_), &MotionPlanning::motionSequenceFunc, this);
+
+}
+
+
+MotionPlanning::~MotionPlanning()
+{
+  delete robot_model_loader_;
+  delete planning_scene_;
+  delete plan_states_;
+  //delete transform_controller_;
+  delete rrt_start_planner_;
+  delete path_length_opt_objective_;
+  delete stability_objective_;
+
+  delete motion_control_;
+}
+
+void MotionPlanning::motionSequenceFunc(const ros::TimerEvent &e)
+{
+  static bool first_flag = true;
+
+  static int state_index = 0;
+
+  if(solved_ && ros::ok())
+    {
+
+#if 0
+      if(planning_mode_ == hydra_gap_passing::PlanningMode::ORIGINAL_MODE)
+        {
+
+          ROS_INFO("size is %d", (int)planning_path_.size());
+          if(state_index_ == (int)planning_path_.size())
+            state_index_ = 0;
+
+          joint_values[0] = planning_path_[state_index_].x;
+          joint_values[1] = planning_path_[state_index_].y;
+          joint_values[2] = planning_path_[state_index_].theta;
+          joint_values[3] = planning_path_[state_index_].joint1;
+          joint_values[4] = planning_path_[state_index_].joint2;
+          joint_values[5] = planning_path_[state_index_].joint3;
+        }
+#endif
+
+      if(first_flag)
+        {
+          ROS_WARN("plan size is %d, planning time is %f, motion cost is %f", motion_control_->getPathSize(), motion_control_->getPlanningTime(), motion_control_->getMotionCost());
+          std::vector<float> min_dists(2,0);
+          motion_control_->getMinimumDist(min_dists);
+          std::vector<int> min_dist_state_indexs(2,0);
+          motion_control_->getMinimumDistState(min_dist_state_indexs);
+          ROS_WARN("min_x_dist is %f, joint1: %f, joint2: %f, joint3:%f", min_dists[0],
+                   (motion_control_->getState(min_dist_state_indexs[0])).state_values[3],
+                   (motion_control_->getState(min_dist_state_indexs[0])).state_values[4],
+                   (motion_control_->getState(min_dist_state_indexs[0])).state_values[5]);
+
+          ROS_WARN("min_y_dist is %f, joint1: %f, joint2: %f, joint3:%f", min_dists[1],
+                   (motion_control_->getState(min_dist_state_indexs[1])).state_values[3],
+                   (motion_control_->getState(min_dist_state_indexs[1])).state_values[4],
+                   (motion_control_->getState(min_dist_state_indexs[1])).state_values[5]);
+          ROS_WARN("semi stable states %d, ratui: %f", motion_control_->getSemiStableStates(),
+                   (float)motion_control_->getSemiStableStates() / motion_control_->getPathSize());
+
+          first_flag = false;
+        }
+      else
+        {
+          //ROS_INFO("%f, %f, %f", (motion_control_->getState(state_index)).state_values[3], (motion_control_->getState(state_index)).state_values[4], (motion_control_->getState(state_index)).state_values[5]);
+          robot_state::RobotState& robot_state = planning_scene_->getCurrentStateNonConst();
+          robot_state.setVariablePositions((motion_control_->getState(state_index)).state_values);
+
+          planning_scene_->getPlanningSceneMsg(planning_scene_msg_);
+          planning_scene_msg_.is_diff = true;
+          planning_scene_diff_pub_.publish(planning_scene_msg_);
+
+          state_index ++;
+          if(state_index ==  motion_control_->getPathSize()) state_index = 0;
+        }
+
+    }
+}
+
+bool  MotionPlanning::isStateValid(const ompl::base::State *state)
+{
+  collision_detection::CollisionRequest collision_request;
+  collision_detection::CollisionResult collision_result;
+  robot_state::RobotState& robot_state = planning_scene_->getCurrentStateNonConst();
+  std::vector<double> joint_values(6, 0);
+  for(int i = 0; i < 6; i++)
+    joint_values[i] = robot_state.getVariablePosition(i);
+
+  double x,y,theta,angle1, angle2,angle3;
+
+  if(planning_mode_ == hydra_gap_passing::PlanningMode::ONLY_JOINTS_MODE)
+    {
+      angle1 = state->as<ompl::base::RealVectorStateSpace::StateType>()->values[0];
+      angle2 = state->as<ompl::base::RealVectorStateSpace::StateType>()->values[1];
+      angle3 = state->as<ompl::base::RealVectorStateSpace::StateType>()->values[2];
+      joint_values[3] = angle1;
+      joint_values[4] = angle2;
+      joint_values[5] = angle3;
+
+    }
+  else if(planning_mode_ == hydra_gap_passing::PlanningMode::ONLY_BASE_MODE || planning_mode_ == hydra_gap_passing::PlanningMode::ONLY_BASE_MODE + hydra_gap_passing::PlanningMode::ORIGINAL_MODE)
+    {
+      x = state->as<ompl::base::SE2StateSpace::StateType>()->getX();
+      y = state->as<ompl::base::SE2StateSpace::StateType>()->getY();
+      theta = state->as<ompl::base::SE2StateSpace::StateType>()->getYaw();
+      joint_values[0] = x;
+      joint_values[1] = y;
+      joint_values[2] = theta;
+    }
+  else if(planning_mode_ == hydra_gap_passing::PlanningMode::JOINTS_AND_BASE_MODE)
+    {
+      const ompl::base::CompoundState* state_tmp = dynamic_cast<const ompl::base::CompoundState*>(state);
+
+      x = state_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->getX();
+      y = state_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->getY();
+      theta = state_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->getYaw();
+      angle1 = state_tmp->as<ompl::base::RealVectorStateSpace::StateType>(1)->values[0];
+      angle2 = state_tmp->as<ompl::base::RealVectorStateSpace::StateType>(1)->values[1];
+      angle3 = state_tmp->as<ompl::base::RealVectorStateSpace::StateType>(1)->values[2];
+      joint_values[0] = x;
+      joint_values[1] = y;
+      joint_values[2] = theta;
+      joint_values[3] = angle1;
+      joint_values[4] = angle2;
+      joint_values[5] = angle3;
+    }
+
+  robot_state.setVariablePositions(joint_values);
+
+  //check distance thresold
+  if(planning_mode_ == hydra_gap_passing::PlanningMode::JOINTS_AND_BASE_MODE || planning_mode_ == hydra_gap_passing::PlanningMode::ONLY_JOINTS_MODE)
+    {
+#if 1 //a)
+      if(stability_opt_weight_ == 0)
+#else
+        if(1) //b)
+#endif
+        {//only path length opt, regard the undistthre state as invalid state
+          bool dist_thre_check = transform_controller_->distThreCheckFromJointValues(joint_values, 3, false);
+
+          if(!dist_thre_check) 
+            return false;
+
+        }
+      if(planning_mode_ == hydra_gap_passing::PlanningMode::ONLY_JOINTS_MODE) return true;
+    }
+
+  //check collision
+  planning_scene_->checkCollision(collision_request, collision_result, robot_state, acm_);
+
+  if(collision_result.collision) return false;
+  
+  //else
+  return true;
+}
+
+void MotionPlanning::gapEnvInit()
+{//pub the collision object => gap env
   left_half_corner = tf::Vector3(gap_left_x_, gap_left_y_ , gap_left_width_);
   right_half_corner = tf::Vector3(gap_left_x_ + gap_y_offset_, gap_left_y_ + gap_x_offset_ , gap_right_width_);
 
@@ -205,7 +351,10 @@ MotionPlanning::MotionPlanning(ros::NodeHandle nh, ros::NodeHandle nhp) :nh_(nh)
   planning_scene_->getPlanningSceneMsg(planning_scene_msg_);
   planning_scene_msg_.is_diff = true;
   planning_scene_diff_pub_.publish(planning_scene_msg_);
+}
 
+void MotionPlanning::Planning()
+{
   //planning
   //x, y
   ompl::base::StateSpacePtr se2(new ompl::base::SE2StateSpace());
@@ -251,7 +400,6 @@ MotionPlanning::MotionPlanning(ros::NodeHandle nh, ros::NodeHandle nhp) :nh_(nh)
       space_information_  = boost::shared_ptr<ompl::base::SpaceInformation> (new ompl::base::SpaceInformation(hydra_space_));
       space_information_->setStateValidityChecker(boost::bind(&MotionPlanning::isStateValid, this, _1));
     }
-
 
   //init state
   robot_state::RobotState& current_state = planning_scene_->getCurrentStateNonConst();
@@ -326,9 +474,7 @@ MotionPlanning::MotionPlanning(ros::NodeHandle nh, ros::NodeHandle nhp) :nh_(nh)
       //solved_ = gap_motion_planning(left_half_corner, right_half_corner, transform_controller_, start_state_, goal_state_, planning_path_, planning_scene_, collision_object_);
     }
 
-
-  current_state.setVariablePositions(joint_values);
-
+  current_state.setVariablePositions(joint_values); //not necessary?
 
   if(planning_mode_ < hydra_gap_passing::PlanningMode::ORIGINAL_MODE)
     {
@@ -449,171 +595,8 @@ MotionPlanning::MotionPlanning(ros::NodeHandle nh, ros::NodeHandle nhp) :nh_(nh)
         }
       else
         std::cout << "No solution found" << std::endl;
-
-    }
-  motion_sequence_timer_ = nhp_.createTimer(ros::Duration(1.0 / motion_sequence_rate_), &MotionPlanning::motionSequenceFunc, this);
-
-}
-
-
-MotionPlanning::~MotionPlanning()
-{
-  delete robot_model_loader_;
-  delete planning_scene_;
-  delete plan_states_;
-  //delete transform_controller_;
-  delete rrt_start_planner_;
-  delete path_length_opt_objective_;
-  delete stability_objective_;
-
-  delete motion_control_;
-}
-
-
-void MotionPlanning::motionSequenceFunc(const ros::TimerEvent &e)
-{
-  static bool first_flag = true;
-
-  static int state_index = 0;
-
-  if(solved_ && ros::ok())
-    {
-
-#if 0
-      if(planning_mode_ == hydra_gap_passing::PlanningMode::ORIGINAL_MODE)
-        {
-
-          ROS_INFO("size is %d", (int)planning_path_.size());
-          if(state_index_ == (int)planning_path_.size())
-            state_index_ = 0;
-
-          joint_values[0] = planning_path_[state_index_].x;
-          joint_values[1] = planning_path_[state_index_].y;
-          joint_values[2] = planning_path_[state_index_].theta;
-          joint_values[3] = planning_path_[state_index_].joint1;
-          joint_values[4] = planning_path_[state_index_].joint2;
-          joint_values[5] = planning_path_[state_index_].joint3;
-        }
-#endif
-
-      if(first_flag)
-        {
-          ROS_WARN("plan size is %d, planning time is %f, motion cost is %f", motion_control_->getPathSize(), motion_control_->getPlanningTime(), motion_control_->getMotionCost());
-          std::vector<float> min_dists(2,0);
-          motion_control_->getMinimumDist(min_dists);
-          std::vector<int> min_dist_state_indexs(2,0);
-          motion_control_->getMinimumDistState(min_dist_state_indexs);
-          ROS_WARN("min_x_dist is %f, joint1: %f, joint2: %f, joint3:%f", min_dists[0],
-                   (motion_control_->getState(min_dist_state_indexs[0])).state_values[3],
-                   (motion_control_->getState(min_dist_state_indexs[0])).state_values[4],
-                   (motion_control_->getState(min_dist_state_indexs[0])).state_values[5]);
-
-          ROS_WARN("min_y_dist is %f, joint1: %f, joint2: %f, joint3:%f", min_dists[1],
-                   (motion_control_->getState(min_dist_state_indexs[1])).state_values[3],
-                   (motion_control_->getState(min_dist_state_indexs[1])).state_values[4],
-                   (motion_control_->getState(min_dist_state_indexs[1])).state_values[5]);
-          ROS_WARN("semi stable states %d, ratui: %f", motion_control_->getSemiStableStates(),
-                   (float)motion_control_->getSemiStableStates() / motion_control_->getPathSize());
-
-          first_flag = false;
-        }
-      else
-        {
-          //ROS_INFO("%f, %f, %f", (motion_control_->getState(state_index)).state_values[3], (motion_control_->getState(state_index)).state_values[4], (motion_control_->getState(state_index)).state_values[5]);
-          robot_state::RobotState& robot_state = planning_scene_->getCurrentStateNonConst();
-          robot_state.setVariablePositions((motion_control_->getState(state_index)).state_values);
-
-          planning_scene_->getPlanningSceneMsg(planning_scene_msg_);
-          planning_scene_msg_.is_diff = true;
-          planning_scene_diff_pub_.publish(planning_scene_msg_);
-
-          state_index ++;
-          if(state_index ==  motion_control_->getPathSize()) state_index = 0;
-        }
-
     }
 }
-
-
-bool  MotionPlanning::isStateValid(const ompl::base::State *state)
-{
-  collision_detection::CollisionRequest collision_request;
-  collision_detection::CollisionResult collision_result;
-  robot_state::RobotState& robot_state = planning_scene_->getCurrentStateNonConst();
-  std::vector<double> joint_values(6, 0);
-  for(int i = 0; i < 6; i++)
-    joint_values[i] = robot_state.getVariablePosition(i);
-
-  double x,y,theta,angle1, angle2,angle3;
-
-  if(planning_mode_ == hydra_gap_passing::PlanningMode::ONLY_JOINTS_MODE)
-    {
-      angle1 = state->as<ompl::base::RealVectorStateSpace::StateType>()->values[0];
-      angle2 = state->as<ompl::base::RealVectorStateSpace::StateType>()->values[1];
-      angle3 = state->as<ompl::base::RealVectorStateSpace::StateType>()->values[2];
-      joint_values[3] = angle1;
-      joint_values[4] = angle2;
-      joint_values[5] = angle3;
-
-    }
-  else if(planning_mode_ == hydra_gap_passing::PlanningMode::ONLY_BASE_MODE || planning_mode_ == hydra_gap_passing::PlanningMode::ONLY_BASE_MODE + hydra_gap_passing::PlanningMode::ORIGINAL_MODE)
-    {
-      x = state->as<ompl::base::SE2StateSpace::StateType>()->getX();
-      y = state->as<ompl::base::SE2StateSpace::StateType>()->getY();
-      theta = state->as<ompl::base::SE2StateSpace::StateType>()->getYaw();
-      joint_values[0] = x;
-      joint_values[1] = y;
-      joint_values[2] = theta;
-    }
-  else if(planning_mode_ == hydra_gap_passing::PlanningMode::JOINTS_AND_BASE_MODE)
-    {
-      const ompl::base::CompoundState* state_tmp = dynamic_cast<const ompl::base::CompoundState*>(state);
-
-      x = state_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->getX();
-      y = state_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->getY();
-      theta = state_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->getYaw();
-      angle1 = state_tmp->as<ompl::base::RealVectorStateSpace::StateType>(1)->values[0];
-      angle2 = state_tmp->as<ompl::base::RealVectorStateSpace::StateType>(1)->values[1];
-      angle3 = state_tmp->as<ompl::base::RealVectorStateSpace::StateType>(1)->values[2];
-      joint_values[0] = x;
-      joint_values[1] = y;
-      joint_values[2] = theta;
-      joint_values[3] = angle1;
-      joint_values[4] = angle2;
-      joint_values[5] = angle3;
-    }
-
-  robot_state.setVariablePositions(joint_values);
-
-  //check distance thresold
-  if(planning_mode_ == hydra_gap_passing::PlanningMode::JOINTS_AND_BASE_MODE || planning_mode_ == hydra_gap_passing::PlanningMode::ONLY_JOINTS_MODE)
-    {
-#if 1 //a)
-      if(stability_opt_weight_ == 0)
-#else
-        if(1) //b)
-#endif
-        {//only path length opt, regard the undistthre state as invalid state
-          bool dist_thre_check = transform_controller_->distThreCheckFromJointValues(joint_values, 3, false);
-
-          if(!dist_thre_check) 
-            return false;
-
-        }
-      if(planning_mode_ == hydra_gap_passing::PlanningMode::ONLY_JOINTS_MODE) return true;
-    }
-
-  //check collision
-  planning_scene_->checkCollision(collision_request, collision_result, robot_state, acm_);
-
-  
-
-  if(collision_result.collision) return false;
-  
-  //else
-  return true;
-}
-
 
 
 void MotionPlanning::rosParamInit()
@@ -662,6 +645,8 @@ void MotionPlanning::rosParamInit()
   //for the offset from mocap center to cog
   // nhp_.param("mocap_center_to_link_center_x", mocap_center_to_link_center_x_, 0.0);
   // nhp_.param("mocap_center_to_link_center_y", mocap_center_to_link_center_y_, 0.0);
+  nhp_.param("play_log_path", play_log_path_, false);
+  if(play_log_path_) solved_ = true;
 }
 
 ompl::base::Cost MotionPlanning::onlyJointPathLimit()
