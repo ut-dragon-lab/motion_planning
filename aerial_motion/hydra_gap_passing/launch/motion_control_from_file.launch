@@ -9,7 +9,7 @@
   <rosparam command="load" file="$(find hydra_moveit_config)/config/ompl_planning.yaml"/>
   <param name="play_log_path" type="bool" value="true"/> 
   <!--<param name="file_name" value="/home/bakui/ros/chou_catkin_ws/src/motion_planning/aerial_motion/hydra_gap_passing/path_log/planning_log_only_path_0p04_new2_1.txt" /> -->
-  <param name="file_name" value="/home/bakui/ros/chou_catkin_ws/src/motion_planning/aerial_motion/hydra_gap_passing/path_log/planning_log_only_path_0p04_new2_1.txt" />
+  <param name="file_name" value="$(find hydra_gap_passing)/path_log/planning_log_only_path_0p04_new2_1.txt" />
 
   <rosparam file="$(find hydra_transform_control)/config/Hydra3.yaml" command="load" />
   <param name="debug_log" type="bool" value="false"/>

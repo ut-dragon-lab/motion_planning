@@ -42,11 +42,15 @@ MotionControl::MotionControl(ros::NodeHandle nh, ros::NodeHandle nhp, boost::sha
 
   if(play_log_path_) planFromFile();
 
+
+  control_flag_ = false;
+
   //control sub thread
   if(planning_mode_ != hydra_gap_passing::PlanningMode::ONLY_BASE_MODE)
     {
       joint_cmd_thread_ = boost::thread(boost::bind(&MotionControl::jointCmd, this));
-  gain_cmd_thread_ = boost::thread(boost::bind(&MotionControl::gainCmd, this));
+      gain_cmd_thread_ = boost::thread(boost::bind(&MotionControl::gainCmd, this));
+
     }
   if(planning_mode_ != hydra_gap_passing::PlanningMode::ONLY_JOINTS_MODE)
     move_cmd_thread_ = boost::thread(boost::bind(&MotionControl::moveCmd, this));
@@ -171,6 +175,9 @@ void MotionControl::planStoring(const ompl::base::StateStorage* plan_states, int
               //gains
               transform_controller_->hamiltonMatrixSolver(state.stable_mode);
               state.k = transform_controller_->getK();
+
+              // if(state.stable_mode == TransformController::LQI_THREE_AXIS_MODE)
+              //   std::cout << "K: " << state.k << std::endl;
 
               //imu-cog rotate angle
               transform_controller_->getRotateAngle(state.angle_cos, state.angle_sin);
@@ -309,8 +316,7 @@ void MotionControl::planFromFile()
       std::getline(ifs, str);
       ss_tmp[0].str(str);
 
-      ss_tmp[0] >> header >> state.state_values[0]
-       >> state.state_values[0] >> state.state_values[1]
+      ss_tmp[0] >> header >> state.state_values[0] >> state.state_values[1]
        >> state.state_values[2] >> state.state_values[3] >>state.state_values[4]
        >> state.state_values[5] >> state.stable_mode >> state.dist_thre_value;
 

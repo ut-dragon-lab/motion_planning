@@ -96,7 +96,10 @@ MotionPlanning::MotionPlanning(ros::NodeHandle nh, ros::NodeHandle nhp) :nh_(nh)
   planning_scene_diff_pub_ = nh_.advertise<moveit_msgs::PlanningScene>("planning_scene", 1);
 
   transform_controller_ = boost::shared_ptr<TransformController>(new TransformController(nh_, nhp_, false));
+
   motion_control_ = new MotionControl(nh, nhp, transform_controller_);
+
+
 
   link_num_ = transform_controller_->getLinkNum();
   link_length_ = transform_controller_->getLinkLength(); 
@@ -597,7 +600,6 @@ void MotionPlanning::Planning()
         std::cout << "No solution found" << std::endl;
     }
 }
-
 
 void MotionPlanning::rosParamInit()
 {
