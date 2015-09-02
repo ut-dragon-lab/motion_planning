@@ -396,6 +396,7 @@ void MotionControl::jointCmd()
           ctrl_joint_msg.position.resize(0);
           for(int i = 3; i < temp; i ++)
             ctrl_joint_msg.position.push_back(planning_path_[joint_index].state_values[i]);
+          joint_cmd_pub_.publish(ctrl_joint_msg);
           joint_index ++;
           //end, stop
           if(joint_index == planning_path_.size()) break;
@@ -440,6 +441,7 @@ void MotionControl::gainCmd()
           transform_controller_->setK(planning_path_[control_index].k, planning_path_[control_index].stable_mode);
           transform_controller_->setRotateAngle(planning_path_[control_index].angle_cos,planning_path_[control_index].angle_sin);
 
+          transform_controller_->param2contoller();
           //end, stop?
           if(control_index == planning_path_.size() - 1) break;
         }
