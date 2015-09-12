@@ -8,11 +8,13 @@
 <node name="motion_control_node" pkg="hydra_gap_passing" type="motion_control_node" respawn="false" launch-prefix="$(arg launch_prefix)" output="screen">
   <rosparam command="load" file="$(find hydra_moveit_config)/config/ompl_planning.yaml"/>
   <param name="play_log_path" type="bool" value="true"/> 
-  <!--<param name="file_name" value="/home/bakui/ros/chou_catkin_ws/src/motion_planning/aerial_motion/hydra_gap_passing/path_log/planning_log_only_path_0p04_new2_1.txt" /> -->
-  <param name="file_name" value="$(find hydra_gap_passing)/path_log/planning_log_only_path_0p04_new3_1.txt" />
+  <param name="file_name" value="$(find hydra_gap_passing)/path_log/planning_log.txt" />
 
   <rosparam file="$(find hydra_transform_control)/config/Hydra3.yaml" command="load" />
   <param name="debug_log" type="bool" value="false"/>
+
+  <!-- test -->
+  <!--<remap from="/hydra/joints_ctrl" to="/joint_states" />-->
 
 </node>
 </launch>

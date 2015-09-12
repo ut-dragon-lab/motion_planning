@@ -16,13 +16,13 @@ MotionControl::MotionControl(ros::NodeHandle nh, ros::NodeHandle nhp, boost::sha
   if(play_log_path_) log_flag_ = false;
   nhp_.param("file_name", file_name_, std::string("planning_log.txt"));
 
-
   //subscriber
   control_flag_sub_ = nh_.subscribe<std_msgs::UInt8>("hydra/motion_control", 1, &MotionControl::controlFlagCallback, this, ros::TransportHints().tcpNoDelay());
 
   robot_states_sub_ = nh_.subscribe<aerial_robot_base::States>("ground_truth/pose", 1, &MotionControl::robotStateCallback, this, ros::TransportHints().tcpNoDelay());
 
-  joint_values_sub_ = nh_.subscribe<sensor_msgs::JointState>("joint_states", 1, &MotionControl::jointStateCallback, this, ros::TransportHints().udp());
+  joint_values_sub_ = nh_.subscribe<sensor_msgs::JointState>("joint_states", 1, &MotionControl::jointStateCallback, this, ros::TransportHints().tcpNoDelay());
+
   //publisher
   joint_cmd_pub_ = nh_.advertise<sensor_msgs::JointState>("hydra/joints_ctrl", 1);
   /*TODO*/
@@ -40,8 +40,10 @@ MotionControl::MotionControl(ros::NodeHandle nh, ros::NodeHandle nhp, boost::sha
   minimum_y_performance_state_ = 0;
   semi_stable_states_ = 0;
 
+
   if(play_log_path_) planFromFile();
 
+  real_states_.resize(3 + transform_controller_->getLinkNum() );
 
   control_flag_ = false;
 
@@ -137,31 +139,59 @@ void MotionControl::planStoring(const ompl::base::StateStorage* plan_states, int
 
               // dist thre
               bool dist_thre = transform_controller_->distThreCheckFromJointValues(state.state_values, 3);
-              if(!dist_thre) state.dist_thre_value = 0;
+              if(!dist_thre) 
+                {
+                  state.dist_thre_value = 0;
+                  ROS_ERROR("(singular pose, can not resolve the lqi control problem");
+                }
               else state.dist_thre_value = 1;
 
               //minimum dist(x_axis, y_axis)
               std::vector<Eigen::Vector3d> links_origin_from_cog(3); //links_num
               transform_controller_->getLinksOriginFromCog(links_origin_from_cog);
-              float max_x_length = 0, max_y_length = 0;
+
+              float x_minus_max_dist = 0, x_plus_max_dist = 0;
+              float y_minus_max_dist = 0, y_plus_max_dist = 0;
+
+              //std::cout << "state: " << i << std::endl;
               for(int l = 0; l < (int)links_origin_from_cog.size(); l ++)
                 {
-                  if(max_x_length < fabs(links_origin_from_cog[l](0)))
-                    max_x_length = fabs(links_origin_from_cog[l](0));
-                  if(max_y_length < fabs(links_origin_from_cog[l](1)))
-                    max_y_length = fabs(links_origin_from_cog[l](1));
+                  //std::cout << "link" << l +1 << ":\n"<< links_origin_from_cog[l] << std::endl;
+                  //x
+                  if(links_origin_from_cog[l](0) > 0 && links_origin_from_cog[l](0) > x_plus_max_dist)
+                    x_plus_max_dist = links_origin_from_cog[l](0);
+                  if(links_origin_from_cog[l](0) < 0 && links_origin_from_cog[l](0) < x_minus_max_dist)
+                    x_minus_max_dist = links_origin_from_cog[l](0);
+                  //y
+                  if(links_origin_from_cog[l](1) > 0 && links_origin_from_cog[l](1) > y_plus_max_dist)
+                    y_plus_max_dist = links_origin_from_cog[l](1);
+                  if(links_origin_from_cog[l](1) < 0 && links_origin_from_cog[l](1) < y_minus_max_dist)
+                    y_minus_max_dist = links_origin_from_cog[l](1);
                 }
+              //std::cout << " " << std::endl;
 
-              if(max_x_length < minimum_x_performance_)
+              if(x_plus_max_dist < minimum_x_performance_)
                 {
-                  minimum_x_performance_ = max_x_length;
+                  minimum_x_performance_ = x_plus_max_dist;
                   minimum_x_performance_state_ = i;
                 }
-              if(max_y_length < minimum_y_performance_)
+              if(-x_minus_max_dist < minimum_x_performance_)
                 {
-                  minimum_y_performance_ = max_y_length;
+                  minimum_x_performance_ = -x_minus_max_dist;
+                  minimum_x_performance_state_ = i;
+                }
+
+              if(y_plus_max_dist < minimum_y_performance_)
+                {
+                  minimum_y_performance_ = y_plus_max_dist;
                   minimum_y_performance_state_ = i;
                 }
+              if(-y_minus_max_dist < minimum_y_performance_)
+                {
+                  minimum_y_performance_ = -y_minus_max_dist;
+                  minimum_y_performance_state_ = i;
+                }
+
 
               //stability
               if(!transform_controller_->stabilityCheck()) 
@@ -341,6 +371,10 @@ void MotionControl::planFromFile()
 
       //debug
       //ROS_INFO("state%d: joint1: %f",k , planning_path_[k].state_values[3]);
+      // std::cout << "state: " << k << std::endl;
+      // if(!transform_controller_->distThreCheckFromJointValues(state.state_values, 3))
+      //   ROS_ERROR("(singular pose, can not resolve the lqi control problem");
+
     }
 }
 
@@ -360,11 +394,20 @@ void MotionControl::controlFlagCallback(const std_msgs::UInt8ConstPtr& control_m
 
 void MotionControl::jointStateCallback(const sensor_msgs::JointStateConstPtr& joint_state_msg)
 {
+  //debug
+  //static int cnt = 0;
+
   std::vector<double> joint_state;
   joint_state.resize(0);
   for(int i = 0; i < (int)joint_state_msg->position.size(); i++)
     joint_state.push_back(joint_state_msg->position[i]);
   setJointStates(joint_state);
+
+  // std::cout << "state: " << cnt << std::endl;
+  // //test!!
+  //  if(!transform_controller_->distThreCheckFromJointValues(joint_state))
+  //    ROS_ERROR("(singular pose, can not resolve the lqi control problem");
+  //  cnt++;
 }
 void MotionControl::robotStateCallback(const aerial_robot_base::StatesConstPtr& pose_state)
 {
