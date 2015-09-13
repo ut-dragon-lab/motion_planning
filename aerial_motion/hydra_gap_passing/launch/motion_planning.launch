@@ -53,8 +53,8 @@
   <param name="semi_stable_cost" type="double" value="1.0"/>
   <param name="full_stable_cost" type="double" value="0.1"/>
 
-  <param name="length_opt_weight" type="double" value="1.0"/>
-  <param name="stability_opt_weight" type="double" value="0"/>
+  <param name="length_opt_weight" type="double" value="0"/>
+  <param name="stability_opt_weight" type="double" value="1.0"/>
 
   <param name="stability_cost_thre" type="double" value="1.2" />
 
