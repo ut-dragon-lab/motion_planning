@@ -45,7 +45,13 @@ MotionControl::MotionControl(ros::NodeHandle nh, ros::NodeHandle nhp, boost::sha
 
   if(play_log_path_) planFromFile();
 
-  real_states_.resize(3 + transform_controller_->getLinkNum() );
+  real_states_.resize(3 + transform_controller_->getLinkNum() -1);
+  // for(int i = 0; i < (int)real_states_.size(); i++)
+  //   {
+  //     real_states_[i] = 0;
+  //     ROS_WARN("okok");
+  //   }
+
 
   control_flag_ = false;
 
@@ -86,7 +92,9 @@ void MotionControl::setMoveBaseStates(std::vector<double> move_base_states)
 {
   boost::lock_guard<boost::mutex> lock(real_state_mutex_);
   for(int i = 0; i < 3; i++)
-    real_states_[i] = move_base_states[i];//x,y, theta
+    {
+      real_states_[i] = move_base_states[i];//x,y, theta
+    }
 }
 void MotionControl::setJointStates(std::vector<double> joint_states)
 {
@@ -485,7 +493,7 @@ void MotionControl::gainCmd()
                 }
             }
           ///debug
-          ROS_INFO("control index is %d", control_index_);
+          //ROS_INFO("control index is %d", control_index_);
 
           //send gain and rotate angles 
           transform_controller_->setK(planning_path_[control_index_].k, planning_path_[control_index_].stable_mode);
