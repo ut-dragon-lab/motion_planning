@@ -37,9 +37,9 @@
   <param name="start_state_joint1" value="1.57"/> 
   <param name="start_state_joint2" value="1.57"/> 
   <param name="start_state_joint3" value="1.57"/> 
-  <param name="goal_state_joint1" value="-1.57"/> 
-  <param name="goal_state_joint2" value="-1.57"/> 
-  <param name="goal_state_joint3" value="-1.57"/> 
+  <param name="goal_state_joint1" value="1.57"/> 
+  <param name="goal_state_joint2" value="1.57"/> 
+  <param name="goal_state_joint3" value="0"/> 
 
   <param name="state_validity_check_res" value="0.03"/>
   <param name="valid_segment_count_factor" value="20"/> <!--20-->
@@ -53,8 +53,8 @@
   <param name="semi_stable_cost" type="double" value="1.0"/>
   <param name="full_stable_cost" type="double" value="0.1"/>
 
-  <param name="length_opt_weight" type="double" value="0"/>
-  <param name="stability_opt_weight" type="double" value="1.0"/>
+  <param name="length_opt_weight" type="double" value="1.0"/>
+  <param name="stability_opt_weight" type="double" value="0"/>
 
   <param name="stability_cost_thre" type="double" value="1.2" />
 

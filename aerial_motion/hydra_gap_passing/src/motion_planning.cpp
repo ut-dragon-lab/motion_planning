@@ -653,7 +653,7 @@ void MotionPlanning::rosParamInit()
 
 ompl::base::Cost MotionPlanning::onlyJointPathLimit()
 {
-  double cost = fabs(start_state_[3] - goal_state_[3]) + fabs(start_state_[4] - goal_state_[4]) + fabs(start_state_[5] - goal_state_[5]);
+  double cost = fabs(start_state_[3] - goal_state_[3]) + fabs(start_state_[4] - goal_state_[4]) + fabs(start_state_[5] - goal_state_[5]) + 0.1;
   return ompl::base::Cost(cost);
 }
 
