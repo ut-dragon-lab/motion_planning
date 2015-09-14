@@ -40,6 +40,8 @@ MotionControl::MotionControl(ros::NodeHandle nh, ros::NodeHandle nhp, boost::sha
   minimum_y_performance_state_ = 0;
   semi_stable_states_ = 0;
 
+  control_index_ = 0;
+
 
   if(play_log_path_) planFromFile();
 
@@ -90,7 +92,11 @@ void MotionControl::setJointStates(std::vector<double> joint_states)
 {
   boost::lock_guard<boost::mutex> lock(real_state_mutex_);
   for(int i = 0; i <  (int)joint_states.size(); i ++)
-    real_states_[i + 3] = joint_states[i];
+    {
+      real_states_[i + 3] = joint_states[i];
+      //std::cout << "joint " << i+ 1 << ": "<< real_states_[i+3] <<std::endl;
+    }
+  //std::cout <<  " " <<std::endl;
 }
 
 void MotionControl::planStoring(const ompl::base::StateStorage* plan_states, int planning_mode, const std::vector<double>& start_state, const std::vector<double>& goal_state,  double best_cost, double calculation_time)
@@ -384,11 +390,13 @@ void MotionControl::controlFlagCallback(const std_msgs::UInt8ConstPtr& control_m
     {
       ROS_WARN("stop motion control");
       control_flag_ = false;
+      control_index_ = 0;
     }
   if(control_msg->data == 1) 
     {
       ROS_WARN("start motion control");
       control_flag_ = true;
+      control_index_ = 0;
     }
 }
 
@@ -452,7 +460,6 @@ void MotionControl::jointCmd()
 void MotionControl::gainCmd()
 {
   ros::Rate loop_rate(gain_cmd_rate_);
-  int control_index = 0;
 
   while(ros::ok())
     {
@@ -461,32 +468,32 @@ void MotionControl::gainCmd()
           //find the index for real robot state
           std::vector<double> real_states(6,0);
           getRealStates(real_states);
-          int start_index = ((control_index - backward_offset_ < 0)?  0 : control_index - backward_offset_);
-          int goal_index =  ((control_index + forward_offset_ > planning_path_.size())? planning_path_.size()  : control_index + forward_offset_);
+          int start_index = ((control_index_ - backward_offset_ < 0)?  0 : control_index_ - backward_offset_);
+          int goal_index =  ((control_index_ + forward_offset_ > planning_path_.size())? planning_path_.size()  : control_index_ + forward_offset_);
           double min = 1e6;
 
           for(int i = start_index ; i < goal_index; i++)
             {
               double diff = 0;
               for(int j = 3; j < 3+3; j++) //3 is link num
-                diff += ((real_states[i] - planning_path_[i].state_values[i]) *
-                         (real_states[i] - planning_path_[i].state_values[i]));
+                diff += ((real_states[j] - planning_path_[i].state_values[j]) *
+                         (real_states[j] - planning_path_[i].state_values[j]));
               if(diff < min) 
                 {
                   min =diff;
-                  control_index = i;
+                  control_index_ = i;
                 }
             }
           ///debug
-          ROS_INFO("control index is %d", control_index);
+          ROS_INFO("control index is %d", control_index_);
 
           //send gain and rotate angles 
-          transform_controller_->setK(planning_path_[control_index].k, planning_path_[control_index].stable_mode);
-          transform_controller_->setRotateAngle(planning_path_[control_index].angle_cos,planning_path_[control_index].angle_sin);
+          transform_controller_->setK(planning_path_[control_index_].k, planning_path_[control_index_].stable_mode);
+          transform_controller_->setRotateAngle(planning_path_[control_index_].angle_cos,planning_path_[control_index_].angle_sin);
 
           transform_controller_->param2contoller();
           //end, stop?
-          if(control_index == planning_path_.size() - 1) break;
+          if(control_index_ == planning_path_.size() - 1) break;
         }
       loop_rate.sleep();
     }

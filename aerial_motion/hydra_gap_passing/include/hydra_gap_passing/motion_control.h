@@ -133,6 +133,7 @@ class MotionControl
   double move_cmd_rate_;
   double gain_cmd_rate_;
 
+  int control_index_;
 
 
   bool play_log_path_;//if true, use file, if false, get form realtime thing
