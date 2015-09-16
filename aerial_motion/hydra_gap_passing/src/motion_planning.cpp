@@ -37,44 +37,32 @@ StabilityObjective::StabilityObjective(ros::NodeHandle nh, ros::NodeHandle nhp, 
 
 ompl::base::Cost StabilityObjective::stateCost(const ompl::base::State* state) const
 {
-  double x,y,theta,angle1, angle2,angle3;
-  std::vector<double> joint_values(6,0);
+  std::vector<double> joint_values(3 + link_num_ - 1, 0);
 
   if(planning_mode_ == hydra_gap_passing::PlanningMode::ONLY_JOINTS_MODE)
     {
-      angle1 = state->as<ompl::base::RealVectorStateSpace::StateType>()->values[0];
-      angle2 = state->as<ompl::base::RealVectorStateSpace::StateType>()->values[1];
-      angle3 = state->as<ompl::base::RealVectorStateSpace::StateType>()->values[2];
-      joint_values[3] = angle1;
-      joint_values[4] = angle2;
-      joint_values[5] = angle3;
-
+      for(int i = 0; i < link_num_ - 1; i++)
+        joint_values[3 + i] = state->as<ompl::base::RealVectorStateSpace::StateType>()->values[i];
     }
   else if(planning_mode_ == hydra_gap_passing::PlanningMode::ONLY_BASE_MODE || planning_mode_ == hydra_gap_passing::PlanningMode::ONLY_BASE_MODE + hydra_gap_passing::PlanningMode::ORIGINAL_MODE)
     {
-      x = state->as<ompl::base::SE2StateSpace::StateType>()->getX();
-      y = state->as<ompl::base::SE2StateSpace::StateType>()->getY();
-      theta = state->as<ompl::base::SE2StateSpace::StateType>()->getYaw();
-      joint_values[0] = x;
-      joint_values[1] = y;
-      joint_values[2] = theta;
+      joint_values[0] = state->as<ompl::base::SE2StateSpace::StateType>()->getX();
+      joint_values[1] = state->as<ompl::base::SE2StateSpace::StateType>()->getY();
+      joint_values[2] = state->as<ompl::base::SE2StateSpace::StateType>()->getYaw();
+
+      for(int i = 0; i < link_num_ - 1; i++)
+        joint_values[3 + i] = M_PI; //can be programmable
     }
   else if(planning_mode_ == hydra_gap_passing::PlanningMode::JOINTS_AND_BASE_MODE)
     {
       const ompl::base::CompoundState* state_tmp = dynamic_cast<const ompl::base::CompoundState*>(state);
 
-      x = state_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->getX();
-      y = state_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->getY();
-      theta = state_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->getYaw();
-      angle1 = state_tmp->as<ompl::base::RealVectorStateSpace::StateType>(1)->values[0];
-      angle2 = state_tmp->as<ompl::base::RealVectorStateSpace::StateType>(1)->values[1];
-      angle3 = state_tmp->as<ompl::base::RealVectorStateSpace::StateType>(1)->values[2];
-      joint_values[0] = x;
-      joint_values[1] = y;
-      joint_values[2] = theta;
-      joint_values[3] = angle1;
-      joint_values[4] = angle2;
-      joint_values[5] = angle3;
+      joint_values[0] = state_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->getX();
+      joint_values[1] = state_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->getY();
+      joint_values[2] = state_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->getYaw();
+
+      for(int i = 0; i < link_num_ - 1; i++)
+        joint_values[3 + i] = state_tmp->as<ompl::base::RealVectorStateSpace::StateType>(1)->values[i];
     }
 
 
@@ -91,40 +79,42 @@ ompl::base::Cost StabilityObjective::stateCost(const ompl::base::State* state) c
 
 MotionPlanning::MotionPlanning(ros::NodeHandle nh, ros::NodeHandle nhp) :nh_(nh), nhp_(nhp)
 {
-  rosParamInit();
-
-  planning_scene_diff_pub_ = nh_.advertise<moveit_msgs::PlanningScene>("planning_scene", 1);
-
   transform_controller_ = boost::shared_ptr<TransformController>(new TransformController(nh_, nhp_, false));
+  link_num_ = transform_controller_->getLinkNum();
+  link_length_ = transform_controller_->getLinkLength(); 
+
+
+  rosParamInit();
 
   motion_control_ = new MotionControl(nh, nhp, transform_controller_);
 
 
+  planning_scene_diff_pub_ = nh_.advertise<moveit_msgs::PlanningScene>("planning_scene", 1);
 
-  link_num_ = transform_controller_->getLinkNum();
-  link_length_ = transform_controller_->getLinkLength(); 
-
-  while(planning_scene_diff_pub_.getNumSubscribers() < 1)
+  if(planning_mode_ != hydra_gap_passing::PlanningMode::ONLY_JOINTS_MODE)
     {
-      ros::WallDuration sleep_t(0.5);
-      sleep_t.sleep();
-    }
-  ros::Duration sleep_time(1.0);
-  sleep_time.sleep();
+      while(planning_scene_diff_pub_.getNumSubscribers() < 1)
+        {
+          ros::WallDuration sleep_t(0.5);
+          sleep_t.sleep();
+        }
+      ros::Duration sleep_time(1.0);
+      sleep_time.sleep();
     
-  robot_model_loader_ = new robot_model_loader::RobotModelLoader("robot_description");
-  kinematic_model_ = robot_model_loader_->getModel();
-  planning_scene_ = new planning_scene::PlanningScene(kinematic_model_);
-  tolerance_ = 0.01;
-  acm_ = planning_scene_->getAllowedCollisionMatrix();
+      robot_model_loader_ = new robot_model_loader::RobotModelLoader("robot_description");
+      kinematic_model_ = robot_model_loader_->getModel();
+      planning_scene_ = new planning_scene::PlanningScene(kinematic_model_);
+      tolerance_ = 0.01;
+      acm_ = planning_scene_->getAllowedCollisionMatrix();
+
+      gapEnvInit();
+    }
 
   calculation_time_ = 0;
   best_cost_ = -1;
 
-  gapEnvInit();
 
   if(!play_log_path_) Planning();
-
   motion_sequence_timer_ = nhp_.createTimer(ros::Duration(1.0 / motion_sequence_rate_), &MotionPlanning::motionSequenceFunc, this);
 
 }
@@ -132,8 +122,12 @@ MotionPlanning::MotionPlanning(ros::NodeHandle nh, ros::NodeHandle nhp) :nh_(nh)
 
 MotionPlanning::~MotionPlanning()
 {
-  delete robot_model_loader_;
-  delete planning_scene_;
+  if(planning_mode_ != hydra_gap_passing::PlanningMode::ONLY_JOINTS_MODE)
+    {
+      delete robot_model_loader_;
+      delete planning_scene_;
+    }
+
   delete plan_states_;
   //delete transform_controller_;
   delete rrt_start_planner_;
@@ -148,6 +142,7 @@ void MotionPlanning::motionSequenceFunc(const ros::TimerEvent &e)
   static bool first_flag = true;
 
   static int state_index = 0;
+  static std::vector<conf_values> planning_path;
 
   if(solved_ && ros::ok())
     {
@@ -168,7 +163,7 @@ void MotionPlanning::motionSequenceFunc(const ros::TimerEvent &e)
           joint_values[5] = planning_path_[state_index_].joint3;
         }
 #endif
-
+      
       if(first_flag)
         {
           ROS_WARN("plan size is %d, planning time is %f, motion cost is %f", motion_control_->getPathSize(), motion_control_->getPlanningTime(), motion_control_->getMotionCost());
@@ -176,29 +171,52 @@ void MotionPlanning::motionSequenceFunc(const ros::TimerEvent &e)
           motion_control_->getMinimumDist(min_dists);
           std::vector<int> min_dist_state_indexs(2,0);
           motion_control_->getMinimumDistState(min_dist_state_indexs);
-          ROS_WARN("min_x_dist is %f, joint1: %f, joint2: %f, joint3:%f", min_dists[0],
-                   (motion_control_->getState(min_dist_state_indexs[0])).state_values[3],
-                   (motion_control_->getState(min_dist_state_indexs[0])).state_values[4],
-                   (motion_control_->getState(min_dist_state_indexs[0])).state_values[5]);
+          std::cout << "min_x_dist is: "<< min_dists[0];
+          for(int i = 0; i < link_num_ - 1; i++)
+            std::cout << " joint" << i+1 << ":" << (motion_control_->getState(min_dist_state_indexs[0])).state_values[3 + i];
+          std::cout << std::endl;
 
-          ROS_WARN("min_y_dist is %f, joint1: %f, joint2: %f, joint3:%f", min_dists[1],
-                   (motion_control_->getState(min_dist_state_indexs[1])).state_values[3],
-                   (motion_control_->getState(min_dist_state_indexs[1])).state_values[4],
-                   (motion_control_->getState(min_dist_state_indexs[1])).state_values[5]);
-          ROS_WARN("semi stable states %d, ratui: %f", motion_control_->getSemiStableStates(),
+          std::cout << "min_y_dist is: "<< min_dists[1];
+          for(int i = 0; i < link_num_ - 1; i++)
+            std::cout << " joint" << i+1 << ":" << (motion_control_->getState(min_dist_state_indexs[1])).state_values[3 + i];
+          std::cout << std::endl;
+
+          ROS_WARN("semi stable states %d, ratio: %f", motion_control_->getSemiStableStates(),
                    (float)motion_control_->getSemiStableStates() / motion_control_->getPathSize());
+
+          planning_path.resize(0);
+          motion_control_->getPlanningPath(planning_path);
 
           first_flag = false;
         }
       else
         {
-          //ROS_INFO("%f, %f, %f", (motion_control_->getState(state_index)).state_values[3], (motion_control_->getState(state_index)).state_values[4], (motion_control_->getState(state_index)).state_values[5]);
-          robot_state::RobotState& robot_state = planning_scene_->getCurrentStateNonConst();
-          robot_state.setVariablePositions((motion_control_->getState(state_index)).state_values);
+          if(planning_mode_ == hydra_gap_passing::PlanningMode::ONLY_JOINTS_MODE)
+            {
+              sensor_msgs::JointState joint_state_msg;
+              joint_state_msg.header.stamp = ros::Time::now();
+              if(planning_path[state_index].state_values.size() != 3 + link_num_ -1)
+                ROS_ERROR("wrong size of planning joint state and this state");
+              joint_state_msg.position.resize(0);
+              joint_state_msg.name.resize(0);
+              for(int i = 0; i < link_num_ - 1; i ++)
+                {
+                  std::stringstream joint_no2;
+                  joint_no2 << i + 1;
+                  joint_state_msg.name.push_back(std::string("joint") + joint_no2.str());
+                  joint_state_msg.position.push_back(planning_path[state_index].state_values[3 + i]);
+                }
+              motion_control_->joint_cmd_pub_.publish(joint_state_msg);
+            }
+          else
+            {
+              robot_state::RobotState& robot_state = planning_scene_->getCurrentStateNonConst();
+              robot_state.setVariablePositions((motion_control_->getState(state_index)).state_values);
 
-          planning_scene_->getPlanningSceneMsg(planning_scene_msg_);
-          planning_scene_msg_.is_diff = true;
-          planning_scene_diff_pub_.publish(planning_scene_msg_);
+              planning_scene_->getPlanningSceneMsg(planning_scene_msg_);
+              planning_scene_msg_.is_diff = true;
+              planning_scene_diff_pub_.publish(planning_scene_msg_);
+            }
 
           state_index ++;
           if(state_index ==  motion_control_->getPathSize()) state_index = 0;
@@ -209,78 +227,59 @@ void MotionPlanning::motionSequenceFunc(const ros::TimerEvent &e)
 
 bool  MotionPlanning::isStateValid(const ompl::base::State *state)
 {
-  collision_detection::CollisionRequest collision_request;
-  collision_detection::CollisionResult collision_result;
-  robot_state::RobotState& robot_state = planning_scene_->getCurrentStateNonConst();
-  std::vector<double> joint_values(6, 0);
-  for(int i = 0; i < 6; i++)
-    joint_values[i] = robot_state.getVariablePosition(i);
 
-  double x,y,theta,angle1, angle2,angle3;
+
+  std::vector<double> joint_values(3 + link_num_ - 1, 0);
 
   if(planning_mode_ == hydra_gap_passing::PlanningMode::ONLY_JOINTS_MODE)
     {
-      angle1 = state->as<ompl::base::RealVectorStateSpace::StateType>()->values[0];
-      angle2 = state->as<ompl::base::RealVectorStateSpace::StateType>()->values[1];
-      angle3 = state->as<ompl::base::RealVectorStateSpace::StateType>()->values[2];
-      joint_values[3] = angle1;
-      joint_values[4] = angle2;
-      joint_values[5] = angle3;
-
+      for(int i = 0; i < link_num_ - 1; i++)
+        joint_values[3 + i] = state->as<ompl::base::RealVectorStateSpace::StateType>()->values[i];
     }
   else if(planning_mode_ == hydra_gap_passing::PlanningMode::ONLY_BASE_MODE || planning_mode_ == hydra_gap_passing::PlanningMode::ONLY_BASE_MODE + hydra_gap_passing::PlanningMode::ORIGINAL_MODE)
     {
-      x = state->as<ompl::base::SE2StateSpace::StateType>()->getX();
-      y = state->as<ompl::base::SE2StateSpace::StateType>()->getY();
-      theta = state->as<ompl::base::SE2StateSpace::StateType>()->getYaw();
-      joint_values[0] = x;
-      joint_values[1] = y;
-      joint_values[2] = theta;
+      joint_values[0] = state->as<ompl::base::SE2StateSpace::StateType>()->getX();
+      joint_values[1] = state->as<ompl::base::SE2StateSpace::StateType>()->getY();
+      joint_values[2] = state->as<ompl::base::SE2StateSpace::StateType>()->getYaw();
+
+      for(int i = 0; i < link_num_ - 1; i++)
+        joint_values[i + 3] = start_state_[3 + i];
+
     }
   else if(planning_mode_ == hydra_gap_passing::PlanningMode::JOINTS_AND_BASE_MODE)
     {
       const ompl::base::CompoundState* state_tmp = dynamic_cast<const ompl::base::CompoundState*>(state);
 
-      x = state_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->getX();
-      y = state_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->getY();
-      theta = state_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->getYaw();
-      angle1 = state_tmp->as<ompl::base::RealVectorStateSpace::StateType>(1)->values[0];
-      angle2 = state_tmp->as<ompl::base::RealVectorStateSpace::StateType>(1)->values[1];
-      angle3 = state_tmp->as<ompl::base::RealVectorStateSpace::StateType>(1)->values[2];
-      joint_values[0] = x;
-      joint_values[1] = y;
-      joint_values[2] = theta;
-      joint_values[3] = angle1;
-      joint_values[4] = angle2;
-      joint_values[5] = angle3;
+      joint_values[0] = state_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->getX();
+      joint_values[1] = state_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->getY();
+      joint_values[2] = state_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->getYaw();
+      for(int i = 0; i < link_num_ - 1; i++)
+        joint_values[i + 3] = state_tmp->as<ompl::base::RealVectorStateSpace::StateType>(1)->values[i];
     }
 
-  robot_state.setVariablePositions(joint_values);
 
   //check distance thresold
   if(planning_mode_ == hydra_gap_passing::PlanningMode::JOINTS_AND_BASE_MODE || planning_mode_ == hydra_gap_passing::PlanningMode::ONLY_JOINTS_MODE)
     {
-#if 1 //a)
       if(stability_opt_weight_ == 0)
-#else
-        if(1) //b)
-#endif
         {//only path length opt, regard the undistthre state as invalid state
           bool dist_thre_check = transform_controller_->distThreCheckFromJointValues(joint_values, 3, false);
 
           if(!dist_thre_check) 
             return false;
-
         }
       if(planning_mode_ == hydra_gap_passing::PlanningMode::ONLY_JOINTS_MODE) return true;
     }
 
+  robot_state::RobotState& robot_state = planning_scene_->getCurrentStateNonConst();
   //check collision
+  collision_detection::CollisionRequest collision_request;
+  collision_detection::CollisionResult collision_result;
+  robot_state.setVariablePositions(joint_values);
   planning_scene_->checkCollision(collision_request, collision_result, robot_state, acm_);
 
   if(collision_result.collision) return false;
-  
-  //else
+
   return true;
 }
 
@@ -368,15 +367,15 @@ void MotionPlanning::Planning()
   motion_bounds.high[1] = 2.2;
   se2->as<ompl::base::SE2StateSpace>()->setBounds(motion_bounds);
   //joints
-  ompl::base::StateSpacePtr r3(new ompl::base::RealVectorStateSpace(3));
-  ompl::base::RealVectorBounds joint_bounds(3);
+  ompl::base::StateSpacePtr r_joints(new ompl::base::RealVectorStateSpace(link_num_ -1));
+  ompl::base::RealVectorBounds joint_bounds(link_num_ -1);
   joint_bounds.setLow(-1.58);
   joint_bounds.setHigh(1.58);
-  r3->as<ompl::base::RealVectorStateSpace>()->setBounds(joint_bounds);
+  r_joints->as<ompl::base::RealVectorStateSpace>()->setBounds(joint_bounds);
 
   if(planning_mode_ == hydra_gap_passing::PlanningMode::ONLY_JOINTS_MODE)
     {
-      hydra_space_ = r3;
+      hydra_space_ = r_joints;
       hydra_space_->as<ompl::base::RealVectorStateSpace>()->setValidSegmentCountFactor(valid_segment_count_factor_); 
       space_information_  = boost::shared_ptr<ompl::base::SpaceInformation> (new ompl::base::SpaceInformation(hydra_space_));
       space_information_->setup();
@@ -399,76 +398,47 @@ void MotionPlanning::Planning()
     }
   else if(planning_mode_ == hydra_gap_passing::PlanningMode::JOINTS_AND_BASE_MODE)
     {
-      hydra_space_ = se2 + r3;
+      hydra_space_ = se2 + r_joints;
       space_information_  = boost::shared_ptr<ompl::base::SpaceInformation> (new ompl::base::SpaceInformation(hydra_space_));
       space_information_->setStateValidityChecker(boost::bind(&MotionPlanning::isStateValid, this, _1));
     }
 
   //init state
-  robot_state::RobotState& current_state = planning_scene_->getCurrentStateNonConst();
-  std::vector<double> joint_values(6,0);
-  for(int i = 0; i < 6; i++)
-    joint_values[i] = current_state.getVariablePosition(i);
-
+  //std::vector<double> joint_values(6,0);
+  
   ompl::base::ScopedState<> start(hydra_space_);
   ompl::base::ScopedState<> goal(hydra_space_);
   if(planning_mode_ == hydra_gap_passing::PlanningMode::ONLY_JOINTS_MODE)
     {
-      joint_values[0] = 0;
-      joint_values[1] = 0.5;
-      joint_values[2] = 0.785;
-      joint_values[3] = start_state_[3];
-      joint_values[4] = start_state_[4];
-      joint_values[5] = start_state_[5];
-
-      start->as<ompl::base::RealVectorStateSpace::StateType>()->values[0] = joint_values[3];
-      start->as<ompl::base::RealVectorStateSpace::StateType>()->values[1] = joint_values[4];
-      start->as<ompl::base::RealVectorStateSpace::StateType>()->values[2] = joint_values[5];
-      goal->as<ompl::base::RealVectorStateSpace::StateType>()->values[0] = goal_state_[3];
-      goal->as<ompl::base::RealVectorStateSpace::StateType>()->values[1] = goal_state_[4];
-      goal->as<ompl::base::RealVectorStateSpace::StateType>()->values[2] = goal_state_[5];
-
+      for(int i = 0; i < link_num_ - 1; i ++)
+        {
+          start->as<ompl::base::RealVectorStateSpace::StateType>()->values[i] = start_state_[3 + i];
+          goal->as<ompl::base::RealVectorStateSpace::StateType>()->values[i] = goal_state_[3 + i];
+        }
     }
   else if(planning_mode_ == hydra_gap_passing::PlanningMode::ONLY_BASE_MODE)
     {
-      joint_values[0] = 0;
-      joint_values[1] = 0.5;
-      joint_values[2] = 0.785;
-      joint_values[3] = 0;
-      joint_values[4] = 1.57;
-      joint_values[5] = 0;
-
-      start->as<ompl::base::SE2StateSpace::StateType>()->setXY(joint_values[0], joint_values[1]);
-      start->as<ompl::base::SE2StateSpace::StateType>()->setYaw(joint_values[2]);
-      goal->as<ompl::base::SE2StateSpace::StateType>()->setXY(3, 0.5);
-      goal->as<ompl::base::SE2StateSpace::StateType>()->setYaw(joint_values[2]);
+      start->as<ompl::base::SE2StateSpace::StateType>()->setXY(start_state_[0], start_state_[1]);
+      start->as<ompl::base::SE2StateSpace::StateType>()->setYaw(start_state_[2]);
+      goal->as<ompl::base::SE2StateSpace::StateType>()->setXY(goal_state_[0], goal_state_[1]);
+      goal->as<ompl::base::SE2StateSpace::StateType>()->setYaw(goal_state_[2]);
     }
 
   else if(planning_mode_ == hydra_gap_passing::PlanningMode::JOINTS_AND_BASE_MODE)
     {
-
-      joint_values[0] = 0;
-      joint_values[1] = 0.5;
-      joint_values[2] = 0.785;
-      joint_values[3] = 1.57;
-      joint_values[4] = 1.57;
-      joint_values[5] = 1.57;
-
       ompl::base::CompoundState* start_tmp = dynamic_cast<ompl::base::CompoundState*> (start.get());
-
-      start_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->setXY(joint_values[0], joint_values[1]);
-      start_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->setYaw(joint_values[2]);
-      start_tmp->as<ompl::base::RealVectorStateSpace::StateType>(1)->values[0] = joint_values[3];
-      start_tmp->as<ompl::base::RealVectorStateSpace::StateType>(1)->values[1] = joint_values[4];
-      start_tmp->as<ompl::base::RealVectorStateSpace::StateType>(1)->values[2] = joint_values[5];
+      start_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->setXY(start_state_[0], start_state_[1]);
+      start_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->setYaw(start_state_[2]);
 
       ompl::base::CompoundState* goal_tmp = dynamic_cast<ompl::base::CompoundState*> (goal.get());
-      goal_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->setXY(3, 0.05);
-      goal_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->setYaw(joint_values[2]);
-      goal_tmp->as<ompl::base::RealVectorStateSpace::StateType>(1)->values[0] = 1.57;
-      goal_tmp->as<ompl::base::RealVectorStateSpace::StateType>(1)->values[1] = 1.57;
-      goal_tmp->as<ompl::base::RealVectorStateSpace::StateType>(1)->values[2] = 1.57;
+      goal_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->setXY(goal_state_[0], goal_state_[1]);
+      goal_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->setYaw(goal_state_[2]);
 
+      for(int i = 0; i < link_num_ - 1; i ++)
+        {
+          start_tmp->as<ompl::base::RealVectorStateSpace::StateType>(1)->values[i] = start_state_[3 + i];
+          goal_tmp->as<ompl::base::RealVectorStateSpace::StateType>(1)->values[i] = goal_state_[3 + i];
+        }
 
     }
   else if(planning_mode_ == hydra_gap_passing::PlanningMode::ORIGINAL_MODE)
@@ -477,7 +447,11 @@ void MotionPlanning::Planning()
       //solved_ = gap_motion_planning(left_half_corner, right_half_corner, transform_controller_, start_state_, goal_state_, planning_path_, planning_scene_, collision_object_);
     }
 
-  current_state.setVariablePositions(joint_values); //not necessary?
+  //not necessary?
+  // robot_state::RobotState& current_state = planning_scene_->getCurrentStateNonConst();
+  // for(int i = 0; i < 6; i++)
+  //   joint_values[i] = current_state.getVariablePosition(i);
+  // current_state.setVariablePositions(joint_values); 
 
   if(planning_mode_ < hydra_gap_passing::PlanningMode::ORIGINAL_MODE)
     {
@@ -497,7 +471,6 @@ void MotionPlanning::Planning()
       stability_objective_->setCostThreshold(ompl::base::Cost(stability_cost_thre_));
       std::cout << "stability_objective  opt cost thre is "<<  stability_objective_->getCostThreshold() << std::endl;
 
-      
       ompl::base::OptimizationObjectivePtr lengthObj(path_length_opt_objective_);
       ompl::base::OptimizationObjectivePtr stabilityObj(stability_objective_);
 
@@ -547,6 +520,7 @@ void MotionPlanning::Planning()
       ros::Time start_time = ros::Time::now();
 
       ompl::base::PlannerStatus solved = planner->solve(solving_time_limit_);
+
       if (solved)
         {
 
@@ -615,21 +589,23 @@ void MotionPlanning::rosParamInit()
   nhp_.param("planning_mode", planning_mode_, 0); //ONLY_JOINTS_MODE
   nhp_.param("motion_sequence_rate", motion_sequence_rate_, 10.0);
 
-  start_state_.resize(6);
+  start_state_.resize(3 + link_num_ - 1);
   nhp_.param("start_state_x", start_state_[0], 0.0);
   nhp_.param("start_state_y", start_state_[1], 0.5);
   nhp_.param("start_state_theta", start_state_[2], 0.785);
-  nhp_.param("start_state_joint1", start_state_[3], -1.57);
-  nhp_.param("start_state_joint2", start_state_[4], -1.57);
-  nhp_.param("start_state_joint3", start_state_[5], -1.57);
-  goal_state_.resize(6);
+  goal_state_.resize(3 + link_num_ - 1);
   nhp_.param("goal_state_x", goal_state_[0], 3.0);
   nhp_.param("goal_state_y", goal_state_[1], 0.5);
   nhp_.param("goal_state_theta", goal_state_[2], 0.785);
-  nhp_.param("goal_state_joint1", goal_state_[3], -1.57);
-  nhp_.param("goal_state_joint2", goal_state_[4], -1.57);
-  nhp_.param("goal_state_joint3", goal_state_[5], -1.57);
 
+  for(int i = 0; i < link_num_ - 1; i++)
+    {
+      std::stringstream joint_no;
+      joint_no << i + 1;
+
+      nhp_.param(std::string("start_state_joint") + joint_no.str(), start_state_[3 + i], 0.0);
+      nhp_.param(std::string("goal_state_joint") + joint_no.str(), goal_state_[3 + i], 0.0);
+    }
 
   nhp_.param("real_robot_move_base", real_robot_move_base_, false);
 
@@ -653,7 +629,9 @@ void MotionPlanning::rosParamInit()
 
 ompl::base::Cost MotionPlanning::onlyJointPathLimit()
 {
-  double cost = fabs(start_state_[3] - goal_state_[3]) + fabs(start_state_[4] - goal_state_[4]) + fabs(start_state_[5] - goal_state_[5]) + 0.1;
+  double cost = 0.1;
+  for(int i = 0; i < link_num_ - 1; i ++)
+    cost += fabs(start_state_[3 + i] - goal_state_[3 + i]);
   return ompl::base::Cost(cost);
 }
 

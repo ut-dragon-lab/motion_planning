@@ -13,8 +13,11 @@ MotionControl::MotionControl(ros::NodeHandle nh, ros::NodeHandle nhp, boost::sha
   nhp_.param("backward_offset", backward_offset_, 100);
   nhp_.param("forward_offset", forward_offset_, 100);
 
+
   if(play_log_path_) log_flag_ = false;
   nhp_.param("file_name", file_name_, std::string("planning_log.txt"));
+
+
 
   //subscriber
   control_flag_sub_ = nh_.subscribe<std_msgs::UInt8>("hydra/motion_control", 1, &MotionControl::controlFlagCallback, this, ros::TransportHints().tcpNoDelay());
@@ -29,6 +32,7 @@ MotionControl::MotionControl(ros::NodeHandle nh, ros::NodeHandle nhp, boost::sha
   move_cmd_pub_ = nh_.advertise<aerial_robot_base::FlightNav>("hoge", 1);
 
   transform_controller_ = transform_controller;
+  link_num_ = transform_controller_->getLinkNum();
 
   //init
   planning_path_.resize(0);
@@ -45,12 +49,7 @@ MotionControl::MotionControl(ros::NodeHandle nh, ros::NodeHandle nhp, boost::sha
 
   if(play_log_path_) planFromFile();
 
-  real_states_.resize(3 + transform_controller_->getLinkNum() -1);
-  // for(int i = 0; i < (int)real_states_.size(); i++)
-  //   {
-  //     real_states_[i] = 0;
-  //     ROS_WARN("okok");
-  //   }
+  real_states_.resize(3 + link_num_ -1, 0);
 
 
   control_flag_ = false;
@@ -102,9 +101,7 @@ void MotionControl::setJointStates(std::vector<double> joint_states)
   for(int i = 0; i <  (int)joint_states.size(); i ++)
     {
       real_states_[i + 3] = joint_states[i];
-      //std::cout << "joint " << i+ 1 << ": "<< real_states_[i+3] <<std::endl;
     }
-  //std::cout <<  " " <<std::endl;
 }
 
 void MotionControl::planStoring(const ompl::base::StateStorage* plan_states, int planning_mode, const std::vector<double>& start_state, const std::vector<double>& goal_state,  double best_cost, double calculation_time)
@@ -135,10 +132,9 @@ void MotionControl::planStoring(const ompl::base::StateStorage* plan_states, int
             {
               if(planning_mode == hydra_gap_passing::PlanningMode::ONLY_JOINTS_MODE)
                 {
-              //joints value
-              state.state_values[3] = plan_states->getState(i)->as<ompl::base::RealVectorStateSpace::StateType>()->values[0];
-              state.state_values[4] = plan_states->getState(i)->as<ompl::base::RealVectorStateSpace::StateType>()->values[1];
-              state.state_values[5] = plan_states->getState(i)->as<ompl::base::RealVectorStateSpace::StateType>()->values[2];
+                  //joints value
+                  for(int j = 0; j < link_num_ - 1; j++)
+                    state.state_values[3 + j] = plan_states->getState(i)->as<ompl::base::RealVectorStateSpace::StateType>()->values[j];
                 }
               else if(planning_mode == hydra_gap_passing::PlanningMode::JOINTS_AND_BASE_MODE)
                 {
@@ -146,9 +142,8 @@ void MotionControl::planStoring(const ompl::base::StateStorage* plan_states, int
                   state.state_values[0] = state_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->getX();
                   state.state_values[1] = state_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->getY();
                   state.state_values[2] = state_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->getYaw();
-                  state.state_values[3] = state_tmp->as<ompl::base::RealVectorStateSpace::StateType>(1)->values[0];
-                  state.state_values[4] = state_tmp->as<ompl::base::RealVectorStateSpace::StateType>(1)->values[1];
-                  state.state_values[5] = state_tmp->as<ompl::base::RealVectorStateSpace::StateType>(1)->values[2];
+                  for(int j = 0; j < link_num_ - 1; j++)
+                    state.state_values[3 + j] = state_tmp->as<ompl::base::RealVectorStateSpace::StateType>(1)->values[j];
                 }
 
               // dist thre
@@ -244,12 +239,15 @@ void MotionControl::planStoring(const ompl::base::StateStorage* plan_states, int
     {
       std::ofstream ofs;
       ofs.open( "planning_log.txt" );
-      ofs << "start_state: " << start_state[0] << " " <<start_state[1] << " " << 
-        start_state[2] << " " << start_state[3] <<  " " << start_state[4] <<
-        " " << start_state[5] << std::endl;
-      ofs << "goal_state: " << goal_state[0] << " " <<goal_state[1] << " " <<
-        goal_state[2] << " " << goal_state[3] << " " <<goal_state[4] << " " << 
-        goal_state[5] << std::endl;
+      ofs << "start_state: ";
+      for(int j = 0; j < 3 + link_num_ -1;  j++)
+        ofs<< start_state[j] << " ";
+      ofs << std::endl;
+
+      ofs << "goal_state: ";
+      for(int j = 0; j < 3 + link_num_ -1;  j++)
+        ofs << goal_state[j] << " ";
+      ofs << std::endl;
 
       ofs << "states: " << state_list  << std::endl;
       ofs << "planning_mode: " << planning_mode << std::endl;
@@ -263,11 +261,11 @@ void MotionControl::planStoring(const ompl::base::StateStorage* plan_states, int
 
       for(int k = 0; k < state_list;  k++)
         {
-          ofs << "state" << k << ": " << planning_path_[k].state_values[0] << " " 
-              << planning_path_[k].state_values[1] << " " << planning_path_[k].state_values[2] 
-              << " " <<planning_path_[k].state_values[3] << " " <<planning_path_[k].state_values[4] 
-              << " " <<planning_path_[k].state_values[5] << " " <<planning_path_[k].stable_mode 
-              << " " <<planning_path_[k].dist_thre_value << std::endl;
+          ofs << "state" << k << ": ";
+          for(int j = 0; j < 3 + link_num_ -1;  j++)
+            ofs << planning_path_[k].state_values[j] << " ";
+          ofs << planning_path_[k].stable_mode << " " 
+              << planning_path_[k].dist_thre_value << std::endl;
           ofs << "gains: ";
           for(int x = 0; x < planning_path_[k].k.rows(); x++)
             for(int y = 0; y < planning_path_[k].k.cols(); y++)
@@ -291,8 +289,8 @@ void MotionControl::planFromFile()
     }
 
   //hard code
-  std::vector<double> start_state(6,0);
-  std::vector<double> goal_state(6,0);
+  std::vector<double> start_state(3 + link_num_ -1, 0);
+  std::vector<double> goal_state(3 + link_num_ -1, 0);
   int state_list;
   std::stringstream ss[11];
   std::string str;
@@ -300,19 +298,25 @@ void MotionControl::planFromFile()
   //1 start and goal state
   std::getline(ifs, str);
   ss[0].str(str);
-  ss[0] >> header >> start_state[0] >> start_state[1] >> start_state[2] 
-     >> start_state[3] >> start_state[4] >> start_state[5];
+  ss[0] >> header;
+  for(int j = 0; j < 3 + link_num_ -1;  j++)
+    ss[0] >> start_state[j];
   std::cout << header << std::endl;
   std::getline(ifs, str);
   ss[1].str(str);
-  ss[1] >> header >> goal_state[0] >> goal_state[1] >> goal_state[2] 
-     >> goal_state[3] >> goal_state[4] >> goal_state[5];
+  ss[1] >> header;
+  for(int j = 0; j < 3 + link_num_ -1;  j++)
+    ss[1] >> goal_state[j];
   std::cout << header << std::endl;
-  ROS_WARN("from (%f, %f, %f, %f, %f, %f) to (%f, %f, %f, %f, %f, %f)",
-           start_state[0], start_state[1], start_state[2],
-           start_state[3], start_state[4], start_state[5],
-           goal_state[0], goal_state[1], goal_state[2],
-           goal_state[3], goal_state[4], goal_state[5]);
+
+  //print out
+  std::cout << "from (";
+  for(int j = 0; j < 3 + link_num_ -1;  j++)
+    std::cout << start_state[j] << " ";
+  std::cout <<  ")  to (";
+  for(int j = 0; j < 3 + link_num_ -1;  j++)
+    std::cout << goal_state[j] << " ";
+  std::cout << ") " << std::endl;
 
   //states size, planning time, motion cost
   std::getline(ifs, str);
@@ -357,12 +361,14 @@ void MotionControl::planFromFile()
     {
       std::stringstream ss_tmp[3];
       conf_values state;
+      state.state_values.resize(3 + link_num_ -1, 0);
       std::getline(ifs, str);
       ss_tmp[0].str(str);
 
-      ss_tmp[0] >> header >> state.state_values[0] >> state.state_values[1]
-       >> state.state_values[2] >> state.state_values[3] >>state.state_values[4]
-       >> state.state_values[5] >> state.stable_mode >> state.dist_thre_value;
+      ss_tmp[0] >> header;;
+      for(int j = 0; j < 3 + link_num_ -1;  j++)
+        ss_tmp[0] >> state.state_values[j];
+      ss_tmp[0] >> state.stable_mode >> state.dist_thre_value;
 
       std::getline(ifs, str);
       ss_tmp[1].str(str);
@@ -435,7 +441,6 @@ void MotionControl::robotStateCallback(const aerial_robot_base::StatesConstPtr& 
   setMoveBaseStates(move_base_state);
 }
 
-
 void MotionControl::moveCmd()
 {
   //TODO
@@ -451,9 +456,8 @@ void MotionControl::jointCmd()
       if(control_flag_) 
         {
           sensor_msgs::JointState ctrl_joint_msg;
-          int temp = planning_path_[joint_index].state_values.size();
           ctrl_joint_msg.position.resize(0);
-          for(int i = 3; i < temp; i ++)
+          for(int i = 3; i < 3 + link_num_ -1; i ++)
             ctrl_joint_msg.position.push_back(planning_path_[joint_index].state_values[i]);
           joint_cmd_pub_.publish(ctrl_joint_msg);
           joint_index ++;
@@ -474,7 +478,7 @@ void MotionControl::gainCmd()
       if(control_flag_) 
         {
           //find the index for real robot state
-          std::vector<double> real_states(6,0);
+          std::vector<double> real_states(3 + link_num_ -1,0);
           getRealStates(real_states);
           int start_index = ((control_index_ - backward_offset_ < 0)?  0 : control_index_ - backward_offset_);
           int goal_index =  ((control_index_ + forward_offset_ > planning_path_.size())? planning_path_.size()  : control_index_ + forward_offset_);
@@ -483,7 +487,7 @@ void MotionControl::gainCmd()
           for(int i = start_index ; i < goal_index; i++)
             {
               double diff = 0;
-              for(int j = 3; j < 3+3; j++) //3 is link num
+              for(int j = 3; j < 3+link_num_-1; j++) //3 is link num
                 diff += ((real_states[j] - planning_path_[i].state_values[j]) *
                          (real_states[j] - planning_path_[i].state_values[j]));
               if(diff < min) 

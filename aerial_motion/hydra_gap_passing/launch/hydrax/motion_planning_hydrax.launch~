@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <launch>
+
+  <arg name="model" default="Hydra_hex" /> 
+  <arg name="start_angle" defaul="1.0472" /> <!-- penta:1.256, hex: 1.0471-->
+  <arg name="goal_angle" default="-1.0472" /> 
+
 <!-- Debug Info -->
 <arg name="debug" default="false" />
 <arg unless="$(arg debug)" name="launch_prefix" value="" />
@@ -14,38 +19,30 @@
   <param name="motion_sequence_rate" value="50"/>
   <param name="ompl_mode" value="0"/> <!-- RRT START:0 -->
 
-<!--
-  <param name="gap_x_offset" value="-0.3"/> 
-  <param name="gap_y_offset" value="0.8"/> 
--->
-<!--
-  <param name="gap_x_offset" value="0.6"/> 
-  <param name="gap_y_offset" value="0.6"/> 
-
-  <param name="gap_left_width" value="0.4"/> 
-  <param name="gap_right_width" value="0.6"/>  
-
-  <param name="start_state_y" value="0.0"/> 
--->
   <param name="gap_x_offset" value="0.45"/> 
   <param name="gap_y_offset" value="0"/> 
 
   <param name="gap_left_width" value="0.03"/> 
   <param name="gap_right_width" value="0.029"/>  
-<!--  <param name="start_state_y" value="-0.2"/> -->
 
-  <param name="start_state_joint1" value="1.57"/> 
-  <param name="start_state_joint2" value="1.57"/> 
-  <param name="start_state_joint3" value="1.57"/> 
-  <param name="goal_state_joint1" value="1.57"/> 
-  <param name="goal_state_joint2" value="0"/> 
-  <param name="goal_state_joint3" value="0"/> 
+  <param name="start_state_joint1" value="$(arg start_angle)"/> 
+  <param name="start_state_joint2" value="$(arg start_angle)"/> 
+  <param name="start_state_joint3" value="$(arg start_angle)"/> 
+  <param name="start_state_joint4" value="$(arg start_angle)"/> 
+  <param name="start_state_joint5" value="$(arg start_angle)"/> 
+
+  <param name="goal_state_joint1" value="$(arg goal_angle)"/> 
+  <param name="goal_state_joint2" value="$(arg goal_angle)"/> 
+  <param name="goal_state_joint3" value="$(arg goal_angle)"/> 
+  <param name="goal_state_joint4" value="$(arg goal_angle)"/> 
+  <param name="goal_state_joint5" value="$(arg goal_angle)"/> 
+
 
   <param name="state_validity_check_res" value="0.03"/>
   <param name="valid_segment_count_factor" value="20"/> <!--20-->
 
   <!-- for transform controller -->
-  <rosparam file="$(find hydra_transform_control)/config/Hydra3.yaml" command="load" />
+  <rosparam file="$(find hydra_transform_control)/config/hydrax/$(arg model).yaml" command="load" />
   <param name="debug_log" type="bool" value="false"/>
 
   <param name="solving_time_limit" type="double" value="3600"/>
@@ -62,9 +59,8 @@
 
   <!-- for motion control -->
   <param name="play_log_path" type="bool" value="false"/> 
-  <param name="file_name" value="$(find hydra_gap_passing)/path_log/planning_log_only_path_0p04_new3_1.txt" />
+  <param name="file_name" value="$(find hydra_gap_passing)/path_log/planning_log.txt" />
 
-  <!-- for joint only plan, use joint state -->
   <remap from="/hydra/joints_ctrl" to="/joint_states" /> 
 
 </node>
