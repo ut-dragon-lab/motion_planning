@@ -13,7 +13,16 @@
 class StateValidity
 {
 public:
+  StateValidity(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<TransformController>  transform_controller);
+  ~StateValidity();
+
+
 private:
+  ros::NodeHandle nh_;
+  ros::NodeHandle nhp_;
+  boost::shared_ptr<TransformController> transform_controller_;
+
+  double interval_;
 
 };
 
