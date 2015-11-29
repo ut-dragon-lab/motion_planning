@@ -64,6 +64,8 @@
   <param name="play_log_path" type="bool" value="false"/> 
   <param name="file_name" value="$(find hydra_gap_passing)/path_log/planning_log_only_path_0p04_new3_1.txt" />
 
+  <!-- for joint only plan, use joint state -->
+  <remap from="/hydra/joints_ctrl" to="/joint_states" /> 
 
 </node>
 </launch>

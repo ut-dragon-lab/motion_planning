@@ -39,7 +39,7 @@ struct configuration_space{
   int control_mode;
   configuration_space()
   {
-    state_values.resize(6);
+    state_values.resize(0);
     stable_mode = 0;
     dist_thre_value = 0;
     //k = Eigen::MatrixXd::Zero(4, 12);
@@ -106,12 +106,15 @@ class MotionControl
     min_dist_state_indexs[1] = minimum_y_performance_state_;
   }
 
+  ros::Publisher joint_cmd_pub_; //joints control
+
+
+
  private:
   ros::NodeHandle nh_;
   ros::NodeHandle nhp_;
 
   //control component
-  ros::Publisher joint_cmd_pub_; //joints control
   ros::Publisher move_cmd_pub_; // move base control
 
   ros::Subscriber control_flag_sub_;
@@ -126,6 +129,7 @@ class MotionControl
   boost::mutex real_state_mutex_;
 
   boost::shared_ptr<TransformController> transform_controller_;
+  std::vector<conf_values> planning_path_; 
 
 
   bool control_flag_;
@@ -139,10 +143,12 @@ class MotionControl
   bool play_log_path_;//if true, use file, if false, get form realtime thing
   bool log_flag_;//log info to file?
 
-  std::vector<conf_values> planning_path_;
+
   //std::vector<conf_values> real_robot_path_;
 
   std::string file_name_;
+
+  int link_num_;
 
   //some additional 
   double best_cost_;

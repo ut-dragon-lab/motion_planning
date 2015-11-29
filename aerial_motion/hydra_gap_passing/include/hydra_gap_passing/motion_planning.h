@@ -49,7 +49,6 @@
 #include <vector>
 #include <sstream>
 
-
 class StabilityObjective :public ompl::base::StateCostIntegralObjective
 {
  public:
