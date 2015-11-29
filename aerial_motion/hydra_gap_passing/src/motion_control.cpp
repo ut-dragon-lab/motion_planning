@@ -363,11 +363,9 @@ void MotionControl::planFromFile()
       std::getline(ifs, str);
       ss_tmp[0].str(str);
 
-      ROS_INFO("start %d", k + 1);
 
       ss_tmp[0] >> header >> state.state_values[0] >> state.state_values[1] >> state.state_values[2] >> state.state_values[3] >>state.state_values[4] >> state.state_values[5] >> state.stable_mode >> state.dist_thre_value;
 
-      ROS_INFO("start1");
 
       std::getline(ifs, str);
       ss_tmp[1].str(str);
@@ -378,21 +376,16 @@ void MotionControl::planFromFile()
       if(state.stable_mode == TransformController::LQI_THREE_AXIS_MODE)
         state.k = Eigen::MatrixXd::Zero(4, 9);
 
-      ROS_INFO("start2");
-
       for(int x = 0; x < state.k.rows(); x++)
         for(int y = 0; y < state.k.cols(); y++)
           ss_tmp[1] >> state.k(x,y);
 
-      ROS_INFO("start3");
       std::getline(ifs, str);
       ss_tmp[2].str(str);
       ss_tmp[2] >> header >> state.angle_cos >> state.angle_sin;
 
-      ROS_INFO("start4");
       planning_path_.push_back(state);
 
-      ROS_INFO("start5");
       //debug
       //ROS_INFO("state%d: joint1: %f",k , planning_path_[k].state_values[3]);
       // std::cout << "state: " << k << std::endl;
