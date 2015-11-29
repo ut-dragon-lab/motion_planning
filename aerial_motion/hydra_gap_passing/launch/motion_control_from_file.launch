@@ -13,7 +13,7 @@
   <rosparam file="$(find hydra_transform_control)/config/Hydra3.yaml" command="load" />
   <param name="debug_log" type="bool" value="false"/>
 
-  <param name="gain_cmd_rate" type="double" value="20.0" />
+  <param name="gain_cmd_rate" type="double" value="10.0" />
   <param name="joint_cmd_rate" type="double" value="20.0" />
   <!-- test -->
 <!--  <remap from="/hydra/joints_ctrl" to="/joint_states" /> -->

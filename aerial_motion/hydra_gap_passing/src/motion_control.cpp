@@ -1,6 +1,5 @@
 #include <hydra_gap_passing/motion_control.h>
 
-
 MotionControl::MotionControl(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<TransformController>  transform_controller): nh_(nh), nhp_(nhp)
 {
   nhp_.param("log_flag", log_flag_, false);
@@ -15,6 +14,7 @@ MotionControl::MotionControl(ros::NodeHandle nh, ros::NodeHandle nhp, boost::sha
 
   if(play_log_path_) log_flag_ = false;
   nhp_.param("file_name", file_name_, std::string("planning_log.txt"));
+
 
   //subscriber
   control_flag_sub_ = nh_.subscribe<std_msgs::UInt8>("hydra/motion_control", 1, &MotionControl::controlFlagCallback, this, ros::TransportHints().tcpNoDelay());
@@ -59,7 +59,7 @@ MotionControl::MotionControl(ros::NodeHandle nh, ros::NodeHandle nhp, boost::sha
   if(planning_mode_ != hydra_gap_passing::PlanningMode::ONLY_BASE_MODE)
     {
       joint_cmd_thread_ = boost::thread(boost::bind(&MotionControl::jointCmd, this));
-      gain_cmd_thread_ = boost::thread(boost::bind(&MotionControl::gainCmd, this));
+      //gain_cmd_thread_ = boost::thread(boost::bind(&MotionControl::gainCmd, this));
 
     }
   if(planning_mode_ != hydra_gap_passing::PlanningMode::ONLY_JOINTS_MODE)
