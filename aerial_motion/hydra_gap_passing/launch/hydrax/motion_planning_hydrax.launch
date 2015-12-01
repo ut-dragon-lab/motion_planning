@@ -58,8 +58,8 @@
     <param name="log_flag" type="bool" value="true" />
 
     <!-- for motion control -->
-    <param name="play_log_path" type="bool" value="false"/> 
-    <param name="file_name" value="$(find hydra_gap_passing)/path_log/planning_log.txt" />
+    <param name="play_log_path" type="bool" value="true"/> 
+    <param name="file_name" value="$(find hydra_gap_passing)/path_log/planning_log_hydra_pendagon_thre_0p12.txt" />
 
     <remap from="/hydra/joints_ctrl" to="/joint_states" /> 
 
