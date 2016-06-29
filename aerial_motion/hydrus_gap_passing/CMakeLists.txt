@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(hydra_gap_passing)
+project(hydrus_gap_passing)
 
 find_package(catkin REQUIRED COMPONENTS
   roscpp
@@ -10,8 +10,7 @@ find_package(catkin REQUIRED COMPONENTS
   moveit_core
   moveit_ros_planning_interface
   pluginlib
-  aerial_robot_base
-  hydra_transform_control
+  hydrus_transform_control
   cmake_modules
 )
 
@@ -23,7 +22,7 @@ generate_messages(DEPENDENCIES std_msgs)
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES motion_planning
-  CATKIN_DEPENDS roscpp  geometry_msgs sensor_msgs tf  moveit_msgs  moveit_core  moveit_ros_planning_interface  pluginlib  hydra_transform_control   aerial_robot_base message_runtime
+  CATKIN_DEPENDS roscpp  geometry_msgs sensor_msgs tf  moveit_msgs  moveit_core  moveit_ros_planning_interface  pluginlib  hydrus_transform_control   aerial_robot_base message_runtime
 )
 
 

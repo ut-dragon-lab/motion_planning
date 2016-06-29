@@ -5,10 +5,10 @@
 <arg unless="$(arg debug)" name="launch_prefix" value="" />
 <arg if="$(arg debug)" name="launch_prefix" value="gdb --ex run --args" />
 
-<node name="motion_planning_node" pkg="hydra_gap_passing" type="motion_planning_node" respawn="false" launch-prefix="$(arg launch_prefix)" output="screen">
-  <rosparam command="load" file="$(find hydra_moveit_config)/config/kinematics.yaml"/>
+<node name="motion_planning_node" pkg="hydrus_gap_passing" type="motion_planning_node" respawn="false" launch-prefix="$(arg launch_prefix)" output="screen">
+  <rosparam command="load" file="$(find hydrus_moveit_config)/config/hydrus3/kinematics.yaml"/>
   <param name="planning_plugin" value="ompl_interface/OMPLPlanner"/>
-  <rosparam command="load" file="$(find hydra_moveit_config)/config/ompl_planning.yaml"/>
+  <rosparam command="load" file="$(find hydrus_moveit_config)/config/hydrus3/ompl_planning.yaml"/>
   <param name="coefficient_rate" value="0.05"/> 
   <param name="planning_mode" value="0"/> 
   <param name="motion_sequence_rate" value="50"/>
@@ -45,7 +45,7 @@
   <param name="valid_segment_count_factor" value="20"/> <!--20-->
 
   <!-- for transform controller -->
-  <rosparam file="$(find hydra_transform_control)/config/Hydra3.yaml" command="load" />
+  <rosparam file="$(find hydrus_transform_control)/config/hydrus3/TransformControl.yaml" command="load" />
   <param name="debug_log" type="bool" value="false"/>
 
   <param name="solving_time_limit" type="double" value="3600"/>
@@ -62,10 +62,10 @@
 
   <!-- for motion control -->
   <param name="play_log_path" type="bool" value="false"/> 
-  <param name="file_name" value="$(find hydra_gap_passing)/path_log/planning_log_only_path_0p04_new3_1.txt" />
+  <param name="file_name" value="$(find hydrus_gap_passing)/path_log/planning_log_only_path_0p04_new3_1.txt" />
 
   <!-- for joint only plan, use joint state -->
-  <remap from="/hydra/joints_ctrl" to="/joint_states" /> 
+  <remap from="/hydrus/joints_ctrl" to="/joint_states" /> 
 
 </node>
 </launch>
