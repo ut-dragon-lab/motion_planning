@@ -35,8 +35,8 @@ add_executable(state_validation_node src/state_validation_node.cpp)
 target_link_libraries (state_validation_node ${catkin_LIBRARIES}  ${Boost_LIBRARIES} ) 
 
 
-add_executable(state_state_validity_check src/state_state_validity_check.cpp)
-target_link_libraries (state_state_validity_check ${catkin_LIBRARIES}  ${Boost_LIBRARIES} ) 
+#add_executable(state_validity_check src/state_validity_check.cpp)
+#target_link_libraries (state_validity_check ${catkin_LIBRARIES}  ${Boost_LIBRARIES} ) 
 
 
 
