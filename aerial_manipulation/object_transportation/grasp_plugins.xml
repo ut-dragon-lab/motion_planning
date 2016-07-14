@@ -1,0 +1,11 @@
+<library path="lib/libsensor_pluginlib">
+  <class name="grasp_plugin/eletromagnet" type="grasp_plugin::Eletromagnet" base_class_type="grasp_base_plugin::GraspBase">
+    <description>Eletromagnet grasp plugin.</description>
+  </class>
+
+  <class name="grasp_plugin/hydrus" type="grasp_plugin::Hydrus" base_class_type="grasp_base_plugin::GraspBase">
+    <description>Hydrus grasp plugin.</description>
+  </class>
+
+
+</library>
