@@ -1,4 +1,4 @@
-<library path="lib/libsensor_pluginlib">
+<library path="lib/libgrasp_pluginlib">
   <class name="grasp_plugin/eletromagnet" type="grasp_plugin::Eletromagnet" base_class_type="grasp_base_plugin::GraspBase">
     <description>Eletromagnet grasp plugin.</description>
   </class>

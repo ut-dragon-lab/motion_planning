@@ -34,8 +34,6 @@ namespace grasp_plugin
     ~Eletromagnet() {}
     Eletromagnet() {}
 
-    static const int TIME_SYNC_CALIB_COUNT = 10;
-
   private:
     ros::NodeHandle nh_;
     ros::NodeHandle nhp_;

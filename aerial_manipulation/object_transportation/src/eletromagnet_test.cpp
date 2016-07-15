@@ -10,10 +10,11 @@ int main(int argc, char** argv)
   ros::NodeHandle nhp("~");
 
   pluginlib::ClassLoader<grasp_base_plugin::GraspBase> grasp_loader("object_transportation", "grasp_base_plugin::GraspBase");
+  boost::shared_ptr<grasp_base_plugin::GraspBase> eletro_magnet;
 
   try
      {
-       boost::shared_ptr<grasp_base_plugin::GraspBase> eletro_magnet  = grasp_loader.createInstance("grasp_plugin/eletro_magnet");
+       eletro_magnet  = grasp_loader.createInstance("grasp_plugin/eletromagnet");
        eletro_magnet->initialize(nh, nhp);
 
        ROS_INFO("Result OK");
@@ -22,6 +23,8 @@ int main(int argc, char** argv)
      {
        ROS_ERROR("The plugin failed to load for some reason. Error: %s", ex.what());
      }
+
+  ros::spin();
 
    return 0;
 }
