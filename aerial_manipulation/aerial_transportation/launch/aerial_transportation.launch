@@ -1,0 +1,7 @@
+<launch>
+
+  <node pkg="aerial_transportation" name="aerial_transportation" type="aerial_transportation_node" output="screen">
+    <param name="debug" type="bool" value="false" />
+  </node>
+
+</launch>

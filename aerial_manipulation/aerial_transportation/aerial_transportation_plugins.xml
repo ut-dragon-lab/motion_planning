@@ -1,0 +1,12 @@
+<library path="lib/libaerial_transportation_pluginlib">
+  <class name="aerial_transportation/eletromagnet" type="aerial_transportation::Eletromagnet" base_class_type="aerial_transportation::Base">
+    <description>Eletromagnet transpotation plugin.</description>
+  </class>
+
+<!--
+  <class name="transpotation_plugin/hydrus" type="transpotation_plugin::Hydrus" base_class_type="transpotation_base_plugin::TranspotationBase">
+    <description>Hydrus transpotation plugin.</description>
+  </class>
+-->
+
+</library>

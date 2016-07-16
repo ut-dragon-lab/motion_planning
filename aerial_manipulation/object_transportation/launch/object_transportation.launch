@@ -1,7 +1,0 @@
-<launch>
-
-  <node pkg="object_transportation" name="object_transportation" type="object_transportation_node" >
-    <param name="debug" type="bool" value="false" />
-  </node>
-
-</launch>

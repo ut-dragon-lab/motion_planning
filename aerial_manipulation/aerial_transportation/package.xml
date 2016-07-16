@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <package>
-  <name>object_transportation</name>
+  <name>aerial_transportation</name>
   <version>0.0.0</version>
-  <description>The object_transportation package</description>
+  <description>The aerial_transportation package</description>
 
   <!-- One maintainer tag required, multiple allowed, one person per tag --> 
   <!-- Example:  -->
@@ -19,7 +19,7 @@
   <!-- Url tags are optional, but mutiple are allowed, one per tag -->
   <!-- Optional attribute type can be: website, bugtracker, or repository -->
   <!-- Example: -->
-  <!-- <url type="website">http://wiki.ros.org/object_transportation</url> -->
+  <!-- <url type="website">http://wiki.ros.org/aerial_transportation</url> -->
 
 
   <!-- Author tags are optional, mutiple are allowed, one per tag -->
@@ -40,7 +40,6 @@
   <!-- Use test_depend for packages you need only for testing: -->
   <!--   <test_depend>gtest</test_depend> -->
   <buildtool_depend>catkin</buildtool_depend>
-  <build_depend>aerial_robot_msgs</build_depend>
   <build_depend>aerial_robot_base</build_depend>
   <build_depend>dynamic_reconfigure</build_depend>
   <build_depend>geometry_msgs</build_depend>
@@ -50,7 +49,6 @@
   <build_depend>rospy</build_depend>
   <build_depend>std_msgs</build_depend>
   <build_depend>tf</build_depend>
-  <run_depend>aerial_robot_msgs</run_depend>
   <run_depend>aerial_robot_base</run_depend>
   <run_depend>dynamic_reconfigure</run_depend>
   <run_depend>geometry_msgs</run_depend>
@@ -64,7 +62,7 @@
 
   <!-- The export tag contains other, unspecified, tags -->
   <export>
-    <object_transportation plugin="${prefix}/grasp_plugins.xml" /> 
+    <aerial_transportation plugin="${prefix}/aerial_transportation_plugins.xml" /> 
 
   </export>
 </package>
