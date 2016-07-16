@@ -45,8 +45,9 @@ namespace aerial_transportation
     nhp_.param("object_head_direction", object_head_direction_, false);
 
     nhp_.param("object_height", object_height_, 0.2);
-    nhp_.param("falling_speed", falling_speed_, -0.04);
+    nhp_.param("falling_speed", falling_speed_, 0.04);
     nhp_.param("grasping_height_offset", grasping_height_offset_, -0.01);
+    nhp_.param("ascending_speed", ascending_speed_, 0.1);
 
     nhp_.param("transportation_threshold", transportation_threshold_, 0.1);
     nhp_.param("transportation_count", transportation_count_, 2.0); //sec
@@ -143,6 +144,7 @@ namespace aerial_transportation
           if(delta.length() < vel_nav_threshold_)
             {
               aerial_robot_base::FlightNav nav_msg;
+	      nav_msg.header.stamp = ros::Time::now();
               nav_msg.pos_xy_nav_mode = aerial_robot_base::FlightNav::POS_MODE;
               nav_msg.target_pos_x = object_position_.x + object_offset_.x();
               nav_msg.target_pos_y = object_position_.y + object_offset_.y();
@@ -201,17 +203,23 @@ namespace aerial_transportation
         }
       case GRASPED_PHASE:
         {
+	  /* height calc part */
+	  target_height_ += (ascending_speed_ / func_loop_rate_);
+	  if(target_height_ > (box_point_.z + object_height_ + dropping_offset_))
+	    target_height_ = box_point_.z + object_height_ + dropping_offset_;
+
           /* send nav msg */
           aerial_robot_base::FlightNav nav_msg;
+	  nav_msg.header.stamp = ros::Time::now();
           nav_msg.pos_xy_nav_mode = aerial_robot_base::FlightNav::VEL_MODE;
           nav_msg.target_vel_x = 0;
           nav_msg.target_vel_y = 0;
           nav_msg.pos_z_nav_mode = aerial_robot_base::FlightNav::POS_MODE;
-          nav_msg.target_pos_z = box_point_.z + object_height_ + dropping_offset_;
+          nav_msg.target_pos_z = target_height_;
           nav_msg.psi_nav_mode = aerial_robot_base::FlightNav::NO_NAVIGATION;
           uav_nav_pub_.publish(nav_msg);
 
-          if(fabs(nav_msg.target_pos_z - uav_position_.position.z)  < 0.05) //0.05m, hard-coding
+          if(fabs(box_point_.z + object_height_ + dropping_offset_ - uav_position_.position.z)  < 0.05) //0.05m, hard-coding
             {
               ROS_INFO("Shift to TRANSPORT_PHASE");
               phase_ = TRANSPORT_PHASE;
@@ -227,6 +235,7 @@ namespace aerial_transportation
           if(delta.length() < vel_nav_threshold_)
             {
               aerial_robot_base::FlightNav nav_msg;
+	      nav_msg.header.stamp = ros::Time::now();
               nav_msg.pos_xy_nav_mode = aerial_robot_base::FlightNav::POS_MODE;
               nav_msg.target_pos_x = box_point_.x + box_offset_.x();
               nav_msg.target_pos_y = box_point_.y + box_offset_.y();
@@ -247,6 +256,7 @@ namespace aerial_transportation
                 }
 
               aerial_robot_base::FlightNav nav_msg;
+	      nav_msg.header.stamp = ros::Time::now();
               nav_msg.pos_xy_nav_mode = aerial_robot_base::FlightNav::VEL_MODE;
               nav_msg.target_vel_x = nav_vel.x();
               nav_msg.target_vel_y = nav_vel.y();
@@ -279,6 +289,7 @@ namespace aerial_transportation
           if(delta.length() < vel_nav_threshold_)
             {// shift to pos nav and also shift to idle phase
               aerial_robot_base::FlightNav nav_msg;
+	      nav_msg.header.stamp = ros::Time::now();
               nav_msg.pos_xy_nav_mode = aerial_robot_base::FlightNav::POS_MODE;
               nav_msg.target_pos_x = uav_init_position_.position.x;
               nav_msg.target_pos_y = uav_init_position_.position.y;
@@ -302,6 +313,7 @@ namespace aerial_transportation
                 }
 
               aerial_robot_base::FlightNav nav_msg;
+	      nav_msg.header.stamp = ros::Time::now();
               nav_msg.pos_xy_nav_mode = aerial_robot_base::FlightNav::VEL_MODE;
               nav_msg.target_vel_x = nav_vel.x();
               nav_msg.target_vel_y = nav_vel.y();

@@ -1,2 +1,9 @@
 aerial_transportation_plugin_name: aerial_transportation/eletromagnet
 grasped_num: 4
+
+vel_nav_threshold: 0.2
+nav_vel_limit: 0.3
+approach_threshold: 0.1
+approach_count: 1.0
+transportation_count: 1.0
+ascending_speed: 0.2

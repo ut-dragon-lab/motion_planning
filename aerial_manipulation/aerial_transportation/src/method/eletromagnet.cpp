@@ -55,6 +55,7 @@ namespace aerial_transportation
               ROS_WARN("Pick the object up!! Shift to GRSPED_PHASE");
               phase_ = GRASPED_PHASE;
               contact_cnt_ = 0;
+	      target_height_ = uav_position_.position.z;
 
               std_msgs::Empty msg;
               grasp_pub_.publish(msg);
@@ -104,6 +105,7 @@ namespace aerial_transportation
 
     /* send nav msg */
     aerial_robot_base::FlightNav nav_msg;
+    nav_msg.header.stamp = ros::Time::now();
     nav_msg.pos_xy_nav_mode = aerial_robot_base::FlightNav::POS_MODE;
     nav_msg.target_pos_x = object_position_.x + object_offset_.x();
     nav_msg.target_pos_y = object_position_.y + object_offset_.y();

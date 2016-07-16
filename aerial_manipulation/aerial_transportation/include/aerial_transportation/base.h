@@ -59,6 +59,7 @@ namespace aerial_transportation
     double object_height_; //TODO: should be detected!!!
     double falling_speed_; //the vel to fall down to object
     double grasping_height_offset_; //the offset between the bottom of uav and the top plat of object
+    double ascending_speed_; //the vel to carry up to object
     double transportation_threshold_; // the convergence condition to carry to box
     double transportation_count_; // the convergence duration
     double dropping_offset_;  //the offset between the top of box and the bottom of object
