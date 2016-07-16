@@ -1,7 +1,12 @@
+<?xml version="1.0"?>
 <launch>
+  <arg name="debug" default="false" />
 
   <node pkg="aerial_transportation" name="aerial_transportation" type="aerial_transportation_node" output="screen">
-    <param name="debug" type="bool" value="false" />
+    <param name="debug" type="bool" value="$(arg debug)" />
+    <rosparam file="$(find aerial_transportation)/config/eletromagnet.yaml" command="load" />
+
+
   </node>
 
 </launch>

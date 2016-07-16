@@ -30,7 +30,7 @@ namespace aerial_transportation
     std::string ns = nhp_.getNamespace();
 
     nhp_.param("debug", debug_, false); 
-    nhp_.param("uav_state_sub_name", uav_state_sub_name_, std::string("/uav/states"));
+    nhp_.param("uav_state_sub_name", uav_state_sub_name_, std::string("/uav/state"));
     nhp_.param("uav_nav_pub_name", uav_nav_pub_name_, std::string("/uav/nav"));
     nhp_.param("object_pos_sub_name", object_pos_sub_name_, std::string("/object"));
     nhp_.param ("func_loop_rate", func_loop_rate_, 40.0);
@@ -158,12 +158,12 @@ namespace aerial_transportation
           else
             {// should use vel nav
               tf::Vector3 nav_vel = delta * vel_nav_gain_;
-              ROS_INFO("DEBUG: nav vel is x: %f, y: %f, delta_x: %f, delta_y: %f", nav_vel.x(), nav_vel.y(), delta.x(), delta.y());
+              //ROS_INFO("DEBUG: nav vel is x: %f, y: %f, delta_x: %f, delta_y: %f", nav_vel.x(), nav_vel.y(), delta.x(), delta.y());
 
               double speed = nav_vel.length();
               if(speed  > nav_vel_limit_)
                 {
-                  ROS_WARN("exceeds the vel limitation: %f", speed);
+                  //ROS_WARN("exceeds the vel limitation: %f", speed);
                   nav_vel *= (nav_vel_limit_ / speed);
                 }
 
@@ -237,12 +237,12 @@ namespace aerial_transportation
           else
             {// should use vel nav
               tf::Vector3 nav_vel = delta * vel_nav_gain_;
-              ROS_INFO("DEBUG: nav vel is x: %f, y: %f, delta_x: %f, delta_y: %f", nav_vel.x(), nav_vel.y(), delta.x(), delta.y());
+              //ROS_INFO("DEBUG: nav vel is x: %f, y: %f, delta_x: %f, delta_y: %f", nav_vel.x(), nav_vel.y(), delta.x(), delta.y());
 
               double speed = nav_vel.length();
               if(speed  > nav_vel_limit_)
                 {
-                  ROS_WARN("exceeds the vel limitation: %f", speed);
+                  //ROS_WARN("exceeds the vel limitation: %f", speed);
                   nav_vel *= (nav_vel_limit_ / speed);
                 }
 
@@ -292,12 +292,12 @@ namespace aerial_transportation
           else
             {// should use vel nav
               tf::Vector3 nav_vel = delta * vel_nav_gain_;
-              ROS_INFO("DEBUG: nav vel is x: %f, y: %f, delta_x: %f, delta_y: %f", nav_vel.x(), nav_vel.y(), delta.x(), delta.y());
+              //ROS_INFO("DEBUG: nav vel is x: %f, y: %f, delta_x: %f, delta_y: %f", nav_vel.x(), nav_vel.y(), delta.x(), delta.y());
 
               double speed = nav_vel.length();
               if(speed  > nav_vel_limit_)
                 {
-                  ROS_WARN("exceeds the vel limitation: %f", speed);
+                  //ROS_WARN("exceeds the vel limitation: %f", speed);
                   nav_vel *= (nav_vel_limit_ / speed);
                 }
 

@@ -13,6 +13,8 @@ namespace aerial_transportation
       /* ros pub sub init */
       grasp_pub_ = nh_.advertise<std_msgs::Empty>(grasp_pub_name_, 1);
       eletromagnet_pub_ = nh_.advertise<std_msgs::UInt8>(mag_control_pub_name_, 1);
+      eletromagnet_sub_ = nh_.subscribe<std_msgs::UInt8>(eletromagnet_sub_name_, 1, &Eletromagnet::switchCallback, this, ros::TransportHints().udp());
+
     }
 
   void Eletromagnet::joyStickAdditionalCallback(const sensor_msgs::JoyConstPtr & joy_msg)
@@ -45,7 +47,7 @@ namespace aerial_transportation
       {
       case GRASPING_PHASE:
         {
-          if(s1 + s2 + s3 + s4 + s5 > grasped_num_) contact_cnt_ ++;
+          if(s1 + s2 + s3 + s4 + s5 >= grasped_num_) contact_cnt_ ++;
           else contact_cnt_ = 0;
 
           if(contact_cnt_ >= grasped_count_)
@@ -69,6 +71,11 @@ namespace aerial_transportation
               ROS_WARN("Object dropped!! Shift to RETURN_PHASE");
               contact_cnt_ = 0;
               phase_ = RETURN_PHASE;
+
+	      //reset eletromagnet status
+	      std_msgs::UInt8 reset_msg;
+	      reset_msg.data = 1;
+	      eletromagnet_pub_.publish(reset_msg);
             }
           break;
         }
@@ -79,6 +86,17 @@ namespace aerial_transportation
 
   void Eletromagnet::graspPhase()
   {
+    static bool once_flag = true;
+
+    if(once_flag)
+      {
+	//reset eletromagnet status
+	std_msgs::UInt8 reset_msg;
+	reset_msg.data = 1;
+	eletromagnet_pub_.publish(reset_msg);
+	once_flag = false;
+      }
+
     /* height calc part */
     target_height_ -= (falling_speed_ / func_loop_rate_);
     if(target_height_ < (object_height_ + grasping_height_offset_))
