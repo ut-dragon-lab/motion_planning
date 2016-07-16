@@ -17,20 +17,25 @@ namespace grasp_plugin
   {
   public:
 
-    void initialize(ros::NodeHandle nh, ros::NodeHandle nhp)
+    void initialize(ros::NodeHandle nh, ros::NodeHandle nhp, ObjectTransportation* ob_trans)
     {
       nh_ = ros::NodeHandle(nh, "hydrus");
       nhp_ = ros::NodeHandle(nhp, "hydrus");
 
+      ob_trans_ = ob_trans;
+
       rosParamInit();
-
-
     }
 
     ~Hydrus() {}
     Hydrus() {}
 
     static const int TIME_SYNC_CALIB_COUNT = 10;
+
+    void drop()
+    {
+      drop_flag_ = true;
+    }
 
   private:
     ros::NodeHandle nh_;
