@@ -42,7 +42,7 @@ namespace aerial_transportation
     uint8_t s4 = (switch_msg.data & 0x40) >> 6;
     uint8_t s5 = (switch_msg.data & 0x80) >> 7;
 
-    ROS_INFO("contact status is %d, %d, %d, %d, %d", s1, s2, s3, s4, s5);
+    //ROS_INFO("contact status is %d, %d, %d, %d, %d", s1, s2, s3, s4, s5);
     switch(phase_)
       {
       case GRASPING_PHASE:
