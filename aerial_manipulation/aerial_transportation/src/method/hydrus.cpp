@@ -242,15 +242,35 @@ namespace aerial_transportation
 
   void Hydrus::joyStickAdditionalCallback(const sensor_msgs::JoyConstPtr & joy_msg)
   {
-    if(joy_msg->buttons[9] == 1) // RIGHT TOP TRIGGER(R1)
-      {
-      }
-    if(joy_msg->buttons[11] == 1) // RIGHT DOWM TRIGGER(R1)
-      {
-      }
-
     if(debug_)
       {
+        if(joy_msg->buttons[9] == 1) // RIGHT TOP TRIGGER(R1)
+          {
+          }
+        if(joy_msg->buttons[11] == 1) // RIGHT DOWM TRIGGER(R1)
+          {
+
+            ROS_WARN("Debug: Shift to GRASPING_PHASE & Sub_Phase3");
+            phase_ = GRASPING_PHASE;
+            sub_phase_ = SUB_PHASE3;
+
+            /* set init target angle */
+            for(int i = 0; i < joint_num_; i++)
+              joints_control_[i].target_angle = joints_control_[i].approach_angle;
+
+            /* send nav msg: shift to vel control mode */
+            aerial_robot_base::FlightNav nav_msg;
+            nav_msg.header.stamp = ros::Time::now();
+            nav_msg.pos_xy_nav_mode = aerial_robot_base::FlightNav::VEL_MODE;
+            nav_msg.target_pos_x = 0;
+            nav_msg.target_pos_y = 0;
+            nav_msg.pos_z_nav_mode = aerial_robot_base::FlightNav::NO_NAVIGATION;
+            nav_msg.psi_nav_mode = aerial_robot_base::FlightNav::NO_NAVIGATION;
+            uav_nav_pub_.publish(nav_msg);
+
+
+          }
+
       }
   }
 
