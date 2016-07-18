@@ -3,6 +3,9 @@ aerial_transportation_plugin_name: aerial_transportation/hydrus
 nav_vel_limit: 0.3
 vel_nav_threshold: 0.2
 
+object_approach_offset_x: -0.2
+object_approach_offset_y: 0.45
+
 approach_threshold: 0.1
 approach_count: 1.0
 object_head_direction: true
@@ -18,15 +21,14 @@ torque_max_threshold: 0.5
 
 j1:
         approach_angle: 0.8
-        hold_angle: 1.29
-        tighten_angle: 0.08 # + 0.08rad(5deg)
+        hold_angle: 1.39  #tighten_angle: 0.08 # + 0.08rad(5deg)
 
 j2:
         approach_angle: 1.15
-        hold_angle: 1.51
+        hold_angle: 1.55
         tighten_angle: 0.08 # + 0.08rad(5deg)
 
 j3:
         approach_angle: 0.8
-        hold_angle: 1.34
+        hold_angle: 1.46
         tighten_angle: 0.08 # + 0.08rad(5deg)
