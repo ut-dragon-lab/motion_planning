@@ -80,9 +80,9 @@ namespace aerial_transportation
 
      /* base function */
     void rosParamInit();
-     void jointControlParamInit();
-     void jointStatesCallback(const sensor_msgs::JointStateConstPtr& joint_states__msg); //get calibrated joints angle vector
-     void jointMotorStatusCallback(const dynamixel_msgs::MotorStateListConstPtr& joint_motors_msg); //get the torque load nad temprature from each joint
+    void jointControlParamInit();
+    void jointStatesCallback(const sensor_msgs::JointStateConstPtr& joint_states__msg); //get calibrated joints angle vector
+    void jointMotorStatusCallback(const dynamixel_msgs::MotorStateListConstPtr& joint_motors_msg); //get the torque load nad temprature from each joint
 
 
   };

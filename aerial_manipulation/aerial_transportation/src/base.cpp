@@ -192,7 +192,7 @@ namespace aerial_transportation
           if(delta.length() >  approach_pos_threshold_) approach = false;
           if(object_head_direction_)
             {
-              ROS_INFO("DEBUG: check yaw");
+              //ROS_INFO("DEBUG: check yaw");
               tf::Matrix3x3 rotation(tf::Quaternion(uav_position_.orientation.x,
                                                     uav_position_.orientation.y,
                                                     uav_position_.orientation.z,
@@ -206,7 +206,7 @@ namespace aerial_transportation
               {
                 if(++cnt > (approach_count_ * func_loop_rate_))
                   {
-                    ROS_INFO("Succeed to approach to object, shift to GRASPING_PHASE");
+                    ROS_WARN("Succeed to approach to object, shift to GRASPING_PHASE");
                     phase_ ++;
                     cnt = 0; // convergence reset
                     target_height_ = uav_position_.position.z; //falling down init

@@ -1,12 +1,14 @@
 aerial_transportation_plugin_name: aerial_transportation/hydrus
 
+joint_motors_sub_name: /motor_states/joints_port
+
 nav_vel_limit: 0.3
 vel_nav_threshold: 0.2
 
-object_approach_offset_x: -0.2
-object_approach_offset_y: 0.45
+object_approach_offset_x: -0.1
+object_approach_offset_y: 0.3
 
-approach_threshold: 0.1
+approach_pos_threshold: 0.1
 approach_count: 1.0
 object_head_direction: true
 
@@ -25,7 +27,7 @@ j1:
 
 j2:
         approach_angle: 1.15
-        hold_angle: 1.55
+        hold_angle: 1.56
         tighten_angle: 0.08 # + 0.08rad(5deg)
 
 j3:

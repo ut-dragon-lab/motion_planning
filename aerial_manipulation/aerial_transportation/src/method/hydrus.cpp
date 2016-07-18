@@ -12,8 +12,8 @@ namespace aerial_transportation
 
     /* ros pub sub init */
     joint_ctrl_pub_ = nh_.advertise<sensor_msgs::JointState>(joint_ctrl_pub_name_, 1);
-    joint_states_sub_ = nh_.subscribe<sensor_msgs::JointState>(joint_states_sub_name_, 1, &Hydrus::jointStatesCallback, this, ros::TransportHints().udp());
-    joint_motors_sub_ = nh_.subscribe<dynamixel_msgs::MotorStateList>(joint_motors_sub_name_, 1, &Hydrus::jointMotorStatusCallback, this, ros::TransportHints().udp());
+    joint_motors_sub_ = nh_.subscribe<dynamixel_msgs::MotorStateList>(joint_motors_sub_name_, 1, &Hydrus::jointMotorStatusCallback, this); //do not use udp option !!!
+    joint_states_sub_ = nh_.subscribe<sensor_msgs::JointState>(joint_states_sub_name_, 1, &Hydrus::jointStatesCallback, this); //do not use udp option !!!
 
     /* base variables init */
     joint_num_ = 0;
@@ -223,20 +223,26 @@ namespace aerial_transportation
       }
 
     /* the condition to get into hold phase */
-    if(!contact_ && contact &&
-       phase_ == GRASPING_PHASE && sub_phase_ == SUB_PHASE3 )
+    if(!contact_ && contact)
       {
-        contact_ = true;
-        ROS_WARN("Contact with object");
-        holding_start_time_ = ros::Time::now(); //reset!!
+        ROS_INFO("phase: %f, sub_phase: %f", phase_, sub_phase_);
+        if(phase_ == GRASPING_PHASE && sub_phase_ == SUB_PHASE3 )
+          {
+            contact_ = true;
+            ROS_WARN("Contact with object");
+            holding_start_time_ = ros::Time::now(); //reset!!
+          }
       }
 
     /* the condition to shift to transportation phase */
-    if(ros::Time::now().toSec() - holding_start_time_.toSec() > hold_count_)
+    if(contact_ && ros::Time::now().toSec() - holding_start_time_.toSec() > hold_count_)
       {
-        ROS_WARN("Pick the object up!! Shift to GRSPED_PHASE");
-        phase_ = GRASPED_PHASE;
-        sub_phase_ = SUB_PHASE1;
+        if(phase_ == GRASPING_PHASE)
+          {
+            ROS_WARN("Pick the object up!! Shift to GRSPED_PHASE");
+            phase_ = GRASPED_PHASE;
+            sub_phase_ = SUB_PHASE1;
+          }
       }
   }
 
