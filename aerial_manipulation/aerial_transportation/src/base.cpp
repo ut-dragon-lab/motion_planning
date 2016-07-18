@@ -40,7 +40,8 @@ namespace aerial_transportation
     nhp_.param("vel_nav_threshold", vel_nav_threshold_, 0.4);
     nhp_.param("vel_nav_gain", vel_nav_gain_, 1.0);
 
-    nhp_.param("approach_threshold", approach_threshold_, 0.05);
+    nhp_.param("approach_pos_threshold", approach_pos_threshold_, 0.05);
+    nhp_.param("approach_yaw_threshold", approach_yaw_threshold_, 0.1);
     nhp_.param("approach_count", approach_count_, 2.0); //sec
     nhp_.param("object_head_direction", object_head_direction_, false);
 
@@ -68,7 +69,6 @@ namespace aerial_transportation
     nhp_.param("box_offset_x", box_offset_.m_floats[0], 0.0);
     nhp_.param("box_offset_y", box_offset_.m_floats[1], 0.0);
     nhp_.param("box_offset_z", box_offset_.m_floats[2], 0.0);
-
 
   }
 
@@ -124,6 +124,9 @@ namespace aerial_transportation
     object_position_.x = object_msg->x;
     object_position_.y = object_msg->y;
     object_position_.theta = object_msg->theta;
+
+    /* calculate the offset to approach the object(x,y,yaw) */
+    objectPoseApproachOffsetCal();
   }
 
   void Base::mainFunc(const ros::TimerEvent & e)
@@ -144,7 +147,7 @@ namespace aerial_transportation
           if(delta.length() < vel_nav_threshold_)
             {
               aerial_robot_base::FlightNav nav_msg;
-	      nav_msg.header.stamp = ros::Time::now();
+              nav_msg.header.stamp = ros::Time::now();
               nav_msg.pos_xy_nav_mode = aerial_robot_base::FlightNav::POS_MODE;
               nav_msg.target_pos_x = object_position_.x + object_offset_.x();
               nav_msg.target_pos_y = object_position_.y + object_offset_.y();
@@ -184,15 +187,30 @@ namespace aerial_transportation
             }
 
           /* phase shift condition */
-          if(delta.length() <  approach_threshold_)
+          bool approach = true;
+          /* position check */
+          if(delta.length() >  approach_pos_threshold_) approach = false;
+          if(object_head_direction_)
             {
-              if(++cnt > (approach_count_ * func_loop_rate_))
-                {
-                  ROS_INFO("Succeed to approach to object, shift to GRASPING_PHASE");
-                  phase_ ++;
-                  cnt = 0; // convergence reset
-                  target_height_ = uav_position_.position.z; //falling down init
-                }
+              ROS_INFO("DEBUG: check yaw");
+              tf::Matrix3x3 rotation(tf::Quaternion(uav_position_.orientation.x,
+                                                    uav_position_.orientation.y,
+                                                    uav_position_.orientation.z,
+                                                    uav_position_.orientation.w));
+              tfScalar r, p, y;
+              rotation.getRPY(r, p, y);
+              if(fabs(object_position_.theta + object_offset_.z() - y) > approach_yaw_threshold_) approach = false;
+            }
+
+            if(approach)
+              {
+                if(++cnt > (approach_count_ * func_loop_rate_))
+                  {
+                    ROS_INFO("Succeed to approach to object, shift to GRASPING_PHASE");
+                    phase_ ++;
+                    cnt = 0; // convergence reset
+                    target_height_ = uav_position_.position.z; //falling down init
+                  }
             }
           break;
         }
@@ -313,7 +331,7 @@ namespace aerial_transportation
                 }
 
               aerial_robot_base::FlightNav nav_msg;
-	      nav_msg.header.stamp = ros::Time::now();
+              nav_msg.header.stamp = ros::Time::now();
               nav_msg.pos_xy_nav_mode = aerial_robot_base::FlightNav::VEL_MODE;
               nav_msg.target_vel_x = nav_vel.x();
               nav_msg.target_vel_y = nav_vel.y();

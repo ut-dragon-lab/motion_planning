@@ -2,11 +2,7 @@
   <class name="aerial_transportation/eletromagnet" type="aerial_transportation::Eletromagnet" base_class_type="aerial_transportation::Base">
     <description>Eletromagnet transpotation plugin.</description>
   </class>
-
-<!--
-  <class name="transpotation_plugin/hydrus" type="transpotation_plugin::Hydrus" base_class_type="transpotation_base_plugin::TranspotationBase">
+  <class name="aerial_transportation/hydrus" type="aerial_transportation::Hydrus" base_class_type="aerial_transportation::Base">
     <description>Hydrus transpotation plugin.</description>
   </class>
--->
-
 </library>

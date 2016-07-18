@@ -53,7 +53,8 @@ namespace aerial_transportation
     double nav_vel_limit_;
     double vel_nav_threshold_;
     double vel_nav_gain_;
-    double approach_threshold_; // the convergence condition for object approach
+    double approach_pos_threshold_; // the pos convergence posecondition for object approach
+    double approach_yaw_threshold_; // the yaw convergence condition for object approach
     double approach_count_; //the convergence duration (sec)
     bool object_head_direction_; //whether need to consider the head direction of object
     double object_height_; //TODO: should be detected!!!
@@ -87,6 +88,7 @@ namespace aerial_transportation
 
     void stateCallback(const nav_msgs::OdometryConstPtr & msg);
     void objectPoseCallback(const geometry_msgs::Pose2DConstPtr & object_msg);
+    virtual void objectPoseApproachOffsetCal() {};
     void joyStickCallback(const sensor_msgs::JoyConstPtr & joy_msg);
     virtual void joyStickAdditionalCallback(const sensor_msgs::JoyConstPtr & joy_msg){}
 

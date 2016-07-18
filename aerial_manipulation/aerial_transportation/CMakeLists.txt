@@ -13,6 +13,8 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   rospy
   std_msgs
+  dynamixel_msgs
+  sensor_msgs
   tf
 )
 
@@ -42,7 +44,7 @@ include_directories(
 )
 
 ## pluginlib_tutorials library
-add_library(aerial_transportation_pluginlib src/base.cpp src/method/eletromagnet.cpp)
+add_library(aerial_transportation_pluginlib src/base.cpp src/method/eletromagnet.cpp src/method/hydrus.cpp)
 target_link_libraries(aerial_transportation_pluginlib ${catkin_LIBRARIES})
 
 # library of aerial transportation

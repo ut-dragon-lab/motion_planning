@@ -91,11 +91,11 @@ namespace aerial_transportation
 
     if(once_flag)
       {
-	//reset eletromagnet status
-	std_msgs::UInt8 reset_msg;
-	reset_msg.data = 1;
-	eletromagnet_pub_.publish(reset_msg);
-	once_flag = false;
+        //reset eletromagnet status
+        std_msgs::UInt8 reset_msg;
+        reset_msg.data = 1;
+        eletromagnet_pub_.publish(reset_msg);
+        once_flag = false;
       }
 
     /* height calc part */
