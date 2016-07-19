@@ -13,7 +13,7 @@ namespace aerial_transportation
       /* ros pub sub init */
       grasp_pub_ = nh_.advertise<std_msgs::Empty>(grasp_pub_name_, 1);
       eletromagnet_pub_ = nh_.advertise<std_msgs::UInt8>(mag_control_pub_name_, 1);
-      eletromagnet_sub_ = nh_.subscribe<std_msgs::UInt8>(eletromagnet_sub_name_, 1, &Eletromagnet::switchCallback, this, ros::TransportHints().udp());
+      eletromagnet_sub_ = nh_.subscribe<std_msgs::UInt8>(eletromagnet_sub_name_, 1, &Eletromagnet::switchCallback, this);
 
     }
 

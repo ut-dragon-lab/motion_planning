@@ -11,9 +11,9 @@ namespace aerial_transportation
 
     /* pub & sub */
     uav_nav_pub_ = nh_.advertise<aerial_robot_base::FlightNav>(uav_nav_pub_name_, 1);
-    uav_state_sub_ = nh_.subscribe<nav_msgs::Odometry>(uav_state_sub_name_, 1, &Base::stateCallback, this, ros::TransportHints().udp());
-    object_pos_sub_ = nh_.subscribe<geometry_msgs::Pose2D>(object_pos_sub_name_, 1, &Base::objectPoseCallback, this, ros::TransportHints().udp());
-    joy_stick_sub_ = nh_.subscribe<sensor_msgs::Joy>("/joy", 1, &Base::joyStickCallback, this, ros::TransportHints().udp());
+    uav_state_sub_ = nh_.subscribe<nav_msgs::Odometry>(uav_state_sub_name_, 1, &Base::stateCallback, this);
+    object_pos_sub_ = nh_.subscribe<geometry_msgs::Pose2D>(object_pos_sub_name_, 1, &Base::objectPoseCallback, this);
+    joy_stick_sub_ = nh_.subscribe<sensor_msgs::Joy>("/joy", 1, &Base::joyStickCallback, this);
 
     /* variables init */
     phase_ = IDLE_PHASE;
