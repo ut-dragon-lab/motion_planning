@@ -5,21 +5,27 @@ joint_motors_sub_name: /motor_states/joints_port
 nav_vel_limit: 0.3
 vel_nav_threshold: 0.2
 
-object_approach_offset_x: -0.1
+object_approach_offset_x: -0.15
 object_approach_offset_y: 0.3
 
 approach_pos_threshold: 0.1
 approach_count: 1.0
 object_head_direction: true
 
-object_height: 0.05 # set to the grasp height
+object_height: 0.035 # set to the grasp height
+grasping_height_threshold: 0.005
 grasping_height_offset: 0.0
 
 ascending_speed: 0.1
+transportation_threshold: 0.15
 transportation_count: 1.0
 
 torque_min_threshold: 0.2
-torque_max_threshold: 0.5
+torque_max_threshold: 0.55
+
+modification_delta_angle: 0.01
+
+box_offset_y: 0.3
 
 j1:
         approach_angle: 0.8
