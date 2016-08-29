@@ -1,4 +1,4 @@
-#include <aerial_transportation/method/hydrus.h>
+#include <aerial_transportation/grasp_control/hydrus.h>
 
 namespace aerial_transportation
 {

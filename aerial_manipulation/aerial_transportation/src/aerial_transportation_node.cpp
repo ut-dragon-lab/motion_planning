@@ -1,6 +1,6 @@
 #include <boost/shared_ptr.hpp>
 #include <pluginlib/class_loader.h>
-#include <aerial_transportation/base.h>
+#include <aerial_transportation/grasp_control/base.h>
 
 int main (int argc, char **argv)
 {

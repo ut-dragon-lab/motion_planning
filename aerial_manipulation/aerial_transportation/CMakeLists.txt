@@ -44,7 +44,7 @@ include_directories(
 )
 
 ## pluginlib_tutorials library
-add_library(aerial_transportation_pluginlib src/base.cpp src/method/eletromagnet.cpp src/method/hydrus.cpp)
+add_library(aerial_transportation_pluginlib src/grasp_control/base.cpp src/grasp_control/eletromagnet.cpp src/grasp_control/hydrus.cpp)
 target_link_libraries(aerial_transportation_pluginlib ${catkin_LIBRARIES})
 
 # library of aerial transportation

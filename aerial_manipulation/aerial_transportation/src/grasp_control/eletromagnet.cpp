@@ -1,4 +1,4 @@
-#include <aerial_transportation/method/eletromagnet.h>
+#include <aerial_transportation/grasp_control/eletromagnet.h>
 
 namespace aerial_transportation
 {
