@@ -37,9 +37,9 @@
   <param name="start_state_joint1" value="1.57"/> 
   <param name="start_state_joint2" value="1.57"/> 
   <param name="start_state_joint3" value="1.57"/> 
-  <param name="goal_state_joint1" value="1.57"/> 
-  <param name="goal_state_joint2" value="0"/> 
-  <param name="goal_state_joint3" value="0"/> 
+  <param name="goal_state_joint1" value="-1.57"/> 
+  <param name="goal_state_joint2" value="-1.57"/> 
+  <param name="goal_state_joint3" value="-1.57"/> 
 
   <param name="state_validity_check_res" value="0.03"/>
   <param name="valid_segment_count_factor" value="20"/> <!--20-->

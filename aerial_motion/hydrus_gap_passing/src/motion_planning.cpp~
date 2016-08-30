@@ -267,6 +267,13 @@ bool  MotionPlanning::isStateValid(const ompl::base::State *state)
 
           if(!dist_thre_check) 
             return false;
+
+          //debug => please remove
+          bool stability_thre_check = transform_controller_->stabilityCheck();
+          if(!stability_thre_check) 
+            return false;
+
+
         }
       if(planning_mode_ == hydra_gap_passing::PlanningMode::ONLY_JOINTS_MODE) return true;
     }

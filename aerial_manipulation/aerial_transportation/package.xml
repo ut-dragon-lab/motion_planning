@@ -66,7 +66,7 @@
 
   <!-- The export tag contains other, unspecified, tags -->
   <export>
-    <aerial_transportation plugin="${prefix}/aerial_transportation_plugins.xml" /> 
-
+    <aerial_transportation plugin="${prefix}/aerial_transportation_plugins.xml" />
+    <aerial_transportation plugin="${prefix}/grasp_planning_plugins.xml" />
   </export>
 </package>

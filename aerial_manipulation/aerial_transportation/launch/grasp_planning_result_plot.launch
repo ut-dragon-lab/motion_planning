@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<launch>
+<node name="grasp_planning_result_plot" pkg="aerial_transportation" type="grasp_planning_result_plot.py" respawn="false"  output="screen">
+  <param name="file_name" value="$(find aerial_transportation)/log/grasp_planning_full_search_result.txt" />
+
+</node>
+</launch>

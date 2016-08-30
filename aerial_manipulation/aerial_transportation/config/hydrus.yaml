@@ -40,3 +40,12 @@ j3:
         approach_angle: 0.8
         hold_angle: 1.46
         tighten_angle: 0.08 # + 0.08rad(5deg)
+
+
+# for the kinematics of hydrus3
+link_length: 0.44
+link_radius: 0.15 #real is 0.15
+link_num: 4
+
+tighten_delta_angle: 0.12
+approach_delta_angle: -0.4

@@ -2,12 +2,15 @@
 <launch>
   <arg name="debug" default="false" />
   <arg name="plugin_name" default="eletromagnet" />
+  <arg name="object" default="convex" />
 
   <node pkg="aerial_transportation" name="aerial_transportation" type="aerial_transportation_node" output="screen">
     <param name="debug" type="bool" value="$(arg debug)" />
+    <param name="control_cheat_mode" type="bool" value="false" />
+
+    <rosparam file="$(find aerial_transportation)/config/grasp_control.yaml" command="load" />
     <rosparam file="$(find aerial_transportation)/config/$(arg plugin_name).yaml" command="load" />
-
-
+    <param name="planning_file_name" value = "$(find aerial_transportation)/log/grasp_planning_$(arg object)_result.txt" />
   </node>
 
 </launch>

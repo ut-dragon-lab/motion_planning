@@ -19,7 +19,7 @@ int main (int argc, char **argv)
       aerial_transportation_method = aerial_transportation_loader.createInstance(aerial_transportation_plugin_name_);
       aerial_transportation_method->initialize(nh, nhp);
 
-      ROS_INFO("Load plugin");
+      ROS_INFO("Load aerial_transportation plugin");
     }
   catch(pluginlib::PluginlibException& ex)
     {

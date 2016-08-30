@@ -1,0 +1,8 @@
+<library path="lib/libgrasp_planning_pluginlib">
+  <class name="grasp_planning/full_search" type="grasp_planning::FullSearch" base_class_type="grasp_planning::Base">
+    <description>full-sesarch based grasp planning plugin.</description>
+  </class>
+  <class name="grasp_planning/bisection_search" type="grasp_planning::BisectionSearch" base_class_type="grasp_planning::Base">
+    <description>bisection-sesarch based grasp planning plugin.</description>
+  </class>
+</library>

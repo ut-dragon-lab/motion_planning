@@ -18,6 +18,15 @@ find_package(catkin REQUIRED COMPONENTS
   tf
 )
 
+find_package(Boost REQUIRED COMPONENTS random)
+
+add_subdirectory(qpOASES)
+link_directories(${CMAKE_CURRENT_BINARY_DIR}/qpOASES/qpOASES-3.0/bin)
+include_directories(${CMAKE_CURRENT_BINARY_DIR}/qpOASES/qpOASES-3.0/include)
+add_definitions(-DUSE_QPOASES)
+
+#message(FATAL_ERROR "${CMAKE_CURRENT_BINARY_DIR}")
+
 ################################################
 ## Declare ROS messages, services and actions ##
 ################################################
@@ -43,10 +52,16 @@ include_directories(
   include ${Boost_INCLUDE_DIR} ${catkin_INCLUDE_DIRS}
 )
 
-## pluginlib_tutorials library
+## pluginlibs  library
 add_library(aerial_transportation_pluginlib src/grasp_control/base.cpp src/grasp_control/eletromagnet.cpp src/grasp_control/hydrus.cpp)
-target_link_libraries(aerial_transportation_pluginlib ${catkin_LIBRARIES})
+target_link_libraries(aerial_transportation_pluginlib ${catkin_LIBRARIES} ${Boost_LIBRARIES})
+
+add_library(grasp_planning_pluginlib src/grasp_planning/grasp_planner.cpp src/grasp_planning/full_search.cpp src/grasp_planning/bisection_search.cpp)
+target_link_libraries(grasp_planning_pluginlib ${catkin_LIBRARIES} ${Boost_LIBRARIES} qpOASES)
+
+add_executable(grasp_planning_node src/grasp_planning_node.cpp)
+target_link_libraries (grasp_planning_node ${catkin_LIBRARIES}  ${Boost_LIBRARIES})
 
 # library of aerial transportation
 add_executable(aerial_transportation_node src/aerial_transportation_node.cpp)
-target_link_libraries (aerial_transportation_node ${catkin_LIBRARIES}  ${Boost_LIBRARIES} )
+target_link_libraries (aerial_transportation_node ${catkin_LIBRARIES}  ${Boost_LIBRARIES})

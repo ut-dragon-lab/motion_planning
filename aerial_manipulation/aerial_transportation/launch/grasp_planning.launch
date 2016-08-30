@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+<launch>
+  <node pkg="aerial_transportation" name="grasp_planning" type="grasp_planning_node" output="screen">
+    <rosparam file="$(find aerial_transportation)/config/grasp_planning.yaml" command="load" />
+    <rosparam file="$(find aerial_transportation)/config/hydrus.yaml" command="load" />
+  </node>
+
+</launch>

@@ -29,11 +29,13 @@ namespace aerial_transportation
   {
     std::string ns = nhp_.getNamespace();
 
-    nhp_.param("debug", debug_, false); 
+    nhp_.param("joy_debug", joy_debug_, false);
+    nhp_.param("control_cheat_mode", control_cheat_mode_, false);
+
     nhp_.param("uav_state_sub_name", uav_state_sub_name_, std::string("/uav/state"));
     nhp_.param("uav_nav_pub_name", uav_nav_pub_name_, std::string("/uav/nav"));
     nhp_.param("object_pos_sub_name", object_pos_sub_name_, std::string("/object"));
-    nhp_.param ("func_loop_rate", func_loop_rate_, 40.0);
+    nhp_.param("func_loop_rate", func_loop_rate_, 40.0);
 
     /* nav param */
     nhp_.param("nav_vel_limit", nav_vel_limit_, 0.2);
@@ -45,7 +47,6 @@ namespace aerial_transportation
     nhp_.param("approach_count", approach_count_, 2.0); //sec
     nhp_.param("object_head_direction", object_head_direction_, false);
 
-    nhp_.param("object_height", object_height_, 0.2);
     nhp_.param("falling_speed", falling_speed_, 0.04);
     nhp_.param("grasping_height_offset", grasping_height_offset_, -0.01);
     nhp_.param("ascending_speed", ascending_speed_, 0.1);
@@ -54,21 +55,22 @@ namespace aerial_transportation
     nhp_.param("transportation_count", transportation_count_, 2.0); //sec
     nhp_.param("dropping_offset", dropping_offset_, 0.15);
 
-    /* box point */
+    /* TODO the height of object */
+    //if(control_cheat_mode_)
+    //{
+    nhp_.param("object_height", object_height_, 0.2);
+    printf("%s: object, height: %f\n", ns.c_str(), object_height_);
+    //}
+
+    //if(recog_cheat_mode_)
+    /* recycle box config */
     nhp_.param("box_x", box_point_.x, 1.145);
     nhp_.param("box_y", box_point_.y, 0.02);
     nhp_.param("box_z", box_point_.z, 0.2);
-    printf("%s: box x: %f, y: %f, z: %f\n", ns.c_str(), box_point_.x, box_point_.y, box_point_.z);
-
-    /* should detect!!! */
-    nhp_.param("object_offset_x", object_offset_.m_floats[0], 0.0);
-    nhp_.param("object_offset_y", object_offset_.m_floats[1], 0.0);
-    nhp_.param("object_offset_yaw", object_offset_.m_floats[2], 0.0);
-    // has four elements: x, y, height, yaw
-
     nhp_.param("box_offset_x", box_offset_.m_floats[0], 0.0);
     nhp_.param("box_offset_y", box_offset_.m_floats[1], 0.0);
     nhp_.param("box_offset_z", box_offset_.m_floats[2], 0.0);
+    printf("%s: box x: %f, y: %f, z: %f\n", ns.c_str(), box_point_.x, box_point_.y, box_point_.z);
 
   }
 
@@ -102,7 +104,7 @@ namespace aerial_transportation
         phase_ = IDLE_PHASE;
       }
 
-    if(debug_)
+    if(joy_debug_)
       {
         if(joy_msg->buttons[10] == 1) // LEFT TOP TRIGGER(L1)
           {//start grasp
@@ -114,13 +116,13 @@ namespace aerial_transportation
           }
       }
 
-
     joyStickAdditionalCallback(joy_msg);
   }
 
   void Base::objectPoseCallback(const geometry_msgs::Pose2DConstPtr & object_msg)
   {
     if(!object_found_) object_found_ = true;
+    /* in terms of object{1} frame */
     object_position_.x = object_msg->x;
     object_position_.y = object_msg->y;
     object_position_.theta = object_msg->theta;
@@ -143,6 +145,8 @@ namespace aerial_transportation
 
           /* nav part */
           tf::Vector3 delta((object_position_.x + object_offset_.x()) - uav_position_.position.x, (object_position_.y + object_offset_.y()) - uav_position_.position.y, 0.0);
+          //ROS_INFO("object_position_.x: %f, object_offset_.x():%f, uav_position_.position.x:%f", object_position_.x, object_offset_.x(), uav_position_.position.x);
+          //ROS_INFO("object_position_.y: %f, object_offset_.y():%f, uav_position_.position.y:%f", object_position_.y, object_offset_.y(), uav_position_.position.y);
 
           if(delta.length() < vel_nav_threshold_)
             {
@@ -152,12 +156,14 @@ namespace aerial_transportation
               nav_msg.target_pos_x = object_position_.x + object_offset_.x();
               nav_msg.target_pos_y = object_position_.y + object_offset_.y();
               nav_msg.pos_z_nav_mode = aerial_robot_base::FlightNav::NO_NAVIGATION;
+              nav_msg.psi_nav_mode = aerial_robot_base::FlightNav::NO_NAVIGATION;
               if(object_head_direction_)
                 {
                   nav_msg.psi_nav_mode = aerial_robot_base::FlightNav::POS_MODE;
                   nav_msg.target_psi = object_position_.theta + object_offset_.z();
+                  if(nav_msg.target_psi > M_PI) nav_msg.target_psi -= (2 * M_PI);
+                  if(nav_msg.target_psi < -M_PI) nav_msg.target_psi += (2 * M_PI);
                 }
-              nav_msg.psi_nav_mode = aerial_robot_base::FlightNav::NO_NAVIGATION;
               uav_nav_pub_.publish(nav_msg);
             }
           else
@@ -177,12 +183,14 @@ namespace aerial_transportation
               nav_msg.target_vel_x = nav_vel.x();
               nav_msg.target_vel_y = nav_vel.y();
               nav_msg.pos_z_nav_mode = aerial_robot_base::FlightNav::NO_NAVIGATION;
+              nav_msg.psi_nav_mode = aerial_robot_base::FlightNav::NO_NAVIGATION;
               if(object_head_direction_)
                 {
                   nav_msg.psi_nav_mode = aerial_robot_base::FlightNav::POS_MODE;
                   nav_msg.target_psi = object_position_.theta + object_offset_.z();
+                  if(nav_msg.target_psi > M_PI) nav_msg.target_psi -= (2 * M_PI);
+                  if(nav_msg.target_psi < -M_PI) nav_msg.target_psi += (2 * M_PI);
                 }
-              nav_msg.psi_nav_mode = aerial_robot_base::FlightNav::NO_NAVIGATION;
               uav_nav_pub_.publish(nav_msg);
             }
 
@@ -192,14 +200,17 @@ namespace aerial_transportation
           if(delta.length() >  approach_pos_threshold_) approach = false;
           if(object_head_direction_)
             {
-              //ROS_INFO("DEBUG: check yaw");
               tf::Matrix3x3 rotation(tf::Quaternion(uav_position_.orientation.x,
                                                     uav_position_.orientation.y,
                                                     uav_position_.orientation.z,
                                                     uav_position_.orientation.w));
               tfScalar r, p, y;
               rotation.getRPY(r, p, y);
-              if(fabs(object_position_.theta + object_offset_.z() - y) > approach_yaw_threshold_) approach = false;
+              float target_yaw = object_position_.theta + object_offset_.z();
+              if(target_yaw > M_PI) target_yaw -= (2 * M_PI);
+              if(target_yaw < -M_PI) target_yaw += (2 * M_PI);
+              //ROS_INFO("DEBUG: check yaw, target_yaw:%f, y: %f, approach_yaw_threshold_: %f", target_yaw, y, approach_yaw_threshold_);
+              if(fabs(target_yaw - y) > approach_yaw_threshold_) approach = false;
             }
 
             if(approach)
@@ -284,7 +295,7 @@ namespace aerial_transportation
             }
 
           /* phase shift condition */
-          if(delta.length() <  transportation_threshold_)
+          if(delta.length() < transportation_threshold_)
             {
               if(++cnt > (transportation_count_ * func_loop_rate_))
                 {
