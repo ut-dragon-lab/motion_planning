@@ -104,24 +104,6 @@ namespace aerial_transportation
             for(int i = 0; i < joint_num_; i++)
               joints_control_[i].target_angle = joints_control_[i].approach_angle;
 
-            /* send nav msg: shift to vel control mode */
-            aerial_robot_base::FlightNav nav_msg;
-            nav_msg.header.stamp = ros::Time::now();
-            nav_msg.pos_xy_nav_mode = aerial_robot_base::FlightNav::VEL_MODE;
-            nav_msg.target_pos_x = 0;
-            nav_msg.target_pos_y = 0;
-            nav_msg.pos_z_nav_mode = aerial_robot_base::FlightNav::NO_NAVIGATION;
-            nav_msg.psi_nav_mode = aerial_robot_base::FlightNav::NO_NAVIGATION;
-
-            uav_nav_pub_.publish(nav_msg);
-            
-            if(!control_cheat_mode_)
-              {
-                std_msgs::UInt8 low_flight_velocity_control;
-                low_flight_velocity_control.data= 1;
-                aerial_grasping_flight_velocity_control_pub_.publish(low_flight_velocity_control);
-              }
-
           }
       }
     else if(sub_phase_ == SUB_PHASE3)
@@ -130,6 +112,7 @@ namespace aerial_transportation
         /* procedure: !envelope_closure_ -> envelope_closure_ -> force_closure_ */
         if(envelope_closure_) 
           {/* if we reach envelop status, we move directly to tigthen angles, no feed back from contact point */
+
             //4.1 DONE: envelope closure -> force closure iteration
             /* TODO: one_time tighten, not iteration*/
             if(!one_time_tighten_)
@@ -146,8 +129,11 @@ namespace aerial_transportation
             for(int i = 0; i < joint_num_; i++)
               {
                 if(joints_control_[i].target_angle != joints_control_[i].hold_angle)
-                  joints_control_[i].target_angle += ((joints_control_[i].hold_angle - joints_control_[i].approach_angle) / func_loop_rate_ / hold_count_);
-
+                  {
+                    float inre_angle = (joints_control_[i].hold_angle - joints_control_[i].approach_angle) / func_loop_rate_ / hold_count_;
+                    //if(i == 1) inre_angle /= 4;
+                    joints_control_[i].target_angle += inre_angle;
+                  }
                 //limitation
                 if(joints_control_[i].target_angle > joints_control_[i].hold_angle
                    && joints_control_[i].holding_rotation_direction == 1)
@@ -247,6 +233,26 @@ namespace aerial_transportation
         /* check the enveloping grasp in terms of joint angles */
         if(max_delta_angle < envelope_joint_angle_thre_)
           {
+            //test, keep position control until the envelope closure reachs
+
+            /* send nav msg: shift to vel control mode */
+            aerial_robot_base::FlightNav nav_msg;
+            nav_msg.header.stamp = ros::Time::now();
+            nav_msg.pos_xy_nav_mode = aerial_robot_base::FlightNav::VEL_MODE;
+            nav_msg.target_pos_x = 0;
+            nav_msg.target_pos_y = 0;
+            nav_msg.pos_z_nav_mode = aerial_robot_base::FlightNav::NO_NAVIGATION;
+            nav_msg.psi_nav_mode = aerial_robot_base::FlightNav::NO_NAVIGATION;
+
+            uav_nav_pub_.publish(nav_msg);
+
+            if(!control_cheat_mode_)
+              {
+                std_msgs::UInt8 low_flight_velocity_control;
+                low_flight_velocity_control.data= 1;
+                aerial_grasping_flight_velocity_control_pub_.publish(low_flight_velocity_control);
+              }
+
             envelope_closure_ = true;
             ROS_WARN("GRASPING_PHASE, shift to tighten angles because reaching to the hold angles");
           }
