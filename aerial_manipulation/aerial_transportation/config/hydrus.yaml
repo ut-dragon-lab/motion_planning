@@ -44,8 +44,8 @@ j3:
 
 # for the kinematics of hydrus3
 link_length: 0.44
-link_radius: 0.159 #real is 0.15 + 0.9(sponge)
+link_radius: 0.15 #real is 0.15 + 0.9(sponge)
 link_num: 4
 
-tighten_delta_angle: 0.12
+tighten_delta_angle: 0.14 #old: 0.12
 approach_delta_angle: -0.4
