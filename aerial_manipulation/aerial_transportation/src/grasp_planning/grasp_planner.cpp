@@ -966,7 +966,8 @@ namespace grasp_planning
         v_approach_angle[i] = v_hold_angle[i] + approach_delta_angle_i;
 
         /* tighten angle */
-        v_tighten_angle[i] = v_hold_angle[i] + v_best_tau_(i,0) / max_element * tighten_delta_angle;
+        //v_tighten_angle[i] = v_hold_angle[i] + v_best_tau_(i,0) / max_element * tighten_delta_angle;
+        v_tighten_angle[i] = v_hold_angle[i] + tighten_delta_angle;
       }
   }
 
