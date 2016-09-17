@@ -279,7 +279,9 @@ namespace aerial_transportation
         // 2. in the holding phase(force_closure_ == true)
         // 3. the modification is not susseccive
         /* CAUTION: only all the joints have the load(force_closure!!!), we recognize the loadover flag, otherwise, we ignore the loadover. this is very dangerous!!!!!! */
+        /* do not modified once grasped the object */
         if(joints_control_[i].load_rate > torque_max_threshold_ && force_closure
+           && phase_ == GRASPING_PHASE
            && ros::Time::now().toSec() - modification_start_time_.toSec() > modification_duration_)
           {
             ROS_WARN("jointMotorStatusCallback: Holding load exceeds in joint%d: %f", i + 1, joints_control_[i].load_rate);
