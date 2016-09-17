@@ -4,6 +4,7 @@ joint_states_pub_name: /joint_states #planning result of joint state
 joint_angle_limit: 1.5 #1.65
 fric_z_mu: 0.5
 fric_x_mu: 0.3
-file_log_flag: false # output plot
+file_log_flag: true # output plot
 file_result_flag: true # output planning result
-
+res_d: 0.0005
+res_phy: 0.0005
