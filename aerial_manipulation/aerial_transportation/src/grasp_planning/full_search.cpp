@@ -158,11 +158,11 @@ namespace grasp_planning
             if(file_log_flag_)
               {
                 if(statics_validity)
-                  log_ofs_ << phy << " " << tau.norm() << " " << min_f_fc.transpose() * H_ * min_f_fc  << std::endl;
+                  log_ofs_ << phy << "\t" << tau.norm() << "\t" << min_f_fc.transpose() * H_ * min_f_fc  << std::endl;
                 else if(kinematics_validity)
-                  log_ofs_ << phy << " " << -1 << " " << 0  << std::endl;
+                  log_ofs_ << phy << "\t" << -1 << "\t" << 0  << std::endl;
                 else
-                  log_ofs_ << phy << " " << -1 << " " << -1  << std::endl;
+                  log_ofs_ << phy << "\t" << -1 << "\t" << -1  << std::endl;
               }
           }
       }
