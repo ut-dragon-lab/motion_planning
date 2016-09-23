@@ -80,6 +80,7 @@ namespace aerial_transportation
      double modification_delta_angle_; //[rad]  slightly modify each joint angle to hold object, which is based on the max change joint angle
      double modification_duration_; //[sec] the duration to wait for result of modification
      double hold_count_; //the hold ok time count
+     double grasping_rate_; //the grasping joint vel rate time count
      double envelope_joint_angle_thre_; // the threshold for checking eveloping in term of joint angle
      double approach_delta_angle_; //the incerease amount of angle to approach the object(which is bigger than the angle vector of hold)
      double tighten_delta_angle_; //the tighten amount of angle to force-closure the object, which is based on the biggest torque joint.

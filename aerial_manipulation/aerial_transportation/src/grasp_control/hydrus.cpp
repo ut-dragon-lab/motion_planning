@@ -130,9 +130,9 @@ namespace aerial_transportation
               {
                 if(joints_control_[i].target_angle != joints_control_[i].hold_angle)
                   {
-                    float inre_angle = (joints_control_[i].hold_angle - joints_control_[i].approach_angle) / func_loop_rate_ / hold_count_;
-                    //if(i == 1) inre_angle /= 4;
-                    joints_control_[i].target_angle += inre_angle;
+                    float incre_angle = (joints_control_[i].hold_angle - joints_control_[i].approach_angle) / func_loop_rate_;
+                    float rate = 1.0 / (grasping_rate_ * (float)(abs(i - joint_num_/2) + 1));
+                    joints_control_[i].target_angle += (incre_angle * rate);
                   }
                 //limitation
                 if(joints_control_[i].target_angle > joints_control_[i].hold_angle
@@ -419,6 +419,7 @@ namespace aerial_transportation
     nhp_.param("modification_delta_angle", modification_delta_angle_, 0.015);
     nhp_.param("modification_duration", modification_duration_, 0.5);
     nhp_.param("hold_count", hold_count_, 1.0); 
+    nhp_.param("grasping_rate", grasping_rate_, 1.0); 
 
     /* grasp planning  */
     nhp_.param("base_link", base_link_, 1); // second link
