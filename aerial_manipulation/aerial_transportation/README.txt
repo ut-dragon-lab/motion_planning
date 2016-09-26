@@ -25,7 +25,7 @@ grasp demonstration:
 1. hydrus aerial_robot bringup launch
 roslaunch hydrus_transform_control hydrus3.launch
 2. hydrus grasp planning&control launch
-box: roslaunch aer^Cl_transportation aerial_transportation.launch plugin_name:=hydrus debug:=true
+box: roslaunch aerial_transportation aerial_transportation.launch plugin_name:=hydrus debug:=true
 cylinder: roslaunch aer^Cl_transportation aerial_transportation.launch plugin_name:=hydrus debug:=true object:=cylinder
 a. local pc: mocap for hydrus and object
 roslaunch aerial_transportation mocap_assistant.launch 

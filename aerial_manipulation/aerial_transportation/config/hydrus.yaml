@@ -49,4 +49,4 @@ link_num: 4
 
 tighten_delta_angle: 0.14 #old: 0.12
 approach_delta_angle: -0.4
-grasping_rate: 2.0
+grasping_rate: 2.0 #box: 2.0, cylinder: 1.0?
