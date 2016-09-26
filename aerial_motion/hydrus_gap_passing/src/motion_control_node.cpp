@@ -7,11 +7,11 @@ int main(int argc, char **argv)
   ros::NodeHandle nh;
   ros::NodeHandle nhp("~");
   
-  boost::shared_ptr<TransformController>  transform_controller = boost::shared_ptr<TransformController>(new TransformController(nh, nhp, false));
+  boost::shared_ptr<TransformController> transform_controller;
   MotionControl *motion_control = new MotionControl(nh,nhp, transform_controller);
   ros::spin();
 
-  ros::shutdown(); 
+  ros::shutdown();
   delete motion_control;
 
 

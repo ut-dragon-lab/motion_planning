@@ -28,8 +28,6 @@ MotionControl::MotionControl(ros::NodeHandle nh, ros::NodeHandle nhp, boost::sha
   /*TODO*/
   move_cmd_pub_ = nh_.advertise<aerial_robot_base::FlightNav>("hoge", 1);
 
-  transform_controller_ = transform_controller;
-
   //init
   planning_path_.resize(0);
   planning_mode_ = hydrus_gap_passing::PlanningMode::ONLY_JOINTS_MODE;
@@ -42,16 +40,16 @@ MotionControl::MotionControl(ros::NodeHandle nh, ros::NodeHandle nhp, boost::sha
 
   control_index_ = 0;
 
-
-  if(play_log_path_) planFromFile();
-
-  real_states_.resize(3 + transform_controller_->getLinkNum() -1);
-  // for(int i = 0; i < (int)real_states_.size(); i++)
-  //   {
-  //     real_states_[i] = 0;
-  //     ROS_WARN("okok");
-  //   }
-
+  if(play_log_path_)
+    {
+      planFromFile();
+      real_states_.resize(0);
+    }
+  else
+    {
+      transform_controller_ = transform_controller;
+      real_states_.resize(3 + transform_controller_->getLinkNum() -1);
+    }
 
   control_flag_ = false;
 
@@ -60,7 +58,6 @@ MotionControl::MotionControl(ros::NodeHandle nh, ros::NodeHandle nhp, boost::sha
     {
       joint_cmd_thread_ = boost::thread(boost::bind(&MotionControl::jointCmd, this));
       //gain_cmd_thread_ = boost::thread(boost::bind(&MotionControl::gainCmd, this));
-
     }
   if(planning_mode_ != hydrus_gap_passing::PlanningMode::ONLY_JOINTS_MODE)
     move_cmd_thread_ = boost::thread(boost::bind(&MotionControl::moveCmd, this));
@@ -96,9 +93,13 @@ void MotionControl::setMoveBaseStates(std::vector<double> move_base_states)
       real_states_[i] = move_base_states[i];//x,y, theta
     }
 }
+
 void MotionControl::setJointStates(std::vector<double> joint_states)
 {
   boost::lock_guard<boost::mutex> lock(real_state_mutex_);
+
+  if(real_states_.size() == 0)
+    real_states_.resize(joint_states.size());
   for(int i = 0; i <  (int)joint_states.size(); i ++)
     {
       real_states_[i + 3] = joint_states[i];
