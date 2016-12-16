@@ -59,6 +59,13 @@ add_executable(motion_planning_node src/motion_planning_node.cpp)
 add_dependencies(motion_planning  ${PROJECT_NAME}_gencpp)
 target_link_libraries (motion_planning_node ${catkin_LIBRARIES}  ${Boost_LIBRARIES} motion_planning motion_control ${OMPL_LIBRARIES}) 
 
+Add_library (posture_optimization src/posture_optimization.cpp )
+add_dependencies(posture_optimization  ${PROJECT_NAME}_gencpp)
+target_link_libraries (posture_optimization ${catkin_LIBRARIES}  ${Boost_LIBRARIES}) 
+
+add_executable(posture_optimization_node src/posture_optimization_node.cpp)
+add_dependencies(posture_optimization ${PROJECT_NAME}_gencpp)
+target_link_libraries (posture_optimization_node ${catkin_LIBRARIES}  ${Boost_LIBRARIES} posture_optimization motion_control) 
 
 install(PROGRAMS
   scripts/state_validation_l4.py
