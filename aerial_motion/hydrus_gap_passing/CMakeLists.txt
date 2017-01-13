@@ -15,7 +15,7 @@ find_package(catkin REQUIRED COMPONENTS
 )
 
 find_package(ompl)
-
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread -std=c++11")
 add_message_files(FILES PlanningMode.msg)
 generate_messages(DEPENDENCIES std_msgs)
 

@@ -8,13 +8,8 @@ int main(int argc, char **argv)
   ros::NodeHandle nhp("~");
   
   PostureOptimization *posture_optimization = new PostureOptimization(nh,nhp);
-  ros::Rate r(1);
-  while (ros::ok()) {
-    ROS_WARN("posture optimization");
-    r.sleep();
-    ros::spinOnce();
-  }
-
+  posture_optimization->process();
+  ros::spin();
   ros::shutdown();
   delete posture_optimization;
 

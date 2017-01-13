@@ -1,11 +1,41 @@
 <?xml version="1.0" encoding="utf-8"?>
 <launch>
-  <arg name="model" default="Hydrus_hex" /> 
+  <arg name="model" default="Hydrus" /> 
   <arg name="debug" default="false" />
   <arg unless="$(arg debug)" name="launch_prefix" value="" />
-
+  <arg name="initial_theta" default="0.0" />
+  <arg name="alpha" default="10.0" />
+  <arg name="d_theta" default="0.01" />
+  <arg name="grad_f_thresh" default="0.0001" />
+  <arg name="extra_module_link_num_1" default="0" />
+  <arg name="extra_module_link_num_2" default="0" />
+  <arg name="extra_module_mass" default="0.5" />
+  <arg name="extra_module_offset" default="0.0" />
+  <arg name="initial_theta0" default = "1.04" />
+  <arg name="initial_theta1" default = "1.04" />
+  <arg name="initial_theta2" default = "1.04" />
+  <arg name="initial_theta3" default = "1.04" />
+  <arg name="initial_theta4" default = "1.04" />
+  <arg name="time_thresh" default = "10.0" />
+  <arg name="v_thresh" default = "0.001" />
+  <arg name="thread_num" default = "1" />
 <node name="posture_optimization_node" pkg="hydrus_gap_passing" type="posture_optimization_node" respawn="false" launch-prefix="$(arg launch_prefix)" output="screen">
        <!-- for transform controller -->
-    <rosparam file="$(find hydrus_transform_control)/config/hydrusx/$(arg model).yaml" command="load" />
+    <rosparam file="$(find hydrus_transform_control)/config/hydrusx/hex/$(arg model).yaml" command="load" />
+    <param name="alpha" value="$(arg alpha)" />
+    <param name="d_theta" value="$(arg d_theta)" />
+    <param name="grad_f_thresh" value="$(arg grad_f_thresh)" />
+    <param name="initial_theta0" value="$(arg initial_theta)" />
+    <param name="initial_theta1" value="$(arg initial_theta)" />
+    <param name="initial_theta2" value="$(arg initial_theta)" />
+    <param name="initial_theta3" value="$(arg initial_theta)" />
+    <param name="initial_theta4" value="$(arg initial_theta)" />
+    <param name="extra_module_link_num_1" value="$(arg extra_module_link_num_1)" />
+    <param name="extra_module_link_num_2" value="$(arg extra_module_link_num_2)" />
+    <param name="extra_module_mass" value="$(arg extra_module_mass)" />
+    <param name="extra_module_offset" value="$(arg extra_module_offset)" />
+    <param name="time_thresh" value="$(arg time_thresh)" />
+    <param name="v_thresh" value="$(arg v_thresh)" />
+    <param name="thread_num" value="$(arg thread_num)" />
    </node>
 </launch>
