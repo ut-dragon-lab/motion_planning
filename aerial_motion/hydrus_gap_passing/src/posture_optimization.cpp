@@ -6,7 +6,7 @@ PostureOptimization::PostureOptimization(ros::NodeHandle nh, ros::NodeHandle nhp
   transform_controller_ = boost::shared_ptr<TransformController>(new TransformController(nh_, nhp_, false));
   
   link_num_ = transform_controller_->getLinkNum();
-  ring_radius_ = transform_controller_->getRingRadius();
+  ring_radius_ = 0.01+transform_controller_->getRingRadius();
   theta_.resize(link_num_ - 1);
   grad_f_.resize(link_num_);
   joint_pub_ = nh_.advertise<sensor_msgs::JointState>("joint_states", 1);
@@ -95,6 +95,7 @@ void PostureOptimization::steepestDescent(std::vector<double> initial_theta, std
   transform_controller.addExtraModule(extra_module_link_num_2_, extra_module_mass_, extra_module_offset_);
   //ros::Rate loop_rate(20);
   ros::Time start_time = ros::Time::now();
+  ROS_ERROR("link_num:%d", link_num_);
   {
     VectorXd x = getX(transform_controller, theta);
     double sum = 0.0;
@@ -136,13 +137,14 @@ void PostureOptimization::steepestDescent(std::vector<double> initial_theta, std
     
     if (!collisionCheck(transform_controller, theta)) {
       //ROS_WARN("collision");
-      is_valid = false;
+      //is_valid = false;
     }
 
     VectorXd x = getX(transform_controller, theta);
     for (int i = 0; i < link_num_; i++) {
       if (x(i) < 0) {
         is_valid = false;
+        //ROS_WARN("invalid U");
         break;
       }
     }
@@ -158,9 +160,10 @@ void PostureOptimization::steepestDescent(std::vector<double> initial_theta, std
     double variance = x.squaredNorm() / x.size() - sum * sum / x.size() / x.size();
     //ROS_INFO("max force:%f, variance:%f", max, variance);
     //ROS_ERROR("theta:%f, %f, %f, %f, %f", theta_[0], theta_[1], theta_[2], theta_[3], theta_[4]);
-    std::cout << variance << std::endl;
+    //std::cout << variance << std::endl;
     if (is_valid && (last_variance >= variance)) {
       last_variance = variance;
+      //ROS_WARN("last variance:%f", last_variance);
       valid_theta = theta;
     }
 
@@ -179,7 +182,7 @@ void PostureOptimization::steepestDescent(std::vector<double> initial_theta, std
     joint_state.position.resize(link_num_ - 1);
     for (int i = 0; i < link_num_ - 1; i++) {
       joint_state.name[i] = std::string("joint") + boost::to_string(i + 1);
-      joint_state.position[i] = theta_[i];
+      joint_state.position[i] = theta[i];
     } 
     joint_pub_.publish(joint_state);
     ros::spinOnce();
@@ -187,7 +190,7 @@ void PostureOptimization::steepestDescent(std::vector<double> initial_theta, std
     */
     if(break_flag) break;
   }
-  /*
+ /* 
   sensor_msgs::JointState joint_state;
   joint_state.name.resize(link_num_ - 1);
   joint_state.position.resize(link_num_ - 1);
@@ -202,6 +205,7 @@ void PostureOptimization::steepestDescent(std::vector<double> initial_theta, std
     loop_rate.sleep();
   }
   */
+  
   optimized_theta = valid_theta;
   optimized_variance = last_variance;
 }
@@ -229,8 +233,12 @@ void PostureOptimization::process()
       initial_theta.at(i).at(j) = i * 0.1;
     }
   }
+  initial_theta_.at(0) = 1.57;
+  initial_theta_.at(1) = 1.57;
+  initial_theta_.at(2) = 1.57;
+  //initial_theta_.at(3) = -1.57;
+  //initial_theta_.at(4) = -1.57;
   ROS_WARN("thread_num:%d", thread_num_);
-  auto func = [](int a){std::cout << a << std::endl;};
   for (int i = 0; i < thread_num_; i++) {
     //threads.push_back(std::thread(&PostureOptimization::steepestDescent, this, initial_theta.at(i), std::ref(theta_and_variance.at(i).first), std::ref(theta_and_variance.at(i).second)));
     threads.push_back(std::thread(&PostureOptimization::steepestDescent, this, initial_theta_, std::ref(theta_and_variance.at(i).first), std::ref(theta_and_variance.at(i).second)));
@@ -250,7 +258,8 @@ void PostureOptimization::process()
   }
   std::vector<double> optimized_theta = theta_and_variance.at(min_variance_index).first;
   double optimized_variance = min_variance;
-  ROS_ERROR("last theta:%f, %f, %f, %f, %f", optimized_theta[0], optimized_theta[1], optimized_theta[2], optimized_theta[3], optimized_theta[4]);
+  ROS_ERROR("last theta:%f, %f, %f", optimized_theta[0], optimized_theta[1], optimized_theta[2]);
+  //ROS_ERROR("last theta:%f, %f, %f, %f, %f", optimized_theta[0], optimized_theta[1], optimized_theta[2], optimized_theta[3], optimized_theta[4]);
   ROS_ERROR("last variance:%f", optimized_variance);
   ROS_ERROR("process finished");
  
