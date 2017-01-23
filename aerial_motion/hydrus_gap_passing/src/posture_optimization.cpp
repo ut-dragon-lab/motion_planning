@@ -84,6 +84,63 @@ bool PostureOptimization::collisionCheck(TransformController& transform_controll
   return true;
 }
 
+void PostureOptimization::check()
+{
+  //std::vector<double> theta;
+  //theta.resize(5);
+#if 0
+  theta.at(0) = 1.04;
+  theta.at(1) = 1.04;
+  theta.at(2) = 1.04;
+  theta.at(3) = 1.04;
+  theta.at(4) = 1.04;
+#endif
+#if 0
+  theta.at(0) = 1.465299;
+  theta.at(1) = 1.298540;
+  theta.at(2) = 0.967127;
+  theta.at(3) = 0.736881;
+  theta.at(4) = 0.836105;
+#endif
+
+  double theta[105] =  {1.039792, -1.570796, -0.058256, 1.221489, -0.120981
+		     ,1.570796, 1.043512, 0.782334, 1.295930, 1.551016
+		     ,1.365085, 1.373287, 1.570796, 0.069240, -1.557727
+		     ,1.566596, 1.375627, 1.504366, 0.044917, -1.561304
+		     ,1.570796, 1.244642, 1.433501, 0.119196, 0.067807
+		     ,-1.550700, -1.570796, -0.687237, -0.899684, -0.188285
+		     ,-1.570796, -1.570796, -0.762261, -0.612901, -0.724461
+		     ,-1.570796, -1.570796, -0.856542, -0.398901, -0.823072
+		     ,-1.570796, -1.570796, -0.823131, -0.707165, 0.085968
+		     ,-1.570796, -1.570796, -0.830098, -0.582737, -0.333849
+		     ,-1.570796, -1.570796, -0.880379, -0.484007, -0.203092
+		     ,1.570796, 1.570796, 0.863535, 0.546572, 0.255007
+		     ,1.570796, 1.570796, 1.024079, 0.039914, 0.604622
+		     ,-1.570796, -1.570796, -1.570796, 0.712283, 0.712687
+		     ,1.570796, 1.570796, 0.832832, 0.627245, 1.036055
+		     ,-1.570796, -1.570796, -0.850181, -0.678627, 0.047910
+		     ,1.570796, 1.570796, 0.880627, 0.438982, 1.124587
+		     ,-1.570796, -1.570796, -0.843197, -0.613396, -0.274928
+		     ,-1.570796, -1.570796, -1.153217, -0.004353, -0.006239
+		     ,-1.570796, -1.570796, -1.155142, -0.003291, -0.006085
+		     ,-1.570796, -1.570796, -1.156627, -0.002813, -0.006175
+  };
+
+  double theta__[5] = {-1.570796, -1.570796, -0.843197, -0.613396, -0.274928};
+  TransformController transform_controller(nh_, nhp_, false);
+  for (int i = 0; i < 21; i++) {
+    std::vector<double> theta_l;
+    for (int j = 0; j < 5; j++) {
+      theta_l.push_back(1.04);
+      //theta_l.push_back(theta__[j]);
+    }
+    VectorXd x = getX(transform_controller, theta_l);
+    ROS_INFO("%f", i*0.25);
+    std::cout << x << std::endl;
+    transform_controller.addExtraModule(0, 0.25, 0.3);
+  }
+}
+
 void PostureOptimization::steepestDescent(std::vector<double> initial_theta, std::vector<double>& optimized_theta, double& optimized_variance)
 {
   std::vector<double> theta = initial_theta;
@@ -92,7 +149,7 @@ void PostureOptimization::steepestDescent(std::vector<double> initial_theta, std
   double last_variance = 1000000.0;
   TransformController transform_controller(nh_, nhp_, false);
   transform_controller.addExtraModule(extra_module_link_num_1_, extra_module_mass_, extra_module_offset_);
-  transform_controller.addExtraModule(extra_module_link_num_2_, extra_module_mass_, extra_module_offset_);
+  //transform_controller.addExtraModule(extra_module_link_num_2_, extra_module_mass_, extra_module_offset_);
   //ros::Rate loop_rate(20);
   ros::Time start_time = ros::Time::now();
   ROS_ERROR("link_num:%d", link_num_);
@@ -233,11 +290,11 @@ void PostureOptimization::process()
       initial_theta.at(i).at(j) = i * 0.1;
     }
   }
-  initial_theta_.at(0) = 1.57;
-  initial_theta_.at(1) = 1.57;
-  initial_theta_.at(2) = 1.57;
-  //initial_theta_.at(3) = -1.57;
-  //initial_theta_.at(4) = -1.57;
+  initial_theta_.at(0) = -1.570796;
+  initial_theta_.at(1) = -1.570796;
+  initial_theta_.at(2) = -1.156627;
+  initial_theta_.at(3) = -0.008213;
+  initial_theta_.at(4) = -0.006175;
   ROS_WARN("thread_num:%d", thread_num_);
   for (int i = 0; i < thread_num_; i++) {
     //threads.push_back(std::thread(&PostureOptimization::steepestDescent, this, initial_theta.at(i), std::ref(theta_and_variance.at(i).first), std::ref(theta_and_variance.at(i).second)));
@@ -258,8 +315,8 @@ void PostureOptimization::process()
   }
   std::vector<double> optimized_theta = theta_and_variance.at(min_variance_index).first;
   double optimized_variance = min_variance;
-  ROS_ERROR("last theta:%f, %f, %f", optimized_theta[0], optimized_theta[1], optimized_theta[2]);
-  //ROS_ERROR("last theta:%f, %f, %f, %f, %f", optimized_theta[0], optimized_theta[1], optimized_theta[2], optimized_theta[3], optimized_theta[4]);
+  //ROS_ERROR("last theta:%f, %f, %f", optimized_theta[0], optimized_theta[1], optimized_theta[2]);
+  ROS_ERROR("last theta:%f, %f, %f, %f, %f", optimized_theta[0], optimized_theta[1], optimized_theta[2], optimized_theta[3], optimized_theta[4]);
   ROS_ERROR("last variance:%f", optimized_variance);
   ROS_ERROR("process finished");
  

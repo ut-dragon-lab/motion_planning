@@ -35,6 +35,7 @@ public:
   PostureOptimization(ros::NodeHandle nh, ros::NodeHandle nhp);
   ~PostureOptimization();
   void process();
+  void check();
 private:
   ros::NodeHandle nh_;
   ros::NodeHandle nhp_;

@@ -12,6 +12,7 @@ find_package(catkin REQUIRED COMPONENTS
   pluginlib
   hydrus_transform_control
   cmake_modules
+  jsk_mbzirc_board
 )
 
 find_package(ompl)
@@ -66,6 +67,14 @@ target_link_libraries (posture_optimization ${catkin_LIBRARIES}  ${Boost_LIBRARI
 add_executable(posture_optimization_node src/posture_optimization_node.cpp)
 add_dependencies(posture_optimization ${PROJECT_NAME}_gencpp)
 target_link_libraries (posture_optimization_node ${catkin_LIBRARIES}  ${Boost_LIBRARIES} posture_optimization motion_control) 
+
+Add_library (anzai_object_transportation src/anzai_object_transportation.cpp )
+add_dependencies(anzai_object_transportation  ${PROJECT_NAME}_gencpp)
+target_link_libraries (anzai_object_transportation ${catkin_LIBRARIES}  ${Boost_LIBRARIES}) 
+
+add_executable(anzai_object_transportation_node src/anzai_object_transportation_node.cpp)
+add_dependencies(anzai_object_transportation ${PROJECT_NAME}_gencpp)
+target_link_libraries (anzai_object_transportation_node ${catkin_LIBRARIES}  ${Boost_LIBRARIES} anzai_object_transportation motion_control) 
 
 install(PROGRAMS
   scripts/state_validation_l4.py

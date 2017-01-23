@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<launch>
+  <arg name="joint_pub_topic_name" default="joint_states" />
+  <arg name="add_extra_module_service_name" default="add_extra_module" />
+  <arg name="gripper0_control_service_name" default="/magnet0/serial_board/magnet_control" />
+  <arg name="gripper1_control_service_name" default="/magnet1/serial_board/magnet_control" />
+  <arg name="gripper0_sub_topic_name" default="/magnet0/serial_board/magnet_feedback" />
+  <arg name="gripper1_sub_topic_name" default="/magnet1/serial_board/magnet_feedback" />
+  <arg name="odom_sub_topic_name" default="/uav/full_state" />
+  <arg name="target_image_center_topic_name" default="/object_image_center" />
+  <arg name="uav_pos_pub_topic_name" default="/uav/nav" />
+  <arg name="control_frequency" default="20" />
+  <arg name="link_length" default="0.60" />
+  <arg name="gripper0_link_num" default="2" />
+  <arg name="gripper1_link_num" default="4" />
+  <arg name="gripper0_link_offset" default="0.30" />
+  <arg name="gripper1_link_offset" default="0.30" />
+  <arg name="camera_link_num" default="3" />
+  <arg name="camera_link_offset" default="0.28" />
+  <arg name="object_num" default="2" />
+  <arg name="link_num" default="4" />
+  <arg name="object_pos_thresh" default="0.05" />
+  <arg name="go_down_vel" default="0.7" />
+  <arg name="goal_pos_x" default="1.0" />
+  <arg name="goal_pos_y" default="1.0" />
+  <arg name="searching_x" default="1.0" />
+  <arg name="searching_y" default="1.0" />
+  <arg name="searching_z" default="1.0" />
+  <arg name="object_mass" default="0.375" />
+  <arg name="root_link" default="3" />
+  <include file="$(find jsk_mbzirc_board)/launch/magnet.launch">
+    <arg name="port0" value="zoi" />
+    <arg name="port1" value="zoizoi" />
+  </include>
+  <node name="anzai_object_transportation" pkg="hydrus_gap_passing" type="anzai_object_transportation_node" respawn="false" launch-prefix="" output="screen">
+    <param name="object_pos_thresh" value="$(arg object_pos_thresh)" />
+    <param name="goal_pos_x" value="$(arg goal_pos_x)" />
+    <param name="goal_pos_y" value="$(arg goal_pos_y)" />
+    <param name="searching_x" value="$(arg searching_x)" />
+    <param name="searching_y" value="$(arg searching_y)" />
+    <param name="searching_z" value="$(arg searching_z)" />
+    <param name="object_mass" value="$(arg object_mass)" />
+  </node>
+</launch>

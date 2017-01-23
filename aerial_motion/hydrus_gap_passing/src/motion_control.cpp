@@ -433,9 +433,9 @@ void MotionControl::robotStateCallback(const aerial_robot_base::StatesConstPtr& 
 {
   std::vector<double> move_base_state;
   move_base_state.resize(0);
-  move_base_state.push_back(pose_state->states[0].pos); //x
-  move_base_state.push_back(pose_state->states[1].pos); //y
-  move_base_state.push_back(pose_state->states[3].pos); //yaw
+  //move_base_state.push_back(pose_state->states[0].pos); //x
+  //move_base_state.push_back(pose_state->states[1].pos); //y
+  //move_base_state.push_back(pose_state->states[3].pos); //yaw
   setMoveBaseStates(move_base_state);
 }
 
