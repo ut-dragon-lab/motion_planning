@@ -34,11 +34,5 @@
   </include>
   <node name="anzai_object_transportation" pkg="hydrus_gap_passing" type="anzai_object_transportation_node" respawn="false" launch-prefix="" output="screen">
     <param name="object_pos_thresh" value="$(arg object_pos_thresh)" />
-    <param name="goal_pos_x" value="$(arg goal_pos_x)" />
-    <param name="goal_pos_y" value="$(arg goal_pos_y)" />
-    <param name="searching_x" value="$(arg searching_x)" />
-    <param name="searching_y" value="$(arg searching_y)" />
-    <param name="searching_z" value="$(arg searching_z)" />
-    <param name="object_mass" value="$(arg object_mass)" />
   </node>
 </launch>
