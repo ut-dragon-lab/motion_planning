@@ -27,10 +27,23 @@ void PostureOptimization::rosParamInit()
   nhp_.param("v_thresh", v_thresh_, 0.001);
   nhp_.param("time_thresh", time_thresh_, 10.0);
   nhp_.param("thread_num", thread_num_, 1);
-  nhp_.param("extra_module_link_num_1", extra_module_link_num_1_, 0);
-  nhp_.param("extra_module_link_num_2", extra_module_link_num_2_, 0);
-  nhp_.param("extra_module_mass", extra_module_mass_, 0.5);
-  nhp_.param("extra_module_offset", extra_module_offset_, 0.0);
+  nhp_.param("extra_module_num", extra_module_num_, 2);
+  nhp_.param("use_initial_theta", use_initial_theta_, false);
+  extra_module_link_num_.resize(extra_module_num_);
+  for (int i = 0; i < extra_module_num_; i++) {
+    std::string extra_module_link_num_param_name("extra_module_link_num");
+    nhp_.param(extra_module_link_num_param_name + boost::to_string(i), extra_module_link_num_.at(i), 0);
+  }
+  extra_module_mass_.resize(extra_module_num_);
+  for (int i = 0; i < extra_module_num_; i++) {
+    std::string extra_module_mass_param_name("extra_module_mass");
+    nhp_.param(extra_module_mass_param_name + boost::to_string(i), extra_module_mass_.at(i), 0.5);
+  }
+  extra_module_offset_.resize(extra_module_num_);
+  for (int i = 0; i < extra_module_num_; i++) {
+    std::string extra_module_offset_param_name("extra_module_offset");
+    nhp_.param(extra_module_offset_param_name + boost::to_string(i), extra_module_offset_.at(i), 0.3);
+  }
   nhp_.param("linkend_radius", linkend_radius_, 0.02);
   initial_theta_.resize(link_num_ - 1);
   for (int i = 0; i < link_num_ - 1; i++) {
@@ -81,6 +94,16 @@ bool PostureOptimization::collisionCheck(TransformController& transform_controll
     }
   }
   return true;
+}
+
+void PostureOptimization::addExtraModule(bool reset, double extra_module_link_num, double extra_module_mass, double extra_module_offset)
+{
+  hydrus_transform_control::AddExtraModule srv;
+  srv.request.reset = reset;
+  srv.request.extra_module_link = extra_module_link_num;
+  srv.request.extra_module_mass = extra_module_mass;
+  srv.request.extra_module_offset = extra_module_offset;
+  add_extra_module_client_.call(srv);
 }
 
 void PostureOptimization::check()
@@ -147,11 +170,11 @@ void PostureOptimization::steepestDescent(std::vector<double> initial_theta, std
   std::vector<double> grad_f(link_num_ - 1);
   double last_variance = 1000000.0;
   TransformController transform_controller(nh_, nhp_, false);
-  transform_controller.addExtraModule(extra_module_link_num_1_, extra_module_mass_, extra_module_offset_);
-  //transform_controller.addExtraModule(extra_module_link_num_2_, extra_module_mass_, extra_module_offset_);
+  for (int i = 0; i < extra_module_num_; i++) {
+  transform_controller.addExtraModule(extra_module_link_num_.at(i), extra_module_mass_.at(i), extra_module_offset_.at(i));
+  }
   //ros::Rate loop_rate(20);
   ros::Time start_time = ros::Time::now();
-  ROS_ERROR("link_num:%d", link_num_);
   {
     VectorXd x = getX(transform_controller, theta);
     double sum = 0.0;
@@ -193,7 +216,7 @@ void PostureOptimization::steepestDescent(std::vector<double> initial_theta, std
     
     if (!collisionCheck(transform_controller, theta)) {
       //ROS_WARN("collision");
-      //is_valid = false;
+      is_valid = false;
     }
 
     VectorXd x = getX(transform_controller, theta);
@@ -206,20 +229,13 @@ void PostureOptimization::steepestDescent(std::vector<double> initial_theta, std
     }
 
     //ROS_INFO("theta: %f, %f, %f, %f, %f value: %f", theta_[0], theta_[1], theta_[2], theta_[3], theta_[4], x.norm());
-    double max = 0.0, sum = 0.0;
+    double sum = 0.0;
     for (int i = 0; i < x.size(); i++) {
-        if (max < x(i)) {
-          max = x(i);
-        }
-        sum += x(i);
+      sum += x(i);
     }
     double variance = x.squaredNorm() / x.size() - sum * sum / x.size() / x.size();
-    //ROS_INFO("max force:%f, variance:%f", max, variance);
-    //ROS_ERROR("theta:%f, %f, %f, %f, %f", theta_[0], theta_[1], theta_[2], theta_[3], theta_[4]);
-    //std::cout << variance << std::endl;
     if (is_valid && (last_variance >= variance)) {
       last_variance = variance;
-      //ROS_WARN("last variance:%f", last_variance);
       valid_theta = theta;
     }
 
@@ -246,22 +262,6 @@ void PostureOptimization::steepestDescent(std::vector<double> initial_theta, std
     */
     if(break_flag) break;
   }
- /* 
-  sensor_msgs::JointState joint_state;
-  joint_state.name.resize(link_num_ - 1);
-  joint_state.position.resize(link_num_ - 1);
-  for (int i = 0; i < link_num_ - 1; i++) {
-    joint_state.name[i] = std::string("joint") + boost::to_string(i + 1);
-    joint_state.position[i] = valid_theta_[i];
-  }
-  for(int i = 0; i < 10; i++) {
-    joint_state.header.stamp = ros::Time::now();
-    joint_pub_.publish(joint_state);
-    ros::spinOnce();
-    loop_rate.sleep();
-  }
-  */
-  
   optimized_theta = valid_theta;
   optimized_variance = last_variance;
 }
@@ -271,14 +271,11 @@ void PostureOptimization::process()
   Eigen::VectorXd x;
   //initialize
   rosParamInit();
-  hydrus_transform_control::AddExtraModule srv;
-  srv.request.extra_module_link = extra_module_link_num_1_;
-  srv.request.extra_module_mass = extra_module_mass_;
-  srv.request.extra_module_offset = extra_module_offset_;
-  add_extra_module_client_.call(srv);
-  srv.request.extra_module_link = extra_module_link_num_2_;
-  add_extra_module_client_.call(srv);
- 
+  addExtraModule(true, 0, 0, 0);
+  for (int i = 0; i < extra_module_num_; i++) {
+    addExtraModule(false, extra_module_link_num_.at(i), extra_module_mass_.at(i), extra_module_offset_.at(i));
+  }
+  
   //parallel process
   std::vector<std::pair<std::vector<double>, double> > theta_and_variance(thread_num_);
   std::vector<std::thread> threads;
@@ -286,22 +283,19 @@ void PostureOptimization::process()
   for (int i = 0; i < thread_num_; i++) {
     initial_theta.at(i).resize(link_num_ - 1);
     for (int j = 0; j < link_num_ - 1; j++) {
-      initial_theta.at(i).at(j) = i * 0.1;
+      if (!use_initial_theta_) {
+        initial_theta.at(i).at(j) = i * 0.1;
+      } else {
+        initial_theta.at(i).at(j) = initial_theta_.at(j);
+      }
     }
   }
-  initial_theta_.at(0) = -1.570796;
-  initial_theta_.at(1) = -1.570796;
-  initial_theta_.at(2) = -1.156627;
-  initial_theta_.at(3) = -0.008213;
-  initial_theta_.at(4) = -0.006175;
-  ROS_WARN("thread_num:%d", thread_num_);
   for (int i = 0; i < thread_num_; i++) {
-    //threads.push_back(std::thread(&PostureOptimization::steepestDescent, this, initial_theta.at(i), std::ref(theta_and_variance.at(i).first), std::ref(theta_and_variance.at(i).second)));
-    threads.push_back(std::thread(&PostureOptimization::steepestDescent, this, initial_theta_, std::ref(theta_and_variance.at(i).first), std::ref(theta_and_variance.at(i).second)));
+    threads.push_back(std::thread(&PostureOptimization::steepestDescent, this, initial_theta.at(i), std::ref(theta_and_variance.at(i).first), std::ref(theta_and_variance.at(i).second)));
   }
   for (int i = 0; i < threads.size(); i++) {
     if (threads.at(i).joinable())
-    threads.at(i).join();
+      threads.at(i).join();
   }
   //result 
   double min_variance = theta_and_variance.at(0).second;
@@ -314,9 +308,11 @@ void PostureOptimization::process()
   }
   std::vector<double> optimized_theta = theta_and_variance.at(min_variance_index).first;
   double optimized_variance = min_variance;
-  //ROS_ERROR("last theta:%f, %f, %f", optimized_theta[0], optimized_theta[1], optimized_theta[2]);
-  ROS_ERROR("last theta:%f, %f, %f, %f, %f", optimized_theta[0], optimized_theta[1], optimized_theta[2], optimized_theta[3], optimized_theta[4]);
-  ROS_ERROR("last variance:%f", optimized_variance);
+  ROS_INFO("last theta");
+  for (int i = 0; i < link_num_ - 1; i++) {
+    ROS_INFO("%f", optimized_theta.at(i));
+  }
+  ROS_INFO("last variance:%f", optimized_variance);
   ROS_ERROR("process finished");
  
   //publish result

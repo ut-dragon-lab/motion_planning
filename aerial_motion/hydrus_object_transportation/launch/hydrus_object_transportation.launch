@@ -47,7 +47,7 @@
     <arg name="contour_area_margin" value="0.04" />
   </include>
 
-  <node name="anzai_object_transportation" pkg="hydrus_gap_passing" type="anzai_object_transportation_node" respawn="false" launch-prefix="" output="screen">
+  <node name="hydrus_object_transportation" pkg="hydrus_object_transportation" type="hydrus_object_transportation_node" respawn="false" launch-prefix="" output="screen">
     <param name="object_pos_thresh" value="$(arg object_pos_thresh)" />
   </node>
 </launch>

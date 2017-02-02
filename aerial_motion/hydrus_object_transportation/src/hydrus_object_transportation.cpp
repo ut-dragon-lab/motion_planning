@@ -1,4 +1,4 @@
-#include <hydrus_gap_passing/anzai_object_transportation.h>
+#include <hydrus_object_transportation/hydrus_object_transportation.h>
 
 //#define GRIPPER_INPUT_DEBUG
 //#define GRIPPER_OUTPUT_DEBUG
@@ -7,7 +7,7 @@
 //#define OBJECT_POS_DEBUG
 //#define POS_DEBUG
 
-AnzaiObjectTransportation::AnzaiObjectTransportation(ros::NodeHandle nh, ros::NodeHandle nhp) :nh_(nh), nhp_(nhp)
+HydrusObjectTransportation::HydrusObjectTransportation(ros::NodeHandle nh, ros::NodeHandle nhp) :nh_(nh), nhp_(nhp)
 {
   //topic and service name
   nhp_.param("joint_pub_topic_name", joint_pub_topic_name_, std::string("hydrus/joints_ctrl"));
@@ -61,13 +61,13 @@ AnzaiObjectTransportation::AnzaiObjectTransportation(ros::NodeHandle nh, ros::No
   yaw_control_pub_ = nh_.advertise<std_msgs::Bool>(yaw_control_pub_topic_name_, 1);
 
   //subscriber
-  gripper_state_sub_[0] = nh_.subscribe<std_msgs::Int16>(gripper_state_sub_topic_name_[0], 1, &AnzaiObjectTransportation::gripper0StateCallback, this);
-  gripper_state_sub_[1] = nh_.subscribe<std_msgs::Int16>(gripper_state_sub_topic_name_[1], 1, &AnzaiObjectTransportation::gripper1StateCallback, this);
-  odom_sub_ = nh_.subscribe<aerial_robot_base::States>(odom_sub_topic_name_, 1, &AnzaiObjectTransportation::odomCallback, this);
-  target_image_center_sub_ = nh_.subscribe<geometry_msgs::PoseArray>(target_image_center_topic_name_, 1, &AnzaiObjectTransportation::targetImageCenterCallback, this);
-  camera_info_sub_ = nh_.subscribe<sensor_msgs::CameraInfo>(camera_info_sub_topic_name_, 1, &AnzaiObjectTransportation::cameraInfoCallback, this); 
-  joy_stick_sub_ = nh_.subscribe<sensor_msgs::Joy>(joy_stick_sub_topic_name_, 1, &AnzaiObjectTransportation::joyStickCallback, this);
-  debug_sub_ = nh_.subscribe<std_msgs::Empty>(debug_sub_topic_name_, 1, &AnzaiObjectTransportation::debugCallback, this);
+  gripper_state_sub_[0] = nh_.subscribe<std_msgs::Int16>(gripper_state_sub_topic_name_[0], 1, &HydrusObjectTransportation::gripper0StateCallback, this);
+  gripper_state_sub_[1] = nh_.subscribe<std_msgs::Int16>(gripper_state_sub_topic_name_[1], 1, &HydrusObjectTransportation::gripper1StateCallback, this);
+  odom_sub_ = nh_.subscribe<aerial_robot_base::States>(odom_sub_topic_name_, 1, &HydrusObjectTransportation::odomCallback, this);
+  target_image_center_sub_ = nh_.subscribe<geometry_msgs::PoseArray>(target_image_center_topic_name_, 1, &HydrusObjectTransportation::targetImageCenterCallback, this);
+  camera_info_sub_ = nh_.subscribe<sensor_msgs::CameraInfo>(camera_info_sub_topic_name_, 1, &HydrusObjectTransportation::cameraInfoCallback, this); 
+  joy_stick_sub_ = nh_.subscribe<sensor_msgs::Joy>(joy_stick_sub_topic_name_, 1, &HydrusObjectTransportation::joyStickCallback, this);
+  debug_sub_ = nh_.subscribe<std_msgs::Empty>(debug_sub_topic_name_, 1, &HydrusObjectTransportation::debugCallback, this);
 
   //client
   add_extra_module_client_ = nh_.serviceClient<hydrus_transform_control::AddExtraModule>(add_extra_module_service_name_);
@@ -75,7 +75,7 @@ AnzaiObjectTransportation::AnzaiObjectTransportation(ros::NodeHandle nh, ros::No
   gripper_control_client_[1] = nh_.serviceClient<jsk_mbzirc_board::Magnet>(gripper_control_service_name_[1]);
   
   //timer
-  timer_ = nh.createTimer(ros::Duration(1.0 / control_frequency_), &AnzaiObjectTransportation::controlCallback, this);
+  timer_ = nh.createTimer(ros::Duration(1.0 / control_frequency_), &HydrusObjectTransportation::controlCallback, this);
 
   //member variables
   state_machine_ = StateMachine::SEARCH_OBJECT_;
@@ -95,21 +95,21 @@ AnzaiObjectTransportation::AnzaiObjectTransportation(ros::NodeHandle nh, ros::No
   yaw_track_flag_ = false;
 }
 
-AnzaiObjectTransportation::~AnzaiObjectTransportation()
+HydrusObjectTransportation::~HydrusObjectTransportation()
 {
 }
 
-void AnzaiObjectTransportation::gripper0StateCallback(const std_msgs::Int16ConstPtr& msg)
+void HydrusObjectTransportation::gripper0StateCallback(const std_msgs::Int16ConstPtr& msg)
 {
   gripper_state_[0] = msg->data;
 }
 
-void AnzaiObjectTransportation::gripper1StateCallback(const std_msgs::Int16ConstPtr& msg)
+void HydrusObjectTransportation::gripper1StateCallback(const std_msgs::Int16ConstPtr& msg)
 {
   gripper_state_[1] = msg->data;
 }
 
-void AnzaiObjectTransportation::odomCallback(const aerial_robot_base::StatesConstPtr& msg)
+void HydrusObjectTransportation::odomCallback(const aerial_robot_base::StatesConstPtr& msg)
 {
   for (int i = 0; i < msg->states.size(); i++) {
     aerial_robot_base::State state = msg->states[i];
@@ -125,7 +125,7 @@ void AnzaiObjectTransportation::odomCallback(const aerial_robot_base::StatesCons
   }
 }
 
-void AnzaiObjectTransportation::targetImageCenterCallback(const geometry_msgs::PoseArrayConstPtr& msg)
+void HydrusObjectTransportation::targetImageCenterCallback(const geometry_msgs::PoseArrayConstPtr& msg)
 {
   detected_object_num_ = msg->poses.size();
   detected_object_pos_camera_.resize(detected_object_num_);
@@ -136,7 +136,7 @@ void AnzaiObjectTransportation::targetImageCenterCallback(const geometry_msgs::P
   std::sort(detected_object_pos_camera_.begin(), detected_object_pos_camera_.end(), [](const tf::Vector3& l, const tf::Vector3& r){return l.x() > r.x();});
 }
 
-void AnzaiObjectTransportation::cameraInfoCallback(const sensor_msgs::CameraInfoConstPtr& msg)
+void HydrusObjectTransportation::cameraInfoCallback(const sensor_msgs::CameraInfoConstPtr& msg)
 {
   if (camera_info_update_) return;
   camera_intrinsic_matrix_.setValue(msg->K[0], 0.0, msg->K[2],
@@ -148,7 +148,7 @@ void AnzaiObjectTransportation::cameraInfoCallback(const sensor_msgs::CameraInfo
   }
 }
 
-void AnzaiObjectTransportation::joyStickCallback(const sensor_msgs::JoyConstPtr& msg)
+void HydrusObjectTransportation::joyStickCallback(const sensor_msgs::JoyConstPtr& msg)
 {
   /* R1 */
   if (msg->buttons[11] == 1) {
@@ -174,7 +174,7 @@ void AnzaiObjectTransportation::joyStickCallback(const sensor_msgs::JoyConstPtr&
   }
 }
 
-void AnzaiObjectTransportation::throwObject()
+void HydrusObjectTransportation::throwObject()
 {
   jsk_mbzirc_board::Magnet srv;
   srv.request.on = 0;
@@ -183,7 +183,7 @@ void AnzaiObjectTransportation::throwObject()
   gripper_control_client_[1].call(srv);
 }
 
-void AnzaiObjectTransportation::goPos(tf::Vector3 target_pos)
+void HydrusObjectTransportation::goPos(tf::Vector3 target_pos)
 {
   tf::Vector3 delta = target_pos - uav_w_;
   delta.setZ(0.0);
@@ -224,7 +224,7 @@ void AnzaiObjectTransportation::goPos(tf::Vector3 target_pos)
   }
 }
 
-void AnzaiObjectTransportation::controlCallback(const ros::TimerEvent& event)
+void HydrusObjectTransportation::controlCallback(const ros::TimerEvent& event)
 {
   if (!camera_info_update_ || !start_flag_) return;
 	   //何もなければその場にとどまる
@@ -430,7 +430,7 @@ void AnzaiObjectTransportation::controlCallback(const ros::TimerEvent& event)
 #endif
 }
 
-void AnzaiObjectTransportation::debugCallback(const std_msgs::EmptyConstPtr& msg)
+void HydrusObjectTransportation::debugCallback(const std_msgs::EmptyConstPtr& msg)
 {
 #ifdef GRIPPER_OUTPUT_DEBUG
   ROS_INFO("throw object");

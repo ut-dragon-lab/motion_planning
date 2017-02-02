@@ -9,6 +9,7 @@ find_package(catkin REQUIRED COMPONENTS
   rospy
   sensor_msgs
   std_msgs
+  jsk_mbzirc_board
 )
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread -std=c++11")
@@ -16,7 +17,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread -std=c++11")
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES hydrus_object_transportation
-  CATKIN_DEPENDS aerial_robot_base geometry_msgs hydrus_transform_control roscpp rospy sensor_msgs std_msgs
+  CATKIN_DEPENDS aerial_robot_base geometry_msgs hydrus_transform_control roscpp rospy sensor_msgs std_msgs jsk_mbzirc_board
 )
 
 include_directories(
@@ -30,5 +31,13 @@ target_link_libraries (posture_optimization ${catkin_LIBRARIES}  ${Boost_LIBRARI
 add_executable(posture_optimization_node src/posture_optimization_node.cpp)
 add_dependencies(posture_optimization ${PROJECT_NAME}_gencpp)
 target_link_libraries (posture_optimization_node ${catkin_LIBRARIES}  ${Boost_LIBRARIES} posture_optimization) 
+
+Add_library (hydrus_object_transportation src/hydrus_object_transportation.cpp )
+add_dependencies(hydrus_object_transportation ${PROJECT_NAME}_gencpp)
+target_link_libraries (hydrus_object_transportation ${catkin_LIBRARIES}  ${Boost_LIBRARIES}) 
+
+add_executable(hydrus_object_transportation_node src/hydrus_object_transportation_node.cpp)
+add_dependencies(hydrus_object_transportation ${PROJECT_NAME}_gencpp)
+target_link_libraries (hydrus_object_transportation_node ${catkin_LIBRARIES}  ${Boost_LIBRARIES} hydrus_object_transportation) 
 
 

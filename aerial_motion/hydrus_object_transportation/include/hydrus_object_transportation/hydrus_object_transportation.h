@@ -1,14 +1,12 @@
-#ifndef ANZAI_OBJECT_TRANSPORTATION_H
-#define ANZAI_OBJECT_TRANSPORTATION_H
+#ifndef HYDRUS_OBJECT_TRANSPORTATION_H
+#define HYDRUS_OBJECT_TRANSPORTATION_H
 
 /*
 1. most of the consturctor of pointer should be shared pointer!!
   e.g. transform_controller
  */
 
-#include <pluginlib/class_loader.h>
 #include <ros/ros.h>
-#include <tf/transform_listener.h>
 
 // MoveIt!
 #include <hydrus_transform_control/transform_control.h>
@@ -34,11 +32,11 @@
 #include <std_msgs/Empty.h>
 #include <std_msgs/Bool.h>
 
-class AnzaiObjectTransportation 
+class HydrusObjectTransportation 
 {
 public:
-  AnzaiObjectTransportation(ros::NodeHandle nh, ros::NodeHandle nhp);
-  ~AnzaiObjectTransportation();
+  HydrusObjectTransportation(ros::NodeHandle nh, ros::NodeHandle nhp);
+  ~HydrusObjectTransportation();
 private:
   ros::NodeHandle nh_;
   ros::NodeHandle nhp_;

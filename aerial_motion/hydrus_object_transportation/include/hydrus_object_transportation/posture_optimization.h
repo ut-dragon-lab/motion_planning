@@ -10,7 +10,6 @@
 
 #include <hydrus_transform_control/transform_control.h>
 #include <aerial_robot_base/States.h>
-#include <aerial_robot_base/FlightNav.h>
 
 #include <iostream>
 #include <valarray>
@@ -46,10 +45,11 @@ private:
   double time_thresh_;
   int thread_num_;
   std::vector<double> initial_theta_;
-  int extra_module_link_num_1_;
-  int extra_module_link_num_2_;
-  double extra_module_mass_;
-  double extra_module_offset_;
+  int extra_module_num_;
+  std::vector<int> extra_module_link_num_;
+  std::vector<double> extra_module_mass_;
+  std::vector<double> extra_module_offset_;
+  bool use_initial_theta_;
   int link_num_;
   double ring_radius_;
   double linkend_radius_;
@@ -61,6 +61,7 @@ private:
   bool collisionCheck(TransformController& transform_controller, std::vector<double> theta);
   void rosParamInit();
   void steepestDescent(std::vector<double> initial_theta, std::vector<double>& optimized_theta, double& optimized_variance);
+  void addExtraModule(bool reset, double extra_module_link_num, double extra_module_mass, double extra_module_offset);
 };
 
 #endif
