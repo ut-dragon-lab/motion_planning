@@ -28,8 +28,8 @@ HydrusObjectTransportation::HydrusObjectTransportation(ros::NodeHandle nh, ros::
   //param
   nhp_.param("control_frequency", control_frequency_, 20);
   nhp_.param("link_length", link_length_, 0.60);
-  nhp_.param("gripper0_link_num", gripper_link_num_[0], 2);
-  nhp_.param("gripper1_link_num", gripper_link_num_[1], 4);
+  nhp_.param("gripper0_link_num", gripper_link_num_[0], 1); //zero index
+  nhp_.param("gripper1_link_num", gripper_link_num_[1], 3); //zero index
   nhp_.param("gripper0_link_offset", gripper_link_offset_[0], 0.30);
   nhp_.param("gripper1_link_offset", gripper_link_offset_[1], 0.30);
   nhp_.param("camera_link_num", camera_link_num_, 3);
@@ -224,6 +224,16 @@ void HydrusObjectTransportation::goPos(tf::Vector3 target_pos)
   }
 }
 
+void HydrusObjectTransportation::addExtraModule(bool reset, int extra_module_link, double extra_module_mass, double extra_module_offset)
+{
+  hydrus_transform_control::AddExtraModule srv;
+  srv.request.reset = reset;
+  srv.request.extra_module_link = extra_module_link;
+  srv.request.extra_module_mass = extra_module_mass;
+  srv.request.extra_module_offset = extra_module_offset;
+  add_extra_module_client_.call(srv);
+}
+
 void HydrusObjectTransportation::controlCallback(const ros::TimerEvent& event)
 {
   if (!camera_info_update_ || !start_flag_) return;
@@ -239,9 +249,9 @@ void HydrusObjectTransportation::controlCallback(const ros::TimerEvent& event)
   tf::Vector3 gripper_w;
   //calc gripper and camera pos
   camera_w.setValue(uav_w_.x() + cos(uav_yaw_w_) * 0.245, uav_w_.y() + sin(uav_yaw_w_) * 0.245, 0.0);
-  camera_yaw_w = uav_yaw_w_; //pi/2とか足したり引いたりしよう
+  camera_yaw_w = uav_yaw_w_; 
 
-  //でっちあげ　一般性皆無
+  //theta_1=theta_2=pi/2
   if (using_gripper_num_ == 1) {
     double x_offset = -0.3;
     gripper_w.setValue(uav_w_.x() + cos(uav_yaw_w_) * x_offset, uav_w_.y() + sin(uav_yaw_w_) * x_offset, 0.0);
@@ -254,15 +264,6 @@ void HydrusObjectTransportation::controlCallback(const ros::TimerEvent& event)
   //state machine
   /* SEARCH_OBJECT */
   if (state_machine_ == StateMachine::SEARCH_OBJECT_) {
-    /*if (detected_object_pos_camera_.size() == 0) {
-      object_search_cnt_++;
-      if (object_search_cnt_ < object_search_time_thresh_ * control_frequency_) {
-        target_w.setValue(searching_x_0_, searching_y_0_, searching_z_);
-      } else if (object_search_cnt_ < object_search_time_thresh_ * control_frequency_ * 2) {
-        target_w.setValue(searching_x_1_, searching_y_1_, searching_z_);
-      } else {
-        object_search_cnt_ = 0;
-      }*/
     if (using_gripper_num_ == 0) {
       target_w.setValue(searching_x_0_, searching_y_0_, searching_z_);
     } else if (using_gripper_num_ == 1) {
@@ -289,8 +290,8 @@ void HydrusObjectTransportation::controlCallback(const ros::TimerEvent& event)
       tf::Vector3 object_pos(target_object_x_w, target_object_y_w, 0);
       object_pos_vec_.push_back(object_pos);
 #ifdef OBJECT_POS_DEBUG
-      //ROS_INFO("camera_coord_image_pos_x:%f y:%f", camera_coord_image_pos.x(), camera_coord_image_pos.y());
-      //ROS_INFO("world_coord_image_pos_x:%f y:%f z:%f", world_coord_image_pos.x(), world_coord_image_pos.y(), world_coord_image_pos.z());	      
+      ROS_INFO("camera_coord_image_pos_x:%f y:%f", camera_coord_image_pos.x(), camera_coord_image_pos.y());
+      ROS_INFO("world_coord_image_pos_x:%f y:%f z:%f", world_coord_image_pos.x(), world_coord_image_pos.y(), world_coord_image_pos.z());	      
       ROS_INFO("target_object_x_camera_center:%f, y:%f", target_object_x_camera_center, target_object_y_camera_center);
       ROS_INFO("target_object_x_w:%f y:%f", target_object_x_w, target_object_y_w);
 #else
@@ -327,62 +328,39 @@ void HydrusObjectTransportation::controlCallback(const ros::TimerEvent& event)
     if (uav_w_.z() < 0.20) {
       state_machine_ = StateMachine::TRANSFORM_;
     }
+  /* ADD_EXTRA_MODULE */
+  } else if (state_machine_ == StateMachine::ADD_EXTRA_MODULE_) {
+    if (using_gripper_num_ == 0) {
+      for (int i = 0; i < link_num_ - 1; i++) {
+        joint_values_[i] = joint_values_with_one_object_[i];
+      }	
+    } else if (using_gripper_num_ == 1) {
+      for (int i = 0; i < link_num_ - 1; i++) {
+        joint_values_[i] = joint_values_with_two_object_[i];
+      } 
+    }
+    addExtraModule(false, gripper_link_num_[using_gripper_num_], object_mass_, gripper_link_offset_[using_gripper_num_]);
+    state_machine_ = StateMachine::TRANSFORM_;
+    //gripper update
+    using_gripper_num_++;
   /* TRANSFORM */
   } else if (state_machine_ == StateMachine::TRANSFORM_) {
-    if (using_gripper_num_ == 0) {
-      
-      //change model
-      if (called_flag_ == false) {
-      	for (int i = 0; i < link_num_ - 1; i++) {
-          joint_values_[i] = joint_values_with_one_object_[i];
-        }	
-        hydrus_transform_control::AddExtraModule srv;
-      	srv.request.extra_module_link = gripper_link_num_[0] - 1;
-      	srv.request.extra_module_mass = object_mass_;
-      	srv.request.extra_module_offset = gripper_link_offset_[0];
-      	add_extra_module_client_.call(srv);
-        called_flag_ = true;
-      }
-      
       transform_wait_cnt_++;
-      if (transform_wait_cnt_ >= control_frequency_ * 15) {
+      if (transform_wait_cnt_ >= control_frequency_ * 10) {
         target_w.setZ(searching_z_);
-	if (std::abs(searching_z_ - uav_w_.z()) < object_pos_thresh_) {
-      	  state_machine_ = StateMachine::SEARCH_OBJECT_;
-	  transform_wait_cnt_ = 0;
-          using_gripper_num_ = 1;
-          called_flag_ = false;
-	}		
+        if (std::abs(searching_z_ - uav_w_.z()) < object_pos_thresh_) {
+          if (using_gripper_num_ == object_num_ - 1) {
+            state_machine_ = StateMachine::SEARCH_GOAL_;
+          } else {
+            state_machine_ = StateMachine::SEARCH_OBJECT_;
+          }
+          transform_wait_cnt_ = 0;
+        }		
       }     
- 
-    } else if (using_gripper_num_ == 1) {
-      
-      //change model
-      if (called_flag_ == false) {
-      	for (int i = 0; i < link_num_ - 1; i++) {
-          joint_values_[i] = joint_values_with_two_object_[i];
-        }  
-        hydrus_transform_control::AddExtraModule srv;
-        srv.request.extra_module_link = gripper_link_num_[1] - 1;
-        srv.request.extra_module_mass = object_mass_;
-        srv.request.extra_module_offset = gripper_link_offset_[1];
-        add_extra_module_client_.call(srv);
-        called_flag_ = true;
-      }
-      transform_wait_cnt_++;
-      if (transform_wait_cnt_ >= control_frequency_ * 15) {
-        target_w.setZ(searching_z_);
-	if (std::abs(searching_z_ - uav_w_.z()) < object_pos_thresh_) {
-      	  state_machine_ = StateMachine::SEARCH_GOAL_;
-	  transform_wait_cnt_ = 0;
-          called_flag_ = true;
-	}		
-      }
-    }
   /* SEARCH_GOAL */
   } else if (state_machine_ == StateMachine::SEARCH_GOAL_) {
-    state_machine_ = StateMachine::APPROACH_GOAL_; //めんどい
-  /* APPROACH_GOAL */
+    state_machine_ = StateMachine::APPROACH_GOAL_; 
+    /* APPROACH_GOAL */
   } else if (state_machine_ == StateMachine::APPROACH_GOAL_) {
     target_w.setValue(goal_pos_x_, goal_pos_y_, searching_z_); 
     if (std::abs(uav_w_.x() - goal_pos_x_) < object_pos_thresh_ && std::abs(uav_w_.y() - goal_pos_y_) < object_pos_thresh_){
@@ -394,7 +372,7 @@ void HydrusObjectTransportation::controlCallback(const ros::TimerEvent& event)
     }
   /* THROW_OBJECT */
   } else if (state_machine_ == StateMachine::THROW_OBJECT_) {
-    //throwObject();
+    throwObject();
   }
 
   //publish

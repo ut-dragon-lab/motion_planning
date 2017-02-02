@@ -124,6 +124,7 @@ private:
     SEARCH_OBJECT_,
     APPROACH_TARGET_,
     GO_DOWN_UNTIL_TOUCH_,
+    ADD_EXTRA_MODULE_,
     TRANSFORM_,
     SEARCH_GOAL_,
     APPROACH_GOAL_,
@@ -149,6 +150,7 @@ private:
   //member functions
   void throwObject();
   void goPos(tf::Vector3 target_pos);
+  void addExtraModule(bool reset, int extra_module_link, double extra_module_mass, double extra_module_offset);
 
   //constant
   const double joint_values_with_no_object_[3] = {1.57, 1.57, 1.57};
