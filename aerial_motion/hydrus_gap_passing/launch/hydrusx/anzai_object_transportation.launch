@@ -19,7 +19,7 @@
   <arg name="camera_link_offset" default="0.28" />
   <arg name="object_num" default="2" />
   <arg name="link_num" default="4" />
-  <arg name="object_pos_thresh" default="0.05" />
+  <arg name="object_pos_thresh" default="0.15" />
   <arg name="go_down_vel" default="0.7" />
   <arg name="goal_pos_x" default="1.0" />
   <arg name="goal_pos_y" default="1.0" />
@@ -28,10 +28,25 @@
   <arg name="searching_z" default="1.0" />
   <arg name="object_mass" default="0.375" />
   <arg name="root_link" default="3" />
+
+  <group ns="magnet0">
   <include file="$(find jsk_mbzirc_board)/launch/magnet.launch">
-    <arg name="port0" value="zoi" />
-    <arg name="port1" value="zoizoi" />
+    <arg name="port" value="/dev/ttyTHS2" />
+    <arg name="baud" value="115200" />
   </include>
+  </group>
+
+  <group ns="magnet1">
+  <include file="$(find jsk_mbzirc_board)/launch/magnet.launch">
+    <arg name="port" value="/dev/ttyS0" />
+    <arg name="baud" value="115200" />
+  </include>
+  </group>
+
+  <include file="$(find color_region_detection)/launch/color_region_detector.launch">
+    <arg name="contour_area_margin" value="0.04" />
+  </include>
+
   <node name="anzai_object_transportation" pkg="hydrus_gap_passing" type="anzai_object_transportation_node" respawn="false" launch-prefix="" output="screen">
     <param name="object_pos_thresh" value="$(arg object_pos_thresh)" />
   </node>

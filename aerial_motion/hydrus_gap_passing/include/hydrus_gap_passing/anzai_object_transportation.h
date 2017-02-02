@@ -10,11 +10,10 @@
 #include <ros/ros.h>
 #include <tf/transform_listener.h>
 
-#include <hydrus_gap_passing/PlanningMode.h>
-
 // MoveIt!
 #include <hydrus_transform_control/transform_control.h>
 #include <aerial_robot_base/States.h>
+#include <aerial_robot_base/FlightNav.h>
 
 #include <iostream>
 #include <valarray>
@@ -33,6 +32,7 @@
 #include <sensor_msgs/CameraInfo.h>
 #include <sensor_msgs/Joy.h>
 #include <std_msgs/Empty.h>
+#include <std_msgs/Bool.h>
 
 class AnzaiObjectTransportation 
 {
@@ -46,9 +46,11 @@ private:
   //publisher
   ros::Publisher joint_pub_;
   ros::Publisher uav_pos_pub_;
+  ros::Publisher yaw_control_pub_;
   //for debug
   ros::Publisher state_machine_pub_;
-  
+  ros::Publisher object_world_pos_pub_; 
+ 
   //subscriber
   ros::Subscriber gripper_state_sub_[2];
   ros::Subscriber odom_sub_;
@@ -87,6 +89,8 @@ private:
   std::string state_machine_pub_topic_name_;
   std::string joy_stick_sub_topic_name_;
   std::string debug_sub_topic_name_;
+  std::string object_world_pos_pub_topic_name_;
+  std::string yaw_control_pub_topic_name_;
 
   //ros params
   int control_frequency_;
@@ -109,7 +113,11 @@ private:
   int object_search_time_thresh_;
   int object_detect_time_thresh_;
   int wait_time_thresh_;
-  
+  int zero_point_cnt_; 
+  double pos_nav_thresh_;
+  double vel_nav_limit_;
+  double vel_nav_gain_;
+ 
   //member variables
   int gripper_state_[2];
   tf::Vector3 uav_w_;
@@ -136,13 +144,17 @@ private:
   std::vector<tf::Vector3> object_pos_vec_;
   bool start_flag_;
   int object_throw_cnt_;
+  int transform_wait_cnt_;
+  bool called_flag_;
+  bool yaw_track_flag_;
 
   //member functions
   void throwObject();
+  void goPos(tf::Vector3 target_pos);
 
   //constant
   const double joint_values_with_no_object_[3] = {1.57, 1.57, 1.57};
-  const double joint_values_with_one_object_[3] = {1.57, 1.57, 1.57};
+  const double joint_values_with_one_object_[3] = {-0.70, 1.57, 1.57};
   const double joint_values_with_two_object_[3] = {1.57, 1.57, 1.57};
 };
 

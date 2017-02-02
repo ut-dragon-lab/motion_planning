@@ -11,11 +11,11 @@
 #include <ros/ros.h>
 #include <tf/transform_listener.h>
 
-#include <hydrus_gap_passing/PlanningMode.h>
 
 // MoveIt!
 #include <hydrus_transform_control/transform_control.h>
 #include <aerial_robot_base/States.h>
+#include <aerial_robot_base/FlightNav.h>
 
 #include <iostream>
 #include <valarray>
