@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <launch>
-  <arg name="debug" default="false" />
-  <arg name="plugin_name" default="eletromagnet" />
+  <arg name="plugin_name" default="hydrus" />
   <arg name="object" default="convex" />
+  <arg name="debug" default="false" />
 
   <node pkg="aerial_transportation" name="aerial_transportation" type="aerial_transportation_node" output="screen">
     <param name="debug" type="bool" value="$(arg debug)" />
