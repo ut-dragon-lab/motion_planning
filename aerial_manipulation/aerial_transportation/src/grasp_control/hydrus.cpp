@@ -13,8 +13,8 @@ namespace aerial_transportation
     /* ros pub sub init */
     joint_ctrl_pub_ = nh_.advertise<sensor_msgs::JointState>(joint_ctrl_pub_name_, 1);
     aerial_grasping_flight_velocity_control_pub_ = nh_.advertise<std_msgs::UInt8>(aerial_grasping_flight_velocity_control_pub_name_, 1);
-    joint_motors_sub_ = nh_.subscribe<dynamixel_msgs::MotorStateList>(joint_motors_sub_name_, 1, &Hydrus::jointMotorStatusCallback, this); //do not use udp option !!!
-    joint_states_sub_ = nh_.subscribe<sensor_msgs::JointState>(joint_states_sub_name_, 1, &Hydrus::jointStatesCallback, this); //do not use udp option !!!
+    joint_motors_sub_ = nh_.subscribe<dynamixel_msgs::MotorStateList>(joint_motors_sub_name_, 1, &Hydrus::jointMotorStatusCallback, this);
+    joint_states_sub_ = nh_.subscribe<sensor_msgs::JointState>(joint_states_sub_name_, 1, &Hydrus::jointStatesCallback, this);
 
     if(!control_cheat_mode_)
       {/* plugin init */
@@ -60,6 +60,16 @@ namespace aerial_transportation
             for(int i = 0; i < joint_num_; i++)
               joint_ctrl_msg.position.push_back(joints_control_[i].approach_angle);
             joint_ctrl_pub_.publish(joint_ctrl_msg);
+
+            /* send the overload check to inactive */
+            ros::ServiceClient overload_check_activate_client = nh_.serviceClient<std_srvs::SetBool>(overload_check_activate_srv_name_);
+            std_srvs::SetBool srv;
+            srv.request.data = false;
+
+            if (overload_check_activate_client.call(srv))
+              ROS_INFO("set the overload check to be inactive");
+            else
+              ROS_ERROR("Failed to call service %s", overload_check_activate_srv_name_.c_str());
           }
 
         /* phase shift condition */
@@ -110,11 +120,11 @@ namespace aerial_transportation
       {// grasping, most important
 
         /* procedure: !envelope_closure_ -> envelope_closure_ -> force_closure_ */
-        if(envelope_closure_) 
+        if(envelope_closure_)
           {/* if we reach envelop status, we move directly to tigthen angles, no feed back from contact point */
 
-            //4.1 DONE: envelope closure -> force closure iteration
-            /* TODO: one_time tighten, not iteration*/
+            //4.1 envelope closure -> force closure iteration
+            /* one_time tighten, not iteration*/
             if(!one_time_tighten_)
               {
                 one_time_tighten_ = true;
@@ -186,20 +196,31 @@ namespace aerial_transportation
             cnt = 0; // convergence reset
             once_flag = true;
 
-            //reset for base variables
+            /* reset for base variables */
             sub_phase_ = SUB_PHASE1;
             force_closure_ = false;
             modification_start_time_ = ros::Time::now();
             envelope_closure_ = false;
             one_time_tighten_ = false;
+
+            /* send the overload check to inactive */
+            ros::ServiceClient overload_check_activate_client = nh_.serviceClient<std_srvs::SetBool>(overload_check_activate_srv_name_);
+            std_srvs::SetBool srv;
+            srv.request.data = true;
+
+            if (overload_check_activate_client.call(srv))
+              ROS_INFO("set the overload check to be active");
+            else
+              ROS_ERROR("Failed to call service %s", overload_check_activate_srv_name_.c_str());
+
           }
       }
   }
 
-  void Hydrus::objectPoseApproachOffsetCal() 
+  void Hydrus::objectPoseApproachOffsetCal()
   {
-    object_offset_.setValue(object_approach_offset_x_ *cos(object_position_.theta)
-                            -object_approach_offset_y_ *sin(object_position_.theta),
+    object_offset_.setValue(object_approach_offset_x_ * cos(object_position_.theta)
+                            -object_approach_offset_y_ * sin(object_position_.theta),
                             object_approach_offset_x_ *sin(object_position_.theta)
                             +object_approach_offset_y_ *cos(object_position_.theta),
                             object_approach_offset_yaw_);
@@ -222,7 +243,7 @@ namespace aerial_transportation
         if(max_delta_angle < delta_angle) max_delta_angle = delta_angle;
       }
 
-    /* 3.1 DONE: check the enveloping grasp */
+    /* 3.1 check the enveloping grasp */
     if(phase_ == GRASPING_PHASE && sub_phase_ == SUB_PHASE3 &&
        !envelope_closure_ && !control_cheat_mode_)
       {
@@ -233,7 +254,7 @@ namespace aerial_transportation
         /* check the enveloping grasp in terms of joint angles */
         if(max_delta_angle < envelope_joint_angle_thre_)
           {
-            //test, keep position control until the envelope closure reachs
+            //test, keep position control until the envelope closure reaches
 
             /* send nav msg: shift to vel control mode */
             aerial_robot_base::FlightNav nav_msg;
@@ -262,7 +283,7 @@ namespace aerial_transportation
   void Hydrus::jointMotorStatusCallback(const dynamixel_msgs::MotorStateListConstPtr& joint_motors_msg)
   {
     bool force_closure = true;
-    bool torque_load_exceed_flag = false;
+    bool overload_flag = false; /* new, 2017 IJRR */
 
     if(joint_num_ == 0)
       {
@@ -272,7 +293,7 @@ namespace aerial_transportation
 
     for(int i = 0; i < joint_num_; i++)
       {
-        joints_control_[i].moving = joint_motors_msg->motor_states[i].moving;  
+        joints_control_[i].moving = joint_motors_msg->motor_states[i].moving;
         joints_control_[i].load_rate = joint_motors_msg->motor_states[i].load;
         //ROS_INFO("DEBUG: joint%d, torque:%f",i+1,joints_control_[i].load_rate);
         joints_control_[i].temperature = joint_motors_msg->motor_states[i].temperature;
@@ -281,17 +302,18 @@ namespace aerial_transportation
         /* if all torque load is bigger than the certain threshold, then the force closure is achieved */
         if(joints_control_[i].load_rate < torque_min_threshold_) force_closure = false;
 
-        // 1. the torque exceeds the max threshold
+        // 1. the torque exceeds the max threshold(overload)
         // 2. in the holding phase(force_closure_ == true)
         // 3. the modification is not susseccive
-        /* CAUTION: only all the joints have the load(force_closure!!!), we recognize the loadover flag, otherwise, we ignore the loadover. this is very dangerous!!!!!! */
+        /* CAUTION: only all the joints have the load(force_closure!!!), we recognize the overload flag, otherwise, we ignore the loadover. this is very dangerous!!!!!! */
         /* do not modified once grasped the object */
-        if(joints_control_[i].load_rate > torque_max_threshold_ && force_closure
+        if(joints_control_[i].angle_error && OVERLOAD_FLAG /* previous: joints_control_[i].load_rate > torque_max_threshold_ */
+           && force_closure
            && phase_ == GRASPING_PHASE
            && ros::Time::now().toSec() - modification_start_time_.toSec() > modification_duration_)
           {
-            ROS_WARN("jointMotorStatusCallback: Holding load exceeds in joint%d: %f", i + 1, joints_control_[i].load_rate);
-            torque_load_exceed_flag = true;
+            ROS_WARN("jointMotorStatusCallback: overload in joint%d: %f; error code: %d", i + 1, joints_control_[i].load_rate, joints_control_[i].angle_error);
+            overload_flag = true;
 
             if(control_cheat_mode_)
               {
@@ -301,23 +323,26 @@ namespace aerial_transportation
           }
       }
 
-    /* 3.2 DONE: check the enveloping grasp in terms of joint torques */
-    if(force_closure && phase_ == GRASPING_PHASE && !envelope_closure_ && !control_cheat_mode_)
+    /* 3.2 check the enveloping grasp in terms of joint torques */
+    if(force_closure &&
+       phase_ == GRASPING_PHASE &&
+       !envelope_closure_ &&
+       !control_cheat_mode_)
       {
         // shift to tighten angles
         envelope_closure_ = true;
-        ROS_WARN("jointMotorStatusCallback: GRASPING_PHASE, shift to tighten angles because the all joits torque satisfy the threshold condition");
+        ROS_WARN("jointMotorStatusCallback: GRASPING_PHASE, shift to tighten angles because all joint torques satisfy the threshold force closure condition");
       }
 
-    /* process while torque_load_exceed_flag occurs */
-    if(torque_load_exceed_flag)
+    /* process while overlaod_flag is true */
+    if(overload_flag)
       {
         ROS_WARN("Reset holding start time");
         holding_start_time_ = ros::Time::now(); //reset!!
         modification_start_time_ = ros::Time::now(); //reset!!
 
         /* release the joint angles */
-        //4.2 TODO: modification in force-closure phase
+        //4.2 modification in force-closure phase
         if(!control_cheat_mode_)
           {
             for(int i = 0; i < joint_num_; i++)
@@ -415,18 +440,19 @@ namespace aerial_transportation
 
     nhp_.param("grasping_duration", grasping_duration_, 2.0); 
     nhp_.param("torque_min_threshold", torque_min_threshold_, 0.2); //20%
-    nhp_.param("torque_max_threshold", torque_max_threshold_, 0.5); //20%
+    nhp_.param("torque_max_threshold", torque_max_threshold_, 0.5); //deprecated
     nhp_.param("modification_delta_angle", modification_delta_angle_, 0.015);
     nhp_.param("modification_duration", modification_duration_, 0.5);
     nhp_.param("hold_count", hold_count_, 1.0); 
     nhp_.param("grasping_rate", grasping_rate_, 1.0); 
 
     /* grasp planning  */
-    nhp_.param("base_link", base_link_, 1); // second link
     nhp_.param("envelope_joint_angle_thre", envelope_joint_angle_thre_, 0.1); //[rad]
     nhp_.param("approach_delta_angle", approach_delta_angle_, -0.45); // about 25deg
     nhp_.param("tighten_delta_angle", tighten_delta_angle_, 0.09); // about 5deg
     nhp_.param("release_delta_angle", release_delta_angle_, -0.01); // about 0.5deg
+
+    nhp_.param("overload_check_activate_srv_name", overload_check_activate_srv_name_, std::string("overload_check_activate"));
   }
 
   void  Hydrus::jointControlParamInit()
@@ -456,7 +482,7 @@ namespace aerial_transportation
         std::vector<float> v_tighten_angle(joint_num_);
         std::vector<float> v_approach_angle(joint_num_);
 
-        //2.DONE hold_angles, tighten_angles, approach_angles
+        //1. hold_angles, tighten_angles, approach_angles
         /* claculate the joint angles for grasp from graspl_planner */
         grasp_planning_method_->getObjectGraspAngles(tighten_delta_angle_, approach_delta_angle_, contact_num, v_hold_angle, v_tighten_angle, v_approach_angle);
 
@@ -475,14 +501,12 @@ namespace aerial_transportation
         joint_num_ = contact_num -1 ;
         ROS_INFO("grasp planner:  change joint_num_ to contact_num -1 :%d", joint_num_);
 
-
         /* calculate object_approach_offset[x,y,yaw] */
-        //1.DONE: apporach offset [x,y,yaw]
         std::vector<float> approach_angles = getApproachAngles();
         double object_approach_offset_x = 0;
         double object_approach_offset_y = 0;
         double object_approach_offset_yaw = 0;
-        grasp_planning_method_->getObjectApproachOffest(base_link_, approach_angles, object_approach_offset_x, object_approach_offset_y, object_approach_offset_yaw);
+        grasp_planning_method_->getObjectApproachOffset(approach_angles, object_approach_offset_x, object_approach_offset_y, object_approach_offset_yaw);
         object_approach_offset_x_ = object_approach_offset_x;
         object_approach_offset_y_ = object_approach_offset_y;
         object_approach_offset_yaw_ = object_approach_offset_yaw;

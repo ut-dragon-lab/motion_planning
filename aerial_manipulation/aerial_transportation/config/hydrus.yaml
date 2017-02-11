@@ -21,12 +21,27 @@ transportation_threshold: 0.15
 transportation_count: 1.0
 
 torque_min_threshold: 0.2
-torque_max_threshold: 0.55
+torque_max_threshold: 0.55 #deprecated
 
 modification_delta_angle: 0.01
 
-box_offset_y: 0.3
+# for the kinematics of hydrus
+link_length: 0.6 # hydrus3: 0.44 
+link_radius: 0.2 # hydrus3: 0.15 #real is + 0.9(sponge)
+link_num: 4
 
+# grasp config
+tighten_delta_angle: 0.14 #old: 0.12
+grasping_rate: 2.0 #box: 2.0, cylinder: 1.0?
+
+# approach config
+approach_base_link: 2 #approaching second link for hydrus3; third link for hydrusx_quad
+approach_delta_angle: -0.4
+approach_pos_weight_rate: 10.0 #weight algorithm
+approach_angle_weight_rate: 100.0 #weight algorithm
+
+
+# this is cheat control mode
 j1:
         approach_angle: 0.8
         hold_angle: 1.39  #tighten_angle: 0.08 # + 0.08rad(5deg)
@@ -40,13 +55,3 @@ j3:
         approach_angle: 0.8
         hold_angle: 1.46
         tighten_angle: 0.08 # + 0.08rad(5deg)
-
-
-# for the kinematics of hydrus3
-link_length: 0.44
-link_radius: 0.15 #real is 0.15 + 0.9(sponge)
-link_num: 4
-
-tighten_delta_angle: 0.14 #old: 0.12
-approach_delta_angle: -0.4
-grasping_rate: 2.0 #box: 2.0, cylinder: 1.0?

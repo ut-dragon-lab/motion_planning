@@ -8,6 +8,7 @@
 #include <sensor_msgs/JointState.h>
 #include <dynamixel_msgs/MotorStateList.h>
 #include <std_msgs/UInt8.h>
+#include <std_srvs/SetBool.h>
 #include <vector>
 #include <string>
 
@@ -29,7 +30,7 @@ namespace aerial_transportation
     double load_rate;
     bool moving;
     double temperature; //reserve
-    double angle_error; //reserve
+    int angle_error; //reserve
   }JointControl;
 
   class Hydrus :public aerial_transportation::Base
@@ -44,6 +45,8 @@ namespace aerial_transportation
      static const uint8_t SUB_PHASE1 = 0;
      static const uint8_t SUB_PHASE2 = 1;
      static const uint8_t SUB_PHASE3 = 2;
+
+     static const uint8_t OVERLOAD_FLAG = 0x20;
 
    protected:
      /* overwrite */
@@ -69,12 +72,13 @@ namespace aerial_transportation
      std::string joint_ctrl_pub_name_;
      std::string joint_states_sub_name_;
      std::string joint_motors_sub_name_;
- 
-     int base_link_;  // the link which has imu and mocap(position recognized link)
+     std::string overload_check_activate_srv_name_;
+
      double pose_fixed_count_; //the convergence duration (sec)
      double grasping_height_threshold_; //the height condition to grasp to object
      double grasping_duration_; //the grasping motion time
      double torque_min_threshold_; //rate(0~1), the minimum torque to hold an object
+     /* deprecated */
      double torque_max_threshold_; //rate(0~1), the maximum torque to haod an object
      /* modification, when exceed the max torque threshold */
      double modification_delta_angle_; //[rad]  slightly modify each joint angle to hold object, which is based on the max change joint angle
