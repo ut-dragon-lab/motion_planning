@@ -47,7 +47,7 @@ namespace grasp_planning
     const static uint8_t CONVEX_POLYGONAL_COLUMN  = 0;
     const static uint8_t CYLINDER = 1;
 
-    void getObjectApproachOffest(int base_link, std::vector<float> v_theta, double& object_approach_offset_x, double& object_approach_offset_y, double& object_approach_offset_yaw);
+    void getObjectApproachOffset(std::vector<float> v_theta, double& object_approach_offset_x, double& object_approach_offset_y, double& object_approach_offset_yaw);
 
     void getObjectGraspAngles(float tighten_delta_angle, float approach_delta_angle, int& contact_num, std::vector<float>& v_hold_angle, std::vector<float>& v_tighten_angle, std::vector<float>& v_approach_angle);
 
@@ -139,8 +139,8 @@ namespace grasp_planning
     int n_wsr_;
     Options qp_options_;
 
-    /* TEST: the grasp approaching control variables */
-    int approach_base_link_;
+    /* the grasp approaching control variables */
+    int approach_base_link_; // the link which has imu and mocap(position recognized link)
     double approach_pos_weight_rate_; //weight for cog calculation
     double approach_angle_weight_rate_; //weight for approach pose
     double object_approach_offset_x_, object_approach_offset_y_, object_approach_offset_yaw_;

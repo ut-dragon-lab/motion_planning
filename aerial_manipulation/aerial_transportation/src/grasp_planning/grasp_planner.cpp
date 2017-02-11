@@ -41,7 +41,7 @@ namespace grasp_planning
             object_approach_offset_x_ = 0;
             object_approach_offset_y_ = 0;
             object_approach_offset_yaw_ = 0;
-            getObjectApproachOffest(approach_base_link_, v_approach_angle, object_approach_offset_x_, object_approach_offset_y_, object_approach_offset_yaw_);
+            getObjectApproachOffset(v_approach_angle, object_approach_offset_x_, object_approach_offset_y_, object_approach_offset_yaw_);
             object_approach_offset_yaw_ += M_PI;
             ROS_INFO("grasp planner&control test: base link: %d, object_approach_offset_x_: %f, object_approach_offset_y_: %f, object_approach_offset_yaw_: %f", approach_base_link_, object_approach_offset_x_, object_approach_offset_y_, object_approach_offset_yaw_);
 
@@ -104,11 +104,15 @@ namespace grasp_planning
     /* qp problem */
     nhp_.param("n_wsr", n_wsr_, 10);
 
-
-    /* TEST: the grasp approaching control variables */
+    /* the grasp approaching control variables */
     nhp_.param("approach_base_link", approach_base_link_, 0);
     nhp_.param("approach_pos_weight_rate", approach_pos_weight_rate_, 2.0);
     nhp_.param("approach_angle_weight_rate", approach_angle_weight_rate_, 2.0);
+    std::cout << "approach_base_link: " << approach_base_link_ << ", "
+              << "approach_pos_weight_rate: " << approach_pos_weight_rate_ << ", "
+              << "approach_angle_weight_rate: " << approach_angle_weight_rate_
+              << std::endl;
+
   }
 
   void Base::mainFunc(const ros::TimerEvent & e)
@@ -780,7 +784,34 @@ namespace grasp_planning
     return true;
   }
 
-  void Base::getObjectApproachOffest(int base_link, std::vector<float> v_theta, double& object_approach_offset_x, double& object_approach_offset_y, double& object_approach_offset_yaw)
+  void Base::getObjectGraspAngles(float tighten_delta_angle, float approach_delta_angle, int& contact_num, std::vector<float>& v_hold_angle, std::vector<float>& v_tighten_angle, std::vector<float>& v_approach_angle)
+  {
+    /* tighten delta angles based on the tau */
+    float max_element = v_best_tau_.maxCoeff();
+    contact_num = contact_num_;
+
+    ROS_WARN("max_element: %f", max_element);
+
+    for(int i = 0; i < contact_num_ - 1; i ++)
+      {
+        /* weight calc */
+        int index = (i - (contact_num_ -1) / 2 >= 0)? i - (contact_num_ -1)/2:(contact_num_ /2-1) - i;
+        /* temporary for the rate */
+        float approach_delta_angle_i = (index /  approach_angle_weight_rate_ + 1 ) * approach_delta_angle;
+
+        /* hold angle */
+        v_hold_angle[i] = v_best_theta_[i](0);
+
+        /* approach angle */
+        v_approach_angle[i] = v_hold_angle[i] + approach_delta_angle_i;
+
+        /* tighten angle */
+        //v_tighten_angle[i] = v_hold_angle[i] + v_best_tau_(i,0) / max_element * tighten_delta_angle;
+        v_tighten_angle[i] = v_hold_angle[i] + tighten_delta_angle;
+      }
+  }
+
+  void Base::getObjectApproachOffset(std::vector<float> v_theta, double& object_approach_offset_x, double& object_approach_offset_y, double& object_approach_offset_yaw)
   {
     /* check the health */
     if(v_theta.size() < contact_num_ - 1)
@@ -799,7 +830,7 @@ namespace grasp_planning
       }
 
     /* the direction of best_link in terms of best base side */
-    float base_link_best_base_side_direction = v_best_phy_[base_link] + v_psi_[base_link](1);
+    float base_link_best_base_side_direction = v_best_phy_[approach_base_link_] + v_psi_[approach_base_link_](1);
     ROS_INFO("base_link_best_base_side_direction: %f", base_link_best_base_side_direction);
 
     /* 1. x and y */
@@ -822,41 +853,41 @@ namespace grasp_planning
         float weight_rate = pow(approach_pos_weight_rate_, index -1) / weight_rate_sum * 0.5;
         ROS_WARN("weight_rate: %f", weight_rate);
 
-        if(i < base_link)
+        if(i < approach_base_link_)
           {
-            v_base_link = AngleAxisd(M_PI + v_best_theta_[base_link](1), Vector3d::UnitZ()) * Vector3d(link_length_ /2, 0, 0);
-            v_end_link = AngleAxisd(M_PI + v_abs_theta[i] - v_abs_theta[base_link] + v_best_theta_[base_link](1), Vector3d::UnitZ()) * Vector3d(link_length_ /2, 0, 0);
-            for(int j = i + 1; j < base_link; j ++)
+            v_base_link = AngleAxisd(M_PI + v_best_theta_[approach_base_link_](1), Vector3d::UnitZ()) * Vector3d(link_length_ /2, 0, 0);
+            v_end_link = AngleAxisd(M_PI + v_abs_theta[i] - v_abs_theta[approach_base_link_] + v_best_theta_[approach_base_link_](1), Vector3d::UnitZ()) * Vector3d(link_length_ /2, 0, 0);
+            for(int j = i + 1; j < approach_base_link_; j ++)
               {
                 Vector3d  v_intermediate_link_tmp = v_intermediate_link;
                 v_intermediate_link = v_intermediate_link_tmp +
-                  AngleAxisd(M_PI + v_abs_theta[j] - v_abs_theta[base_link] + v_best_theta_[base_link](1), Vector3d::UnitZ()) * Vector3d(link_length_, 0, 0);
-                if(debug_) 
+                  AngleAxisd(M_PI + v_abs_theta[j] - v_abs_theta[approach_base_link_] + v_best_theta_[approach_base_link_](1), Vector3d::UnitZ()) * Vector3d(link_length_, 0, 0);
+                if(debug_)
                   {
-                    ROS_INFO("getObjectApproachOffest: j:%d, base_link:%d", j, base_link);
+                    ROS_INFO("getObjectApproachOffest: j:%d, base_link:%d", j, approach_base_link_);
                     std::cout << "v_intermediate_link: " << v_intermediate_link.transpose() << std::endl;
                   }
               }
           }
-        else if(i > base_link)
+        else if(i > approach_base_link_)
           {
-            v_base_link = AngleAxisd(v_best_theta_[base_link](1), Vector3d::UnitZ()) * Vector3d(link_length_ /2, 0, 0);
-            v_end_link = AngleAxisd(v_abs_theta[i] - v_abs_theta[base_link] + v_best_theta_[base_link](1), Vector3d::UnitZ()) * Vector3d(link_length_ /2, 0, 0);
-            for(int j = base_link + 1; j < i; j ++)
+            v_base_link = AngleAxisd(v_best_theta_[approach_base_link_](1), Vector3d::UnitZ()) * Vector3d(link_length_ /2, 0, 0);
+            v_end_link = AngleAxisd(v_abs_theta[i] - v_abs_theta[approach_base_link_] + v_best_theta_[approach_base_link_](1), Vector3d::UnitZ()) * Vector3d(link_length_ /2, 0, 0);
+            for(int j = approach_base_link_ + 1; j < i; j ++)
               {
                 Vector3d  v_intermediate_link_tmp = v_intermediate_link;
                 v_intermediate_link = v_intermediate_link_tmp +
-                  AngleAxisd(v_abs_theta[j] - v_abs_theta[base_link] + v_best_theta_[base_link](1), Vector3d::UnitZ()) * Vector3d(link_length_, 0, 0);
-                if(debug_) 
+                  AngleAxisd(v_abs_theta[j] - v_abs_theta[approach_base_link_] + v_best_theta_[approach_base_link_](1), Vector3d::UnitZ()) * Vector3d(link_length_, 0, 0);
+                if(debug_)
                   {
-                    ROS_INFO("getObjectApproachOffest: j:%d, base_link:%d", j, base_link);
+                    ROS_INFO("getObjectApproachOffest: j:%d, base_link:%d", j, approach_base_link_);
                     std::cout << "v_intermediate_link: " << v_intermediate_link.transpose() << std::endl;
                   }
               }
           }
 
         v_propeller = AngleAxisd(M_PI/2 + v_psi_[i](1), Vector3d::UnitZ()) * Vector3d(link_radius_, 0, 0);
-       
+
         /* calculate the cog of hydrus in totally grasp state */
         Vector3d link_p = v_best_contact_p_[i] - v_propeller;
         Vector3d grasping_cog_tmp = grasping_cog;
@@ -923,7 +954,7 @@ namespace grasp_planning
     /* 1.2 change from best_base_side-x-axis/vertex-origin frame to first_side-x-axis/cog-origin frame */
     Vector3d O_b_first_link_cog;
     if(object_type_ == CONVEX_POLYGONAL_COLUMN)
-      O_b_first_link_cog = AngleAxisd(v_orig_psi_[best_base_side_](1), Vector3d::UnitZ()) 
+      O_b_first_link_cog = AngleAxisd(v_orig_psi_[best_base_side_](1), Vector3d::UnitZ())
         * (Vector3d(O_b_best_base_side(0),
                     O_b_best_base_side(1),
                     0) - cog_object_ );
@@ -939,39 +970,10 @@ namespace grasp_planning
 
     /* 2. calculate phy_b: the best approach direction of base link */
     if(object_type_ == CONVEX_POLYGONAL_COLUMN)
-      object_approach_offset_yaw =  v_best_theta_[base_link](1) + v_orig_psi_[best_base_side_](1);
+      object_approach_offset_yaw =  v_best_theta_[approach_base_link_](1) + v_orig_psi_[best_base_side_](1);
     else if(object_type_ == CYLINDER) /* no best_base_side */
-      object_approach_offset_yaw = v_best_theta_[base_link](1);
+      object_approach_offset_yaw = v_best_theta_[approach_base_link_](1);
   }
-
-  void Base::getObjectGraspAngles(float tighten_delta_angle, float approach_delta_angle, int& contact_num, std::vector<float>& v_hold_angle, std::vector<float>& v_tighten_angle, std::vector<float>& v_approach_angle)
-  {
-    /* tighten deltaangles based on the tau */
-    float max_element = v_best_tau_.maxCoeff();
-    contact_num = contact_num_;
-
-    ROS_WARN("max_element: %f", max_element);
-
-    for(int i = 0; i < contact_num_ - 1; i ++)
-      {
-        /* weight calc */
-        int index = (i - (contact_num_ -1) / 2 >= 0)? i - (contact_num_ -1)/2:(contact_num_ /2-1) - i;
-        /* temporary for the rate */
-        float approach_delta_angle_i = (index /  approach_angle_weight_rate_ + 1 ) * approach_delta_angle;
-
-        /* hold angle */
-        v_hold_angle[i] = v_best_theta_[i](0);
-
-        /* approach angle */
-        v_approach_angle[i] = v_hold_angle[i] + approach_delta_angle_i;
-
-        /* tighten angle */
-        //v_tighten_angle[i] = v_hold_angle[i] + v_best_tau_(i,0) / max_element * tighten_delta_angle;
-        v_tighten_angle[i] = v_hold_angle[i] + tighten_delta_angle;
-      }
-  }
-
-
 
   void Base::qpInit()
   {
