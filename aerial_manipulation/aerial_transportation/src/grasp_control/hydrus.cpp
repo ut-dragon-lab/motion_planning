@@ -105,7 +105,7 @@ namespace aerial_transportation
       }
     else if(sub_phase_ == SUB_PHASE2)
       {// descending
-        if(fabs(object_height_ - uav_position_.position.z) < grasping_height_threshold_)
+        if(fabs(object_height_ - uav_position_.z()) < grasping_height_threshold_)
           {
             ROS_INFO("Grasping Sub Phase: Succeed to change to sub phase 3");
             sub_phase_++;
@@ -141,7 +141,7 @@ namespace aerial_transportation
                 if(joints_control_[i].target_angle != joints_control_[i].hold_angle)
                   {
                     float incre_angle = (joints_control_[i].hold_angle - joints_control_[i].approach_angle) / func_loop_rate_;
-                    float rate = 1.0 / (grasping_rate_ * (float)(abs(i - joint_num_/2) + 1));
+                    float rate = 1.0 / (grasping_rate_ * (float)abs(i - joint_num_/2) + 1);
                     joints_control_[i].target_angle += (incre_angle * rate);
                   }
                 //limitation
@@ -204,6 +204,7 @@ namespace aerial_transportation
             one_time_tighten_ = false;
 
             /* send the overload check to inactive */
+#if 0
             ros::ServiceClient overload_check_activate_client = nh_.serviceClient<std_srvs::SetBool>(overload_check_activate_srv_name_);
             std_srvs::SetBool srv;
             srv.request.data = true;
@@ -212,7 +213,7 @@ namespace aerial_transportation
               ROS_INFO("set the overload check to be active");
             else
               ROS_ERROR("Failed to call service %s", overload_check_activate_srv_name_.c_str());
-
+#endif
           }
       }
   }
@@ -295,7 +296,6 @@ namespace aerial_transportation
       {
         joints_control_[i].moving = joint_motors_msg->motor_states[i].moving;
         joints_control_[i].load_rate = joint_motors_msg->motor_states[i].load;
-        //ROS_INFO("DEBUG: joint%d, torque:%f",i+1,joints_control_[i].load_rate);
         joints_control_[i].temperature = joint_motors_msg->motor_states[i].temperature;
         joints_control_[i].angle_error = joint_motors_msg->motor_states[i].error;
 
@@ -307,10 +307,11 @@ namespace aerial_transportation
         // 3. the modification is not susseccive
         /* CAUTION: only all the joints have the load(force_closure!!!), we recognize the overload flag, otherwise, we ignore the loadover. this is very dangerous!!!!!! */
         /* do not modified once grasped the object */
-        if(joints_control_[i].angle_error && OVERLOAD_FLAG /* previous: joints_control_[i].load_rate > torque_max_threshold_ */
+        if(joints_control_[i].load_rate > torque_max_threshold_ /* (joints_control_[i].angle_error & OVERLOAD_FLAG) */
            && force_closure
            && phase_ == GRASPING_PHASE
-           && ros::Time::now().toSec() - modification_start_time_.toSec() > modification_duration_)
+           && sub_phase_ == SUB_PHASE3
+           && (ros::Time::now().toSec() - modification_start_time_.toSec() > modification_duration_))
           {
             ROS_WARN("jointMotorStatusCallback: overload in joint%d: %f; error code: %d", i + 1, joints_control_[i].load_rate, joints_control_[i].angle_error);
             overload_flag = true;
@@ -324,6 +325,8 @@ namespace aerial_transportation
       }
 
     /* 3.2 check the enveloping grasp in terms of joint torques */
+    /* TODO: the torque to control the angle change already reach the condition */
+#if 0
     if(force_closure &&
        phase_ == GRASPING_PHASE &&
        !envelope_closure_ &&
@@ -333,6 +336,7 @@ namespace aerial_transportation
         envelope_closure_ = true;
         ROS_WARN("jointMotorStatusCallback: GRASPING_PHASE, shift to tighten angles because all joint torques satisfy the threshold force closure condition");
       }
+#endif
 
     /* process while overlaod_flag is true */
     if(overload_flag)
@@ -361,7 +365,7 @@ namespace aerial_transportation
     if(!force_closure_ && force_closure)
       {
         ROS_INFO("phase: %d, sub_phase: %d", phase_, sub_phase_);
-        if(phase_ == GRASPING_PHASE && sub_phase_ == SUB_PHASE3 )
+        if(phase_ == GRASPING_PHASE && sub_phase_ == SUB_PHASE3  && envelope_closure_)
           {
             force_closure_ = true;
             ROS_WARN("GRASPING_PHASE: Force_Closure with object");
@@ -440,7 +444,7 @@ namespace aerial_transportation
 
     nhp_.param("grasping_duration", grasping_duration_, 2.0); 
     nhp_.param("torque_min_threshold", torque_min_threshold_, 0.2); //20%
-    nhp_.param("torque_max_threshold", torque_max_threshold_, 0.5); //deprecated
+    nhp_.param("torque_max_threshold", torque_max_threshold_, 0.5); //50%
     nhp_.param("modification_delta_angle", modification_delta_angle_, 0.015);
     nhp_.param("modification_duration", modification_duration_, 0.5);
     nhp_.param("hold_count", hold_count_, 1.0); 
