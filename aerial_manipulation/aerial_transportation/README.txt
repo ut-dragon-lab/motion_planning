@@ -49,7 +49,7 @@ $ roslaunch aerial_transportation aerial_transportation.launch plugin_name:=hydr
 
 ### cylinder: 
 ```
-$ roslaunch aer^Cl_transportation aerial_transportation.launch plugin_name:=hydrus debug:=true object:=cylinder
+$ roslaunch aerial_transportation aerial_transportation.launch plugin_name:=hydrus debug:=true object:=cylinder
 ```
 
 ### local pc: 
