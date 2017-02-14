@@ -5,13 +5,12 @@
 /* ros */
 #include <ros/ros.h>
 
-#include <nav_msgs/Odometry.h>
 #include <aerial_robot_base/FlightNav.h>
+#include <aerial_robot_base/States.h>
 #include <sensor_msgs/Joy.h>
 #include <geometry_msgs/Point.h>
 #include <geometry_msgs/Pose2D.h>
 #include <tf/transform_listener.h> /* for vector3 */
-
 
 namespace aerial_transportation
 {
@@ -29,6 +28,11 @@ namespace aerial_transportation
     static const uint8_t TRANSPORT_PHASE = 4;
     static const uint8_t DROPPING_PHASE = 5;
     static const uint8_t RETURN_PHASE = 6;
+
+    static const uint8_t EGOMOTION_ESTIMATE = 0;
+    static const uint8_t EXPERIMENT_ESTIMATE = 1;
+    static const uint8_t GROUND_TRUTH = 2;
+
 
   protected:
     /* ros node */
@@ -52,6 +56,7 @@ namespace aerial_transportation
     std::string uav_state_sub_name_;
     std::string object_pos_sub_name_;
     double func_loop_rate_;
+    int state_mode_;
     double nav_vel_limit_;
     double vel_nav_threshold_;
     double vel_nav_gain_;
@@ -72,8 +77,9 @@ namespace aerial_transportation
     bool get_uav_state_;
     bool object_found_;
     double target_height_;
-    geometry_msgs::Pose uav_position_;
-    geometry_msgs::Pose uav_init_position_; // not important
+    tf::Vector3 uav_position_;
+    float uav_yaw_;
+    tf::Vector3 uav_init_position_; // not important
     geometry_msgs::Pose2D object_position_;
 
     /* config of target object */
@@ -93,7 +99,7 @@ namespace aerial_transportation
     virtual void rosParamInit() = 0;
     void baseRosParamInit();
 
-    void stateCallback(const nav_msgs::OdometryConstPtr & msg);
+    void stateCallback(const aerial_robot_base::StatesConstPtr & msg);
     void objectPoseCallback(const geometry_msgs::Pose2DConstPtr & object_msg);
     virtual void objectPoseApproachOffsetCal() {};
     void joyStickCallback(const sensor_msgs::JoyConstPtr & joy_msg);

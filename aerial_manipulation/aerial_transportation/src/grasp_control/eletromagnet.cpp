@@ -55,7 +55,7 @@ namespace aerial_transportation
               ROS_WARN("Pick the object up!! Shift to GRSPED_PHASE");
               phase_ = GRASPED_PHASE;
               contact_cnt_ = 0;
-	      target_height_ = uav_position_.position.z;
+	      target_height_ = uav_position_.z();
 
               std_msgs::Empty msg;
               grasp_pub_.publish(msg);
