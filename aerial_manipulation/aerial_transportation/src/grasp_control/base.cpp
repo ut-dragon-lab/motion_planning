@@ -232,9 +232,9 @@ namespace aerial_transportation
           /* send nav msg */
           aerial_robot_base::FlightNav nav_msg;
 	  nav_msg.header.stamp = ros::Time::now();
-          nav_msg.pos_xy_nav_mode = aerial_robot_base::FlightNav::VEL_MODE;
-          nav_msg.target_vel_x = 0;
-          nav_msg.target_vel_y = 0;
+          nav_msg.pos_xy_nav_mode = aerial_robot_base::FlightNav::POS_MODE;
+          nav_msg.target_pos_x = uav_position_.x();
+          nav_msg.target_pos_y = uav_position_.y();
           nav_msg.pos_z_nav_mode = aerial_robot_base::FlightNav::POS_MODE;
           nav_msg.target_pos_z = target_height_;
           nav_msg.psi_nav_mode = aerial_robot_base::FlightNav::NO_NAVIGATION;
