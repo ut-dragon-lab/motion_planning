@@ -31,13 +31,13 @@ link_radius: 0.2 # hydrus3: 0.15 #real is + 0.9(sponge)
 link_num: 4
 
 # grasp config
-tighten_delta_angle: 0.14 #hydrusx_quad: box: 0.07 , cylinder: 0.14; hydrus3: box, cylinder: 0.14
-grasping_rate: 4.0 #hydrusx_quad: box: 4.0 cylinder: 2.0 ;hydrus3: box: 2.0, cylinder: 1.0?
+tighten_delta_angle: 0.10 #hydrusx_quad: box, cylinder: 0.1; hydrus3: box, cylinder: 0.14
+grasping_rate: 4.0 #hydrusx_quad: box cylinder: 4.0; hydrus3: box: 2.0, cylinder: 1.0?
 
 # approach config
 approach_base_link: 2 #approaching second link for hydrus3; third link for hydrusx_quad
 approach_delta_angle: -0.4
-approach_pos_weight_rate: 10 #hydrusx: box: 10 cylinder: 4  old: 10.0 #weight algorithm
+approach_pos_weight_rate: 10 #hydrusx: box: 10 cylinder: 10 (4 maybe better?)  old: 10.0 #weight algorithm
 approach_angle_weight_rate: 100.0 #weight algorithm
 
 # no velocity control gain change if uncomment following line
