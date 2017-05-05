@@ -5,7 +5,7 @@
 <arg if="$(arg debug)" name="launch_prefix" value="gdb --ex run --args" />
 
 <!-- The semantic description that corresponds to the URDF -->
-<param name="hydrus/robot_description_semantic" textfile="$(find hydrus_moveit_config)/config/hydrus3/hydrus3.srdf" />
+<param name="hydrus/robot_description_semantic" textfile="$(find hydrus_gap_passing)/config/hydrus3/hydrus3.srdf" />
 
 <!-- Load to the parameter server yaml files -->
 <group ns="robot_description_planning">    
@@ -21,7 +21,7 @@
 <!--<node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher"> </node> -->
 
 <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" respawn="true" output="screen" />
-<include file="$(find hydrus_moveit_config)/launch/moveit_rviz.launch" >
+<include file="$(find hydrus_gap_passing)/launch/moveit_rviz.launch" >
   <arg name="config" value="true"/>
 </include>
 
