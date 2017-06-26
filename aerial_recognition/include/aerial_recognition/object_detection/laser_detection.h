@@ -38,6 +38,12 @@
 #include <geometry_msgs/Vector3Stamped.h>
 #include <sensor_msgs/LaserScan.h>
 #include <visualization_msgs/MarkerArray.h>
+#include <tf/transform_listener.h>
+
+/* message filter */
+#include <message_filters/subscriber.h>
+#include <message_filters/synchronizer.h>
+#include <message_filters/sync_policies/approximate_time.h>
 
 /* ransac */
 #include <mrpt/math/ransac.h>
@@ -45,6 +51,13 @@
 #include <mrpt/opengl/CGridPlaneXY.h>
 #include <mrpt/opengl/CPointCloud.h>
 #include <mrpt/opengl/stock_objects.h>
+
+/* mutex */
+#include <boost/version.hpp>
+#include <boost/thread/mutex.hpp>
+#if BOOST_VERSION>105200
+ #include <boost/thread/lock_guard.hpp>
+#endif
 
 using namespace mrpt;
 using namespace mrpt::utils;
@@ -59,22 +72,44 @@ public:
   Object2dDetection(ros::NodeHandle nh, ros::NodeHandle nhp);
   ~Object2dDetection(){}
 
+  typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::LaserScan, sensor_msgs::LaserScan> SyncPolicy;
+
 private:
   ros::NodeHandle nh_;
   ros::NodeHandle nhp_;
 
   ros::Publisher object_info_pub_;
   ros::Publisher visualization_marker_pub_;
-  ros::Subscriber laserscan_sub_;
+
+  /* laser */
+  int scan_num_;
+  /* non-sync mode */
+  ros::Timer  main_timer_;
+  vector<ros::Subscriber> scan_subs_;
+  vector<tf::StampedTransform>  transforms_;
+  vector<CMatrixDouble>  scan_data_;
+
+  /* sync-mode */
+  //boost::shared_ptr< message_filters::Synchronizer<SyncPolicy> > sync_;
+  //vector< message_filters::Subscriber<sensor_msgs::LaserScan> > sub_image_;
 
   bool verbose_;
   double dist_thresh_;
+  string base_link_;
+
+  /* tf */
+  tf::TransformListener tf_;
 
   /* ransac */
   math::RANSAC ransac_;
 
-  void laserScanCallback(const sensor_msgs::LaserScanConstPtr& msg);
-  void circleFitting(const CMatrixDouble& all_data, double& x_c, double& y_c, double& r);
+  /* mutex */
+  boost::mutex scan_mutex_;
+
+  /* common func */
+  void circleFitting(const ros::TimerEvent & e);
+  void laserScanCallback(const sensor_msgs::LaserScanConstPtr& scan_msg, int scan_no);
+  void ransac(const CMatrixDouble& all_data, double& x_c, double& y_c, double& r);
 
 };
 

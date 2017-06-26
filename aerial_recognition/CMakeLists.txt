@@ -12,8 +12,11 @@ find_package(catkin REQUIRED COMPONENTS
   nav_msgs
   visualization_msgs
   tf
+  message_filters
 )
 find_package(MRPT REQUIRED slam;vision;gui;topography)
+
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 
 catkin_package(
   INCLUDE_DIRS include
@@ -34,8 +37,12 @@ include_directories(
   include
 )
 
+
 add_library(laser_detection src/object_detection/laser_detection.cpp)
 target_link_libraries(laser_detection  ${MRPT_LIBS} ${catkin_LIBRARIES})
+
+add_executable(laser_detection_node src/object_detection/laser_detection_node.cpp)
+target_link_libraries(laser_detection_node laser_detection ${MRPT_LIBS} ${catkin_LIBRARIES})
 
 # test for mrpt
 add_executable(ransac_sample src/ransac_sample.cpp)
