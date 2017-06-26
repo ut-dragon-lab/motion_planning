@@ -6,9 +6,9 @@ Object2dDetection::Object2dDetection(ros::NodeHandle nh, ros::NodeHandle nhp):
   string laserscan_topic_name;
   nhp_.param("laserscan_topic_name", laserscan_topic_name, string("laser_scan"));
   string visualization_marker_topic_name;
-  nhp_.param("visualization_marker_topic_name", visualization_marker_topic_name, string("laser_scan"));
+  nhp_.param("visualization_marker_topic_name", visualization_marker_topic_name, string("detected_object_marker"));
   string object_info_topic_name;
-  nhp_.param("object_info_topic_name", object_info_topic_name, string("laser_scan"));
+  nhp_.param("object_info_topic_name", object_info_topic_name, string("detected_object"));
 
   nhp_.param("dist_thresh", dist_thresh_, 0.0);
   nhp_.param("verbose", verbose_, false);
@@ -27,16 +27,14 @@ void Object2dDetection::laserScanCallback(const sensor_msgs::LaserScanConstPtr& 
     {
       /* calculate the point */
       const double x = scan_msg->ranges[i] * cos(i * scan_msg->angle_increment + scan_msg->angle_min);
-      const double y = -scan_msg->ranges[i] * sin(i * scan_msg->angle_increment + scan_msg->angle_min);
+      const double y = scan_msg->ranges[i] * sin(i * scan_msg->angle_increment + scan_msg->angle_min);
 
       data(0,i) = x;
       data(1,i) = y;
     }
-
   /* start RANSAC */
   double x_c, y_c, r;
   circleFitting(data, x_c, y_c, r);
-
   /* publish */
   geometry_msgs::Vector3Stamped object_info_msg;
   object_info_msg.header.stamp = scan_msg->header.stamp;
@@ -79,13 +77,18 @@ void Object2dDetection::circleFitting(const CMatrixDouble& all_data, double& x_c
                   dist_thresh_,
                   3,  // Minimum set of points
                   best_inliers,
-                  best_model
+                  best_model,
+                  verbose_
                   );
 
   ASSERT_(size(best_model,1)==1 && size(best_model,2)==3)
 
     if(verbose_)
-      cout << "RANSAC finished in" << ros::Time::now().toSec() - start_t
-           << "[sec]: Best model: " << best_model << endl;
+      cout << "RANSAC finished in " << ros::Time::now().toSec() - start_t
+           << "[sec]: Best model: " << best_model << "; inlier size: "<< best_inliers.size() << endl;
+
+  x_c = best_model(0,0);
+  y_c = best_model(0,1);
+  r = best_model(0,2);
 }
 

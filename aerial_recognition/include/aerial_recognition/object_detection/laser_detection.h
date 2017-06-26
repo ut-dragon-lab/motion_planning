@@ -115,7 +115,7 @@ void  circleFit(const CMatrixDouble  &allData,
         F = C*(p1.x + p3.x) + D*(p1.y + p3.y),
         G = 2.0*(A*(p3.y - p2.y)-B*(p3.x - p2.x));
 
-      if (G == 0) throw;
+      if (G == 0) throw exception();
 
       M(0, 0) = (D*E - B*F) / G; //c_x
       M(0, 1) = (A*F - C*E) / G; //c_y
