@@ -32,13 +32,12 @@ namespace aerial_transportation
     nhp_.param("joy_debug", joy_debug_, false);
     nhp_.param("control_cheat_mode", control_cheat_mode_, false);
 
-    nhp_.param("uav_state_sub_name", uav_state_sub_name_, std::string("/uav/full_state"));
+    nhp_.param("uav_state_sub_name", uav_state_sub_name_, std::string("/uav/odom"));
     nhp_.param("uav_nav_pub_name", uav_nav_pub_name_, std::string("/uav/nav"));
     nhp_.param("object_pos_sub_name", object_pos_sub_name_, std::string("/object"));
     nhp_.param("func_loop_rate", func_loop_rate_, 40.0);
 
     /* nav param */
-    nhp_.param("state_mode", state_mode_, 0); //EGOMOTION ESTIMATE
     nhp_.param("nav_vel_limit", nav_vel_limit_, 0.2);
     nhp_.param("vel_nav_threshold", vel_nav_threshold_, 0.4);
     nhp_.param("vel_nav_gain", vel_nav_gain_, 1.0);
@@ -75,14 +74,15 @@ namespace aerial_transportation
 
   }
 
-  void Base::stateCallback(const aerial_robot_base::StatesConstPtr & msg)
+  void Base::stateCallback(const nav_msgs::OdometryConstPtr & msg)
   {
     if(!get_uav_state_) get_uav_state_ = true;
 
-    for(int axis = 0; axis < 3; axis++)
-      uav_position_[axis] = msg->states[axis].state[state_mode_].x;
+    tf::pointMsgToTF(msg->pose.pose.position, uav_position_);
+    //for(int axis = 0; axis < 3; axis++)
+    //uav_position_[axis] = msg->states[axis].state[state_mode_].x;
 
-    uav_yaw_ = msg->states[5].reserves[state_mode_ * 2];
+    uav_yaw_ = tf::getYaw(msg->pose.pose.orientation);
   }
 
   void Base::joyStickCallback(const sensor_msgs::JoyConstPtr & joy_msg)

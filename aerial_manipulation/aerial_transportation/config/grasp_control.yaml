@@ -1,10 +1,9 @@
 debug: true
 joint_states_pub_name: /planning/joint_states #can show in urdf file, "/joint_states" for debug
+uav_state_sub_name: /uav/root_link/odom
+
 play_file_flag: true
 control_test_flag: false #approaching test, "true" for debug
-
-# uav state mode
-state_mode: 1 # 0: Egomotion Estimate; 1: Experiment Estimate(Mocap)
 
 # red box
 box_x: 1.015
