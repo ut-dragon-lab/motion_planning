@@ -514,8 +514,6 @@ namespace aerial_transportation
         object_approach_offset_x_ = object_approach_offset_x;
         object_approach_offset_y_ = object_approach_offset_y;
         object_approach_offset_yaw_ = object_approach_offset_yaw;
-        /* reverse the object_approach_offset_yaw_, because the direction of base_link and mocap&imu frame is opposite */
-        object_approach_offset_yaw_ += M_PI;
       }
   }
 
