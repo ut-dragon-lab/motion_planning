@@ -6,13 +6,13 @@
   <arg name="use_logger" default="false" />
 
   # laser1
-  <arg name="serial_port1" default="/dev/ttyUSB1" />
+  <arg name="serial_port1" default="/dev/laser_T" />
   <arg name="laser_name1" default="T" />
   <arg name="laser_link1" default="laser_link_" />
   <arg name="lensfocus1" default="8.0" />
 
   # laser2
-  <arg name="serial_port2" default="/dev/ttyUSB0" />
+  <arg name="serial_port2" default="/dev/laser_K" />
   <arg name="laser_name2" default="K" />
   <arg name="laser_link2" default="laser_link_" />
   <arg name="lensfocus2" default="8.0" />
@@ -52,8 +52,17 @@
     </node>
   </group>
 
-  <node  pkg="tf" type="static_transform_publisher" name="scan1_broadcaster" args="0.22 0 -0.05 -0.05 0 0  /link2 /laser_link_T  20" />
-  <node  pkg="tf" type="static_transform_publisher" name="scan2_broadcaster" args="0.215 0 -0.05 0.01 3.14159 0  /link4 /laser_link_K  20" />
+  <node  pkg="tf" type="static_transform_publisher" name="scan1_broadcaster" args="0.22 0 -0.05 1.5208 0 0  /link2 /laser_link_T  20" />
+  <node  pkg="tf" type="static_transform_publisher" name="scan2_broadcaster" args="0.218 0 -0.05 -1.5608 3.14159 0  /link4 /laser_link_K  20" />
 
+  <node pkg = "aerial_recognition" name = "laser_inertial_parameters" type = "laser_inertial_parameters.py" >
+    <param name = "laser1_parent_link" value = "1" />
+    <param name = "laser1_mass" value = "0.06" />
+    <param name = "laser1_offset" value = "-0.09" />
+    <param name = "laser2_parent_link" value = "3" />
+    <param name = "laser2_mass" value = "0.055" />
+    <param name = "laser2_offset" value = "-0.08" />
+
+  </node>
 
 </launch>
