@@ -1,6 +1,8 @@
 aerial_transportation_plugin_name: aerial_transportation/hydrus
 
 joint_motors_sub_name: /motor_states/joints_port
+joint_ctrl_pub_name: /hydrusx/joints_ctrl
+joint_states_sub_name: /hydrusx/joint_states
 
 nav_vel_limit: 0.3
 vel_nav_threshold: 0.2
