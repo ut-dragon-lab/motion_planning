@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<launch>
+  <arg name="port" default="/dev/ttyUSB0" />
+
+  <include file="$(find jsk_lase)/launch/jsk_laser.launch" >
+    <arg name="serial_port" default="/dev/ttyUSB0" />
+    <arg name="laser_name" default="T" />
+    <arg name="laser_link" default="laser1" />
+    <arg name="use_logger" default="false" />
+  </include>
+
+  <node  pkg="tf" type="static_transform_publisher" name="scan1_broadcaster" args="0.4 0 -0.05 1.5708 0 0 link1 laser1  20" />
+</launch>
