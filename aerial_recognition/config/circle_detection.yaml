@@ -1,5 +1,8 @@
 base_link: /link1
 scan_num: 2
+scan1_topic_name: /tiny_laserscan_T
+scan2_topic_name: /tiny_laserscan_K
 dist_thresh: 0.01
 verbose: true
 rate: 5
+r_thre: 0.18

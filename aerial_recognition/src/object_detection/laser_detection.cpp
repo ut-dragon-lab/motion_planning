@@ -1,5 +1,7 @@
 #include <aerial_recognition/object_detection/laser_detection.h>
 
+double Object2dDetection::r_thre_ = 0;
+
 Object2dDetection::Object2dDetection(ros::NodeHandle nh, ros::NodeHandle nhp):
   nh_(nh), nhp_(nhp)
 {
@@ -12,6 +14,7 @@ Object2dDetection::Object2dDetection(ros::NodeHandle nh, ros::NodeHandle nhp):
   nhp_.param("dist_thresh", dist_thresh_, 0.0);
   nhp_.param("verbose", verbose_, false);
 
+  nhp_.param("r_thre", r_thre_, 0.18);
 
   visualization_marker_pub_ = nh_.advertise<visualization_msgs::MarkerArray>(visualization_marker_topic_name, 1);
   object_info_pub_ = nh_.advertise<geometry_msgs::Vector3Stamped>(object_info_topic_name, 1);
@@ -39,6 +42,7 @@ Object2dDetection::Object2dDetection(ros::NodeHandle nh, ros::NodeHandle nhp):
 
 void Object2dDetection::laserScanCallback(const sensor_msgs::LaserScanConstPtr& scan_msg, int scan_no)
 {
+  //ROS_WARN("scan no: %d, size: %d", scan_no, scan_msg->ranges.size());
 
   /* get tf */
   ros::Duration du (0.05);

@@ -74,6 +74,9 @@ public:
 
   typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::LaserScan, sensor_msgs::LaserScan> SyncPolicy;
 
+  /* static ros param */
+  static double r_thre_;
+
 private:
   ros::NodeHandle nh_;
   ros::NodeHandle nhp_;
@@ -156,6 +159,8 @@ void  circleFit(const CMatrixDouble  &allData,
       M(0, 1) = (A*F - C*E) / G; //c_y
       M(0, 2) = sqrt((p1.x - M(0, 0)) * (p1.x - M(0, 0))
                      + (p1.y - M(0, 1)) * (p1.y - M(0, 1))); // r
+
+      if(M(0, 2) > Object2dDetection::r_thre_) throw exception();
     }
   catch(exception &)
     {
