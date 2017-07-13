@@ -1,7 +1,5 @@
 <?xml version="1.0"?>
 <launch>
-  <arg name= "model" value= "$(find aerial_recognition)/urdf/laser_scan.gazebo.xacro" />
-
   <node pkg="aerial_recognition" type="laser_detection_node" name="laser_detection_node"  output="screen" >
     <rosparam file="$(find aerial_recognition)/config/circle_detection.yaml" command="load" />
   </node>
