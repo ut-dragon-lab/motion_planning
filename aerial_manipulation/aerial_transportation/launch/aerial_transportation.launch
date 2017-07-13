@@ -3,6 +3,7 @@
   <arg name="plugin_name" default="hydrus" />
   <arg name="object" default="convex" />
   <arg name="debug" default="false" />
+  <arg name="ground_truth" default="true" />
 
   <node pkg="aerial_transportation" name="aerial_transportation" type="aerial_transportation_node" output="screen">
     <param name="debug" type="bool" value="$(arg debug)" />
@@ -11,6 +12,13 @@
     <rosparam file="$(find aerial_transportation)/config/grasp_control.yaml" command="load" />
     <rosparam file="$(find aerial_transportation)/config/$(arg plugin_name).yaml" command="load" />
     <param name="planning_file_name" value = "$(find aerial_transportation)/log/grasp_planning_$(arg object)_result.txt" />
+  </node>
+
+  <node pkg="aerial_transportation" name="object_visualization" type="object_visualization" output="screen" if="$(arg ground_truth)">
+    <param name = "obj_marker_pub_name" value = "obj_ground_truth_marker" />
+    <param name = "uav_state_sub_name" value = "/uav/root_link/odom" />
+    <param name = "object_pos_sub_name" value = "/object" />
+    <param name = "link_name" value = "link2_center" />
   </node>
 
 </launch>

@@ -65,3 +65,7 @@ target_link_libraries (grasp_planning_node ${catkin_LIBRARIES}  ${Boost_LIBRARIE
 # library of aerial transportation
 add_executable(aerial_transportation_node src/aerial_transportation_node.cpp)
 target_link_libraries (aerial_transportation_node ${catkin_LIBRARIES}  ${Boost_LIBRARIES})
+
+add_executable(object_visualization src/object_visualization.cpp)
+target_link_libraries (object_visualization ${catkin_LIBRARIES}  ${Boost_LIBRARIES})
+
