@@ -42,7 +42,6 @@ namespace grasp_planning
             object_approach_offset_y_ = 0;
             object_approach_offset_yaw_ = 0;
             getObjectApproachOffset(v_approach_angle, object_approach_offset_x_, object_approach_offset_y_, object_approach_offset_yaw_);
-            object_approach_offset_yaw_ += M_PI;
             ROS_INFO("grasp planner&control test: base link: %d, object_approach_offset_x_: %f, object_approach_offset_y_: %f, object_approach_offset_yaw_: %f", approach_base_link_, object_approach_offset_x_, object_approach_offset_y_, object_approach_offset_yaw_);
 
           }
@@ -155,7 +154,7 @@ namespace grasp_planning
     else
       transform.setOrigin( tf::Vector3(0, - cylinder_radius_ - link_radius_, 0.0) );
     tf::Quaternion q;
-    q.setRPY(0, 0, M_PI + v_best_phy_[0]);
+    q.setRPY(0, 0, v_best_phy_[0]);
     transform.setRotation(q);
 
     /* hardcoding for control testing: not good */
