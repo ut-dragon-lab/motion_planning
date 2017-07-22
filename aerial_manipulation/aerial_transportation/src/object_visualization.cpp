@@ -81,9 +81,11 @@ private:
 
   double obj_diameter_;
 
+  ros::Time stamp_;
   void uavStateCallback(const nav_msgs::OdometryConstPtr & msg)
   {
     tf::poseMsgToTF(msg->pose.pose, w_uav_tf_);
+    stamp_ = msg->header.stamp;
   }
 
   void objectPoseCallback(const geometry_msgs::Pose2DConstPtr & object_msg)
@@ -95,7 +97,7 @@ private:
     br_.sendTransform(tf::StampedTransform(uav_obj_tf, ros::Time::now(), link_name_, obj_name_));
 
     visualization_msgs::Marker marker_msg;
-    marker_msg.header.stamp = ros::Time::now();
+    marker_msg.header.stamp = stamp_;
     marker_msg.header.frame_id = link_name_;
     marker_msg.ns = "object";
     marker_msg.type = visualization_msgs::Marker::CYLINDER;
@@ -108,7 +110,7 @@ private:
     marker_msg.scale.y = obj_diameter_;
     marker_msg.scale.z = 0.3;
     marker_msg.color.r = 1.0;
-    marker_msg.color.a = 1.0;
+    marker_msg.color.a = 0.5;
     obj_marker_pub_.publish(marker_msg);
   }
 };
