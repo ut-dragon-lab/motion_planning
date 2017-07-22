@@ -16,6 +16,7 @@ Object2dDetection::Object2dDetection(ros::NodeHandle nh, ros::NodeHandle nhp):
 
   nhp_.param("r_thre", r_thre_, 0.18);
 
+
   visualization_marker_pub_ = nh_.advertise<visualization_msgs::MarkerArray>(visualization_marker_topic_name, 1);
   object_info_pub_ = nh_.advertise<geometry_msgs::Vector3Stamped>(object_info_topic_name, 1);
 
@@ -34,6 +35,9 @@ Object2dDetection::Object2dDetection(ros::NodeHandle nh, ros::NodeHandle nhp):
       nhp_.param(string("scan") + scan_no.str() + string("_topic_name"), laserscan_topic_name, string("scan") + scan_no.str());
 
       scan_subs_[i] = nh_.subscribe<sensor_msgs::LaserScan>(laserscan_topic_name, 1, boost::bind(&Object2dDetection::laserScanCallback, this, _1, i));
+
+      /* fill the mask for the scan */
+      scan_mask_ += 1 << i;
     }
   double rate;
   nhp_.param("rate", rate, 2.0); //2hz
@@ -42,7 +46,7 @@ Object2dDetection::Object2dDetection(ros::NodeHandle nh, ros::NodeHandle nhp):
 
 void Object2dDetection::laserScanCallback(const sensor_msgs::LaserScanConstPtr& scan_msg, int scan_no)
 {
-  //ROS_WARN("scan no: %d, size: %d", scan_no, scan_msg->ranges.size());
+  //ROS_WARN("scan no: %d, size: %d", scan_no+ 1, scan_msg->ranges.size());
 
   /* get tf */
   ros::Duration du (0.05);
@@ -82,6 +86,7 @@ void Object2dDetection::laserScanCallback(const sensor_msgs::LaserScanConstPtr& 
   {
     boost::lock_guard<boost::mutex> lock(scan_mutex_);
     scan_data_[scan_no] = data;
+    scan_mask_ &= ~(1 << scan_no);
   }
 }
 
@@ -95,7 +100,7 @@ void Object2dDetection::circleFitting(const ros::TimerEvent & e)
     boost::lock_guard<boost::mutex> lock(scan_mutex_);
     int all_data_size = 0;
 
-    if(transforms_[0].stamp_.toSec() == 0) return;
+    if(scan_mask_) return;
 
     for(auto itr = scan_data_.begin(); itr != scan_data_.end(); ++itr)
         all_data_size += size(*itr, 2);

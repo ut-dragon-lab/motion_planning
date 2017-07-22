@@ -96,6 +96,8 @@ private:
   //boost::shared_ptr< message_filters::Synchronizer<SyncPolicy> > sync_;
   //vector< message_filters::Subscriber<sensor_msgs::LaserScan> > sub_image_;
 
+  uint8_t scan_mask_;
+
   bool verbose_;
   double dist_thresh_;
   string base_link_;
