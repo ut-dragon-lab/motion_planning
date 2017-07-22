@@ -18,7 +18,7 @@
     <param name = "obj_marker_pub_name" value = "obj_ground_truth_marker" />
     <param name = "uav_state_sub_name" value = "/uav/root_link/odom" />
     <param name = "object_pos_sub_name" value = "/object" />
-    <param name = "link_name" value = "link2_center" />
+    <param name = "link_name" value = "link3" />
   </node>
 
 </launch>
