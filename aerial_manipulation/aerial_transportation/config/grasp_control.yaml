@@ -6,7 +6,7 @@ play_file_flag: true
 control_test_flag: false #approaching test, "true" for debug
 
 # red box
-box_x: 1.015
-box_y: 0.4823
+box_x: 1.005
+box_y: 0.443
 box_z: 0.2
 box_offset_x: -0.4 # recycle box 
