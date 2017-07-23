@@ -4,7 +4,9 @@ scan1_topic_name: /tiny_laserscan_T
 scan2_topic_name: /tiny_laserscan_K
 dist_thresh: 0.01
 rate: 5
-r_thre: 0.18
+r_max: 0.18
+r_min: 0.06
 link_length: 0.6
 link_radius: 0.2
-collision_margin: 0.08
+collision_margin: 0.04
+joint_state_sub_name: /hydrusx/joint_states

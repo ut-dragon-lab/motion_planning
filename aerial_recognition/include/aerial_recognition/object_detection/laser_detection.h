@@ -41,6 +41,7 @@
 #include <tf/transform_listener.h>
 #include <tf/transform_datatypes.h>
 #include <sensor_msgs/JointState.h>
+#include <std_msgs/UInt8.h>
 
 /* message filter */
 #include <message_filters/subscriber.h>
@@ -77,10 +78,12 @@ public:
   typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::LaserScan, sensor_msgs::LaserScan> SyncPolicy;
 
   /* static ros param */
-  static double r_thre_;
+  static double r_max_, r_min_;
   static std::vector<tf::Vector3> link_center_v_;
   static double link_length_, link_radius_, collision_margin_;
   static boost::mutex collision_mutex_;
+
+  static const uint8_t DIRECT_START_BIT = 7;
 
 private:
   ros::NodeHandle nh_;
@@ -88,6 +91,7 @@ private:
 
   ros::Publisher object_info_pub_;
   ros::Publisher visualization_marker_pub_;
+  ros::Subscriber start_detection_sub_;
   ros::Subscriber joint_state_sub_;
 
   /* laser */
@@ -123,7 +127,8 @@ private:
   void ransac(const CMatrixDouble& all_data, double& x_c, double& y_c, double& r);
 
   void jointStatecallback(const sensor_msgs::JointStateConstPtr& state);
-
+  void startDetectionCallback(const std_msgs::UInt8ConstPtr& msg);
+  void visualize(double x_c, double y_c, double r);
 };
 
 void  circleFit(const CMatrixDouble  &allData,
@@ -171,7 +176,8 @@ void  circleFit(const CMatrixDouble  &allData,
                      + (p1.y - M(0, 1)) * (p1.y - M(0, 1))); // r
 
       /* radius check */
-      if(M(0, 2) > Object2dDetection::r_thre_) throw exception();
+      if(M(0, 2) > Object2dDetection::r_max_ || M(0, 2) < Object2dDetection::r_min_)
+        throw exception();
 
       /* collision check */
       {
