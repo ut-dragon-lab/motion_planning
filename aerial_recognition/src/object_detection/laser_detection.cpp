@@ -1,6 +1,11 @@
 #include <aerial_recognition/object_detection/laser_detection.h>
 
 double Object2dDetection::r_thre_ = 0;
+std::vector<tf::Vector3> Object2dDetection::link_center_v_;
+double Object2dDetection::link_length_;
+double Object2dDetection::link_radius_;
+double Object2dDetection::collision_margin_;
+boost::mutex Object2dDetection::collision_mutex_;
 
 Object2dDetection::Object2dDetection(ros::NodeHandle nh, ros::NodeHandle nhp):
   nh_(nh), nhp_(nhp)
@@ -16,9 +21,16 @@ Object2dDetection::Object2dDetection(ros::NodeHandle nh, ros::NodeHandle nhp):
 
   nhp_.param("r_thre", r_thre_, 0.18);
 
+  /* temp */
+  nhp_.param("link_length", link_length_, 0.0);
+  nhp_.param("link_radius", link_radius_, 0.0);
+  nhp_.param("collision_margin", collision_margin_, 0.08);
 
   visualization_marker_pub_ = nh_.advertise<visualization_msgs::MarkerArray>(visualization_marker_topic_name, 1);
   object_info_pub_ = nh_.advertise<geometry_msgs::Vector3Stamped>(object_info_topic_name, 1);
+  std::string joint_state_sub_name;
+  nhp_.param("joint_state_sub_name", joint_state_sub_name, std::string("joint_state"));
+  joint_state_sub_ = nh_.subscribe(joint_state_sub_name, 1, &Object2dDetection::jointStatecallback, this);
 
   /* non-sync */
   nhp_.param("scan_num", scan_num_, 0);
@@ -180,3 +192,26 @@ void Object2dDetection::ransac(const CMatrixDouble& all_data, double& x_c, doubl
   r = best_model(0,2);
 }
 
+
+void Object2dDetection::jointStatecallback(const sensor_msgs::JointStateConstPtr& state)
+{
+  std::vector<tf::Vector3> link_center_v(state->position.size() + 1);
+  tf::Vector3 half_link(link_length_ / 2, 0, 0);
+  link_center_v[0] = half_link;
+
+  double abs_theta = 0;
+  for(int i = 0; i < state->position.size(); i++)
+    {
+      link_center_v[i+1] +=
+        (tf::Matrix3x3(tf::createQuaternionFromYaw(abs_theta)) * half_link + link_center_v[i]);
+      abs_theta += state->position[i];
+      link_center_v[i+1] += (tf::Matrix3x3(tf::createQuaternionFromYaw(abs_theta)) * half_link);
+
+      std::cout << "link" << i+2 << ": [" << link_center_v[i+1].x() << ", " << link_center_v[i+1].y() << "]" << std::endl;
+    }
+
+  {
+    boost::lock_guard<boost::mutex> lock(collision_mutex_);
+    link_center_v_ = link_center_v;
+  }
+}
