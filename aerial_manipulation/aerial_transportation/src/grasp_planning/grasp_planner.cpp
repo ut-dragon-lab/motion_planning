@@ -834,7 +834,7 @@ namespace grasp_planning
     ROS_INFO("base_link_best_base_side_direction: %f", base_link_best_base_side_direction);
 
     /* 1. x and y */
-    /* 1.1 calculate o_b: the best approach position of center of base link in terms of  best_base_side_ frame */
+    /* 1.1 calculate o_b: the best approach position of origin of base link in terms of  best_base_side_ frame */
     float E_beta1 = 0, E_beta2 = 0, E_beta1_beta1 = 0, E_beta2_beta2 = 0, E_beta1_beta2 = 0, E_beta1_beta1_beta1 = 0, E_beta2_beta2_beta2 = 0, E_beta1_beta2_beta2 = 0, E_beta1_beta1_beta2 = 0;
     Vector3d grasping_cog = Vector3d(0, 0, 0); // the cog of hydrus when totally grasp
     float weight_rate_sum = (pow(approach_pos_weight_rate_, contact_num_/2) - 1) / (approach_pos_weight_rate_ -1);
@@ -855,7 +855,7 @@ namespace grasp_planning
 
         if(i < approach_base_link_)
           {
-            v_base_link = AngleAxisd(M_PI + v_best_theta_[approach_base_link_](1), Vector3d::UnitZ()) * Vector3d(link_length_ /2, 0, 0);
+            v_base_link = Vector3d(0, 0, 0);
             v_end_link = AngleAxisd(M_PI + v_abs_theta[i] - v_abs_theta[approach_base_link_] + v_best_theta_[approach_base_link_](1), Vector3d::UnitZ()) * Vector3d(link_length_ /2, 0, 0);
             for(int j = i + 1; j < approach_base_link_; j ++)
               {
@@ -871,7 +871,7 @@ namespace grasp_planning
           }
         else if(i > approach_base_link_)
           {
-            v_base_link = AngleAxisd(v_best_theta_[approach_base_link_](1), Vector3d::UnitZ()) * Vector3d(link_length_ /2, 0, 0);
+            v_base_link = AngleAxisd(v_best_theta_[approach_base_link_](1), Vector3d::UnitZ()) * Vector3d(link_length_, 0, 0);
             v_end_link = AngleAxisd(v_abs_theta[i] - v_abs_theta[approach_base_link_] + v_best_theta_[approach_base_link_](1), Vector3d::UnitZ()) * Vector3d(link_length_ /2, 0, 0);
             for(int j = approach_base_link_ + 1; j < i; j ++)
               {
@@ -903,50 +903,16 @@ namespace grasp_planning
         std::cout << "link_p: " << link_p.transpose() << std::endl;
         std::cout << "beta: " << beta.transpose() << std::endl;
 
-#if 0 //bad reuslt from the variant
-        E_beta1 += beta(0);
-        E_beta2 += beta(1);
-        E_beta1_beta1 += (beta(0) * beta(0));
-        E_beta2_beta2 += (beta(1) * beta(1));
-        E_beta1_beta2 += (beta(0) * beta(1));
-        E_beta1_beta1_beta1 += (beta(0) * beta(0) * beta(0));
-        E_beta2_beta2_beta2 += (beta(1) * beta(1) * beta(1));
-        E_beta1_beta2_beta2 += (beta(0) * beta(1) * beta(1));
-        E_beta1_beta1_beta2 += (beta(0) * beta(0) * beta(1));
-#else
         E_beta1 += (beta(0) * weight_rate);
         E_beta2 += (beta(1) * weight_rate);
-#endif
 
       }
 
     grasping_cog /= contact_num_;
 
-#if 0 //bad reuslt from the variant
-    E_beta1 /= contact_num_;
-    E_beta2 /= contact_num_;
-    E_beta1_beta1 /= contact_num_;
-    E_beta2_beta2 /= contact_num_;
-    E_beta1_beta2 /= contact_num_;
-    E_beta1_beta1_beta1 /= contact_num_;
-    E_beta2_beta2_beta2 /= contact_num_;
-    E_beta1_beta2_beta2 /= contact_num_;
-    E_beta1_beta1_beta2 /= contact_num_;
-
-    Matrix2d sigma;
-    sigma << E_beta1_beta1 - E_beta1 * E_beta1, E_beta1_beta2 - E_beta1 * E_beta2
-      , E_beta1_beta2 - E_beta1 * E_beta2, E_beta2_beta2 - E_beta2 * E_beta2;
-    if(debug_) std::cout << "sigma: \n" << sigma << std::endl;
-
-    Vector2d b;
-    b << E_beta1 * (E_beta1_beta1 + E_beta2 * E_beta2) - E_beta1_beta1_beta1 - E_beta1_beta2_beta2
-      , E_beta2 * (E_beta1_beta1 + E_beta2 * E_beta2) - E_beta2_beta2_beta2 - E_beta1_beta1_beta2;
-    Vector2d O_b_best_base_side = sigma.inverse() / 2 * b;
-#else
     Vector2d O_b_best_base_side;
     O_b_best_base_side << grasping_cog.x() - E_beta1, grasping_cog.y() - E_beta2;
     std::cout << "grasping_cog: " << grasping_cog.transpose() << std::endl;
-#endif
 
     ROS_WARN("O_b_best_base_side:");
     std::cout << O_b_best_base_side.transpose() << std::endl;
