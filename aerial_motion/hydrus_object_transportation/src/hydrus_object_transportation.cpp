@@ -71,8 +71,8 @@ HydrusObjectTransportation::HydrusObjectTransportation(ros::NodeHandle nh, ros::
 
   //client
   add_extra_module_client_ = nh_.serviceClient<hydrus_transform_control::AddExtraModule>(add_extra_module_service_name_);
-  gripper_control_client_[0] = nh_.serviceClient<jsk_mbzirc_board::Magnet>(gripper_control_service_name_[0]);
-  gripper_control_client_[1] = nh_.serviceClient<jsk_mbzirc_board::Magnet>(gripper_control_service_name_[1]);
+  // gripper_control_client_[0] = nh_.serviceClient<jsk_mbzirc_board::Magnet>(gripper_control_service_name_[0]);
+  //gripper_control_client_[1] = nh_.serviceClient<jsk_mbzirc_board::Magnet>(gripper_control_service_name_[1]);
   
   //timer
   timer_ = nh.createTimer(ros::Duration(1.0 / control_frequency_), &HydrusObjectTransportation::controlCallback, this);
@@ -176,11 +176,13 @@ void HydrusObjectTransportation::joyStickCallback(const sensor_msgs::JoyConstPtr
 
 void HydrusObjectTransportation::throwObject()
 {
+  /*
   jsk_mbzirc_board::Magnet srv;
   srv.request.on = 0;
   srv.request.time_ms = 1000;
   gripper_control_client_[0].call(srv);
   gripper_control_client_[1].call(srv);
+  */
 }
 
 void HydrusObjectTransportation::goPos(tf::Vector3 target_pos)
@@ -227,7 +229,7 @@ void HydrusObjectTransportation::goPos(tf::Vector3 target_pos)
 void HydrusObjectTransportation::addExtraModule(bool reset, int extra_module_link, double extra_module_mass, double extra_module_offset)
 {
   hydrus_transform_control::AddExtraModule srv;
-  srv.request.reset = reset;
+  //srv.request.reset = reset;
   srv.request.extra_module_link = extra_module_link;
   srv.request.extra_module_mass = extra_module_mass;
   srv.request.extra_module_offset = extra_module_offset;

@@ -21,7 +21,7 @@
 #include <string>
 #include <boost/lexical_cast.hpp>
 #include <sensor_msgs/JointState.h>
-#include <jsk_mbzirc_board/Magnet.h>
+//#include <jsk_mbzirc_board/Magnet.h>
 #include <std_msgs/Int16.h>
 #include <std_msgs/UInt8.h>
 #include <geometry_msgs/PoseArray.h>
@@ -60,7 +60,7 @@ private:
 
   //client
   ros::ServiceClient add_extra_module_client_;
-  ros::ServiceClient gripper_control_client_[2];
+  //ros::ServiceClient gripper_control_client_[2];
 
   //timer
   ros::Timer timer_;
