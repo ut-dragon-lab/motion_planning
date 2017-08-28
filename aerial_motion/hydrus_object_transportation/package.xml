@@ -9,20 +9,27 @@
   <buildtool_depend>catkin</buildtool_depend>
   <build_depend>aerial_robot_base</build_depend>
   <build_depend>geometry_msgs</build_depend>
-  <build_depend>hydrus_transform_control</build_depend>
+  <build_depend>hydrus</build_depend>
   <build_depend>roscpp</build_depend>
   <build_depend>rospy</build_depend>
   <build_depend>sensor_msgs</build_depend>
   <build_depend>std_msgs</build_depend>
-  <!--build_depend>jsk_mbzirc_board</build_depend-->
+  <build_depend>dynamic_reconfigure</build_depend>
+  <build_depend>message_generation</build_depend>
+  <build_depend>cv_bridge</build_depend>
+  <build_depend>gazebo_ros</build_depend>
   <run_depend>aerial_robot_base</run_depend>
   <run_depend>geometry_msgs</run_depend>
-  <run_depend>hydrus_transform_control</run_depend>
+  <run_depend>hydrus</run_depend>
   <run_depend>roscpp</run_depend>
   <run_depend>rospy</run_depend>
   <run_depend>sensor_msgs</run_depend>
   <run_depend>std_msgs</run_depend>
-  <!--run_depend>jsk_mbzirc_board</run_depend-->
+  <run_depend>dynamic_reconfigure</run_depend>
+  <run_depend>message_generation</run_depend>
+  <run_depend>cv_bridge</run_depend>
+  <run_depend>gazebo_ros</run_depend>
+  <run_depend>hector_sensor_description</run_depend>
   <export>
   </export>
 </package>

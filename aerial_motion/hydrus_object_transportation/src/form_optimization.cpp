@@ -315,9 +315,9 @@ void FormOptimization::visualization(std::vector<double> joint_angle)
       marker.pose.position.y = extra_module_origin.at(i).y();
       marker.pose.position.z = 0.0;
       marker.pose.orientation.w = 1.0;
-      marker.scale.x = marker.scale.y = marker.scale.z = 0.1;
+      marker.scale.x = marker.scale.y = marker.scale.z = 0.15;
       marker.color.r = 1.0;
-      marker.color.g = 0.0;
+      marker.color.g = 0.647;
       marker.color.b = 0.0;
       marker.color.a = 1.0;
       marker.lifetime = ros::Duration(0.1);

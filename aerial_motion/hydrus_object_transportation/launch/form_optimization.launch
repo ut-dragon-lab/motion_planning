@@ -6,7 +6,7 @@
   <arg name="joint_states_topic_name" default="/hydrusx/joint_states" />
   <arg name="launch_model" default="false" />
 
-  <include file="$(find hydrus_transform_control)/launch/hydrusx/hydrusx_bringup.launch" if="$(arg launch_model)">
+  <include file="$(find hydrus)/launch/hydrusx/hydrusx_bringup.launch" if="$(arg launch_model)">
     <arg name="real_machine" value="false" />
     <arg name="simulation" value="false" />
     <arg name="headless" value="false" />
@@ -16,7 +16,7 @@
   
   <node name="form_optimization" pkg="hydrus_object_transportation" type="form_optimization_node" respawn="false" output="screen">
     <!-- for transform controller -->
-    <rosparam file="$(find hydrus_transform_control)/config/hydrusx/$(arg type)/Hydrus.yaml" command="load" />
+    <rosparam file="$(find hydrus)/config/hydrusx/$(arg type)/Hydrus.yaml" command="load" />
     <rosparam file="$(find hydrus_object_transportation)/config/form_optimization.yaml" command="load" />
     <param name="verbose" value="$(arg verbose)" />
     <param name="visualization" value="$(arg visualization)" />

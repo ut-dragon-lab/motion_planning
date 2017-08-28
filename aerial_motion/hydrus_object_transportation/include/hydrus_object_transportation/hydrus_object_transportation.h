@@ -9,7 +9,7 @@
 #include <ros/ros.h>
 
 // MoveIt!
-#include <hydrus_transform_control/transform_control.h>
+#include <hydrus/transform_control.h>
 #include <aerial_robot_base/States.h>
 #include <aerial_robot_base/FlightNav.h>
 

@@ -1,10 +1,9 @@
-
 #params for optimization
 
 alpha : 0.1
 d_theta : 0.01
-v_thresh : 0.00000001
-time_thresh : 60.0
+v_thresh : 0.001
+time_thresh : 10.0
 thread_num : 10
 use_initial_theta : false
 link_num : 6
@@ -12,17 +11,17 @@ ring_radius : 0.21
 linkend_radius : 0.02
 
 #extra module
-extra_module_num : 6
+extra_module_num : 1
 
 extra_module_link_num0 : 4 #from 1
 extra_module_mass0 : 0.5
 extra_module_offset0 : 0.0
 
-extra_module_link_num1 : 1
+extra_module_link_num1 : 5
 extra_module_mass1 : 0.5
 extra_module_offset1 : 0.0
 
-extra_module_link_num2 : 5
+extra_module_link_num2 : 1
 extra_module_mass2 : 0.5
 extra_module_offset2 : 0.0
 

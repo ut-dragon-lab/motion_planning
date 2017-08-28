@@ -33,33 +33,41 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *********************************************************************/
 
-#ifndef FORM_OPTIMIZATION_H
-#define FORM_OPTIMIZATION_H
+#ifndef OBJECT_DETECTION_H
+#define OBJECT_DETECTION_H
 
 #include <ros/ros.h>
 
 /* ros message */
-#include <sensor_msgs/JointState.h>
-#include <visualization_msgs/MarkerArray.h>
-#include <tf/transform_listener.h>
+#include <sensor_msgs/Image.h>
+#include <geometry_msgs/PoseStamped.h>
+#include <nav_msgs/Odometry.h>
+#include <sensor_msgs/CameraInfo.h>
+
+/* cfg */
+#include <dynamic_reconfigure/server.h>
+#include <hydrus_object_transportation/ObjectDetectionConfig.h>
 
 /* stl */
 #include <iostream>
 #include <vector>
 #include <algorithm>
 #include <string>
-#include <thread>
 
-#include <hydrus/transform_control.h>
+/* cv */
+#include <opencv2/opencv.hpp>
+#include <sensor_msgs/image_encodings.h>
+#include <cv_bridge/cv_bridge.h>
 
-using namespace Eigen;
+/* tf */
+#include <tf/transform_broadcaster.h>
 
-class FormOptimization 
+class ObjectDetection
 {
 public:
-  FormOptimization(ros::NodeHandle nh, ros::NodeHandle nhp);
-  ~FormOptimization();
-  void process();
+  ObjectDetection(ros::NodeHandle nh, ros::NodeHandle nhp);
+  ~ObjectDetection();
+  typedef hydrus_object_transportation::ObjectDetectionConfig Config;
   
 private:
   /* ros */
@@ -67,40 +75,39 @@ private:
   ros::NodeHandle nhp_;
 
   /* ros publisher */
-  ros::Publisher joint_pub_;
-  ros::Publisher visualization_marker_pub_;
-  /* tf listener */
-  tf::TransformListener listener;
+  ros::Publisher object_pos_pub_;
+  ros::Publisher object_image_pub_;
+  
+  /* ros subscriber */
+  ros::Subscriber image_sub_;
+  ros::Subscriber odom_sub_;
+  ros::Subscriber camera_info_sub_;
+
+  /* ros service server */
+  boost::shared_ptr<dynamic_reconfigure::Server<Config> > srv_;
   
   /* ros param */
-  std::string joint_states_topic_name_;
-  double alpha_;
-  double d_joint_angle_;
-  double v_thresh_;
-  double time_thresh_;
-  int thread_num_;
-  int extra_module_num_;
-  bool use_initial_joint_angle_;
-  int joint_num_;
-  double ring_radius_;
-  double linkend_radius_;
-  bool verbose_;
-  bool visualization_;
-  std::vector<double> initial_joint_angle_;
-  std::vector<int> extra_module_link_num_;
-  std::vector<double> extra_module_mass_;
-  std::vector<double> extra_module_offset_;
-
-  Eigen::VectorXd g_;
-  std::vector<std::string> joint_names_;
-
-  VectorXd getU(TransformController& transform_controller, std::vector<double> joint_angle, bool& is_stable);
-  VectorXd getU(TransformController& transform_controller, std::vector<double> joint_angle);
-  bool collisionCheck(TransformController& transform_controller, std::vector<double> joint_angle);
+  std::string object_pos_pub_topic_name_;
+  std::string image_sub_topic_name_;
+  std::string odom_sub_topic_name_;
+  std::string camera_info_sub_topic_name_;
+  std::string object_image_pub_topic_name_;
+  double contour_area_size_, contour_area_margin_;
+  double camera_height_offset_;
+  double uav_z_offset_;
   
-  void steepestDescent(std::vector<double> initial_joint_angle, std::vector<double>& optimized_joint_angle, double& optimized_variance);
+  int hsv_lower_bound_[3];
+  int hsv_upper_bound_[3];
+  double camera_fx_, camera_fy_;
+  tf::Matrix3x3 camera_intrinsic_matrix_, camera_intrinsic_matrix_inv_;
+  bool camera_info_update_, odom_update_;
+  double object_distance_;
   
-  void visualization(std::vector<double> joint_angle);
+  void odomCallback(const nav_msgs::OdometryConstPtr& msg);
+  void imageCallback(const sensor_msgs::ImageConstPtr& msg);
+  void configCallback(Config &new_config, uint32_t level);
+  void cameraInfoCallback(const sensor_msgs::CameraInfoConstPtr& msg);
+  
 };
 
 #endif

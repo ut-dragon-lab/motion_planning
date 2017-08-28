@@ -1,53 +1,30 @@
 <?xml version="1.0" encoding="utf-8"?>
+
 <launch>
-  <arg name="joint_pub_topic_name" default="joint_states" />
-  <arg name="add_extra_module_service_name" default="add_extra_module" />
-  <arg name="gripper0_control_service_name" default="/magnet0/serial_board/magnet_control" />
-  <arg name="gripper1_control_service_name" default="/magnet1/serial_board/magnet_control" />
-  <arg name="gripper0_sub_topic_name" default="/magnet0/serial_board/magnet_feedback" />
-  <arg name="gripper1_sub_topic_name" default="/magnet1/serial_board/magnet_feedback" />
-  <arg name="odom_sub_topic_name" default="/uav/full_state" />
-  <arg name="target_image_center_topic_name" default="/object_image_center" />
-  <arg name="uav_pos_pub_topic_name" default="/uav/nav" />
-  <arg name="control_frequency" default="20" />
-  <arg name="link_length" default="0.60" />
-  <arg name="gripper0_link_num" default="2" />
-  <arg name="gripper1_link_num" default="4" />
-  <arg name="gripper0_link_offset" default="0.30" />
-  <arg name="gripper1_link_offset" default="0.30" />
-  <arg name="camera_link_num" default="3" />
-  <arg name="camera_link_offset" default="0.28" />
-  <arg name="object_num" default="2" />
-  <arg name="link_num" default="4" />
-  <arg name="object_pos_thresh" default="0.15" />
-  <arg name="go_down_vel" default="0.7" />
-  <arg name="goal_pos_x" default="1.0" />
-  <arg name="goal_pos_y" default="1.0" />
-  <arg name="searching_x" default="1.0" />
-  <arg name="searching_y" default="1.0" />
-  <arg name="searching_z" default="1.0" />
-  <arg name="object_mass" default="0.375" />
-  <arg name="root_link" default="3" />
+  <arg name="launch_simulation" default="true" />
+  <arg name="rqt_gui" default="true" />
 
-  <group ns="magnet0">
-  <include file="$(find jsk_mbzirc_board)/launch/magnet.launch">
-    <arg name="port" value="/dev/ttyTHS2" />
-    <arg name="baud" value="115200" />
-  </include>
-  </group>
-
-  <group ns="magnet1">
-  <include file="$(find jsk_mbzirc_board)/launch/magnet.launch">
-    <arg name="port" value="/dev/ttyS0" />
-    <arg name="baud" value="115200" />
-  </include>
-  </group>
-
-  <include file="$(find color_region_detection)/launch/color_region_detector.launch">
-    <arg name="contour_area_margin" value="0.04" />
+  <include file="$(find hydrus)/launch/hydrusx/hydrusx_bringup.launch" if="$(arg launch_simulation)">
+    <arg name="real_machine" value="false" />
+    <arg name="simulation" value="true" />
+    <arg name="headless" value="false" />
+    <arg name="control_mode" value="0" />
+    <arg name="direct_model" value="true" />
+    <arg name="direct_model_name" value="$(find hydrus_object_transportation)/robots/hex_with_downward_cam.gazebo.xacro" />
+    <arg name="type" value="hex" />
+    <arg name="worldtype" value="$(find hydrus_object_transportation)/gazebo_model/world/aerial_transportation.world" />
   </include>
 
-  <node name="hydrus_object_transportation" pkg="hydrus_object_transportation" type="hydrus_object_transportation_node" respawn="false" launch-prefix="" output="screen">
-    <param name="object_pos_thresh" value="$(arg object_pos_thresh)" />
+  <!-- motion -->
+  <node name="hydrus_object_transportation" pkg="hydrus_object_transportation" type="hydrus_object_transportation.py" respawn="false" output="screen" />
+
+  <!-- perception -->
+  <node name="object_detection" pkg="hydrus_object_transportation" type="object_detection_node" output = "screen">
+    <param name="contour_area_size" value="0.07"/>
+    <param name="contour_area_margin" value="0.015" />
+    <param name="image_sub_topic_name" value="/downward_cam/camera/image" />
   </node>
+
+  <node pkg="rqt_gui" type="rqt_gui" name="rqt_gui" output="screen" if="$(arg rqt_gui)" args="--perspective-file $(find hydrus_object_transportation)/launch/hydrus_object_transportation.perspective"/>
+
 </launch>

@@ -4,20 +4,28 @@ project(hydrus_object_transportation)
 find_package(catkin REQUIRED COMPONENTS
   aerial_robot_base
   geometry_msgs
-  hydrus_transform_control
+  hydrus
   roscpp
   rospy
   sensor_msgs
   std_msgs
-#  jsk_mbzirc_board
-)
+  dynamic_reconfigure
+  cv_bridge
+  )
+
+find_package(OpenCV REQUIRED)
+find_package(Boost REQUIRED)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread -std=c++11")
+
+generate_dynamic_reconfigure_options(
+  config/ObjectDetection.cfg
+  )
 
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES hydrus_object_transportation
-  CATKIN_DEPENDS aerial_robot_base geometry_msgs hydrus_transform_control roscpp rospy sensor_msgs std_msgs #jsk_mbzirc_board
+  CATKIN_DEPENDS aerial_robot_base geometry_msgs hydrus roscpp rospy sensor_msgs std_msgs
 )
 
 include_directories(
@@ -32,12 +40,11 @@ add_executable(form_optimization_node src/form_optimization_node.cpp)
 add_dependencies(form_optimization ${PROJECT_NAME}_gencpp)
 target_link_libraries (form_optimization_node ${catkin_LIBRARIES}  ${Boost_LIBRARIES} form_optimization) 
 
-Add_library (hydrus_object_transportation src/hydrus_object_transportation.cpp )
-add_dependencies(hydrus_object_transportation ${PROJECT_NAME}_gencpp)
-target_link_libraries (hydrus_object_transportation ${catkin_LIBRARIES}  ${Boost_LIBRARIES}) 
+Add_library (object_detection src/object_detection.cpp)
+add_dependencies(object_detection ${PROJECT_NAME}_gencfg)
+target_link_libraries (object_detection ${catkin_LIBRARIES}) 
 
-add_executable(hydrus_object_transportation_node src/hydrus_object_transportation_node.cpp)
-add_dependencies(hydrus_object_transportation ${PROJECT_NAME}_gencpp)
-target_link_libraries (hydrus_object_transportation_node ${catkin_LIBRARIES}  ${Boost_LIBRARIES} hydrus_object_transportation) 
-
+add_executable(object_detection_node src/object_detection_node.cpp)
+add_dependencies(object_detection_node ${PROJECT_NAME}_gencfg)
+target_link_libraries (object_detection_node ${catkin_LIBRARIES} object_detection) 
 
