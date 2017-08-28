@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<launch>
+  <arg name="launch_simulation" default="true" />
+  <arg name="rqt_gui" default="true" />
+
+  <include file="$(find hydrus)/launch/hydrusx/hydrusx_bringup.launch" if="$(arg launch_simulation)">
+    <arg name="real_machine" value="false" />
+    <arg name="simulation" value="true" />
+    <arg name="headless" value="false" />
+    <arg name="control_mode" value="0" />
+    <arg name="direct_model" value="true" />
+    <arg name="direct_model_name" value="$(find hydrus_object_transportation)/robots/hex_with_downward_cam.gazebo.xacro" />
+    <arg name="type" value="hex" />
+    <arg name="worldtype" value="$(find hydrus_object_transportation)/gazebo_model/world/aerial_transportation.world" />
+  </include>
+
+  <!-- motion -->
+  <node name="hydrus_object_transportation" pkg="hydrus_object_transportation" type="hydrus_object_transportation.py" respawn="false" output="screen" />
+
+  <!-- perception -->
+  <node name="object_detection" pkg="hydrus_object_transportation" type="object_detection_node" output = "screen">
+    <param name="contour_area_size" value="0.07"/>
+    <param name="contour_area_margin" value="0.015" />
+    <param name="image_sub_topic_name" value="/downward_cam/camera/image" />
+  </node>
+
+  <node pkg="rqt_gui" type="rqt_gui" name="rqt_gui" output="screen" if="$(arg rqt_gui)" args="--perspective-file $(find hydrus_object_transportation)/launch/hydrus_object_transportation.perspective"/>
+
+</launch>

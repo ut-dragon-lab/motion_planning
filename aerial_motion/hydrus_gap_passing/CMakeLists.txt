@@ -15,7 +15,7 @@ find_package(catkin REQUIRED COMPONENTS
 )
 
 find_package(ompl)
-
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread -std=c++11")
 add_message_files(FILES PlanningMode.msg)
 generate_messages(DEPENDENCIES std_msgs)
 
@@ -58,7 +58,6 @@ target_link_libraries (motion_planning ${catkin_LIBRARIES}  ${Boost_LIBRARIES} $
 add_executable(motion_planning_node src/motion_planning_node.cpp)
 add_dependencies(motion_planning  ${PROJECT_NAME}_gencpp)
 target_link_libraries (motion_planning_node ${catkin_LIBRARIES}  ${Boost_LIBRARIES} motion_planning motion_control ${OMPL_LIBRARIES}) 
-
 
 install(PROGRAMS
   scripts/state_validation_l4.py

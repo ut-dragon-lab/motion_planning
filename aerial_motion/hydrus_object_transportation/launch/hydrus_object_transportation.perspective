@@ -1,0 +1,146 @@
+{
+  "keys": {}, 
+  "groups": {
+    "pluginmanager": {
+      "keys": {
+        "running-plugins": {
+          "type": "repr", 
+          "repr": "{u'jsk_uav_forest_common/StartButton': [1]}"
+        }
+      }, 
+      "groups": {
+        "plugin__jsk_uav_forest_common__StartButton__1": {
+          "keys": {}, 
+          "groups": {
+            "dock_widget__MyPluginUi": {
+              "keys": {
+                "dockable": {
+                  "type": "repr", 
+                  "repr": "True"
+                }, 
+                "parent": {
+                  "type": "repr", 
+                  "repr": "None"
+                }, 
+                "dock_widget_title": {
+                  "type": "repr", 
+                  "repr": "u'StartButton'"
+                }
+              }, 
+              "groups": {}
+            }
+          }
+        }, 
+        "plugin__jsk_uav_forest_common__StartButton__2": {
+          "keys": {}, 
+          "groups": {
+            "dock_widget__MyPluginUi": {
+              "keys": {
+                "dockable": {
+                  "type": "repr", 
+                  "repr": "u'true'"
+                }, 
+                "parent": {
+                  "type": "repr", 
+                  "repr": "None"
+                }, 
+                "dock_widget_title": {
+                  "type": "repr", 
+                  "repr": "u'StartButton (2)'"
+                }
+              }, 
+              "groups": {}
+            }
+          }
+        }, 
+        "plugin__rqt_service_caller__ServiceCaller__1": {
+          "keys": {}, 
+          "groups": {
+            "dock_widget__ServiceCallerWidget": {
+              "keys": {
+                "dockable": {
+                  "type": "repr", 
+                  "repr": "u'true'"
+                }, 
+                "parent": {
+                  "type": "repr", 
+                  "repr": "None"
+                }, 
+                "dock_widget_title": {
+                  "type": "repr", 
+                  "repr": "u'Service Caller'"
+                }
+              }, 
+              "groups": {}
+            }, 
+            "plugin": {
+              "keys": {
+                "splitter_orientation": {
+                  "type": "repr", 
+                  "repr": "u'2'"
+                }
+              }, 
+              "groups": {}
+            }
+          }
+        }, 
+        "plugin__rqt_publisher__Publisher__1": {
+          "keys": {}, 
+          "groups": {
+            "dock_widget__PublisherWidget": {
+              "keys": {
+                "dockable": {
+                  "type": "repr", 
+                  "repr": "u'true'"
+                }, 
+                "parent": {
+                  "type": "repr", 
+                  "repr": "None"
+                }, 
+                "dock_widget_title": {
+                  "type": "repr", 
+                  "repr": "u'Message Publisher'"
+                }
+              }, 
+              "groups": {}
+            }, 
+            "plugin": {
+              "keys": {
+                "publishers": {
+                  "type": "repr", 
+                  "repr": "u\"[{'topic_name': '/hydrusx/joints_ctrl', 'type_name': 'sensor_msgs/JointState', 'enabled': False, 'rate': 1.0, 'expressions': {u'/hydrusx/joints_ctrl/position': '[-1.57, -1.23, -1.07, -0.903, -1.55]'}, 'publisher_id': 0, 'counter': 0}]\""
+                }
+              }, 
+              "groups": {}
+            }
+          }
+        }
+      }
+    }, 
+    "mainwindow": {
+      "keys": {
+        "geometry": {
+          "type": "repr(QByteArray.hex)", 
+          "repr(QByteArray.hex)": "QtCore.QByteArray('01d9d0cb00020000000000410000004600000116000000eb000000410000006200000116000000eb00000000000000000780')", 
+          "pretty-print": "     A F     A b         "
+        }, 
+        "state": {
+          "type": "repr(QByteArray.hex)", 
+          "repr(QByteArray.hex)": "QtCore.QByteArray('000000ff00000000fd00000002000000020000051800000092fc0100000001fb00000058007200710074005f007000750062006c00690073006800650072005f005f005000750062006c00690073006800650072005f005f0031005f005f005000750062006c00690073006800650072005700690064006700650074010000000000000518000000000000000000000003000000d600000074fc0100000004fb00000072007200710074005f0073006500720076006900630065005f00630061006c006c00650072005f005f005300650072007600690063006500430061006c006c00650072005f005f0031005f005f005300650072007600690063006500430061006c006c006500720057006900640067006500740100000000000004480000000000000000fb00000062006a0073006b005f007500610076005f0066006f0072006500730074005f0063006f006d006d006f006e005f005f005300740061007200740042007500740074006f006e005f005f0031005f005f004d00790050006c007500670069006e005500690100000000000000d6000000ca00fffffffb00000062006a0073006b005f007500610076005f0066006f0072006500730074005f0063006f006d006d006f006e005f005f005300740061007200740042007500740074006f006e005f005f0032005f005f004d00790050006c007500670069006e0055006901000002fe0000010a0000000000000000fb00000062006a0073006b005f007500610076005f0066006f0072006500730074005f0063006f006d006d006f006e005f005f005300740061007200740042007500740074006f006e005f005f0033005f005f004d00790050006c007500670069006e0055006901000003c7000001510000000000000000000000d50000000000000004000000040000000800000008fc00000001000000030000000100000036004d0069006e0069006d0069007a006500640044006f0063006b00570069006400670065007400730054006f006f006c0062006100720000000000ffffffff0000000000000000')", 
+          "pretty-print": "                 Xrqt_publisher__Publisher__1__PublisherWidget                   rrqt_service_caller__ServiceCaller__1__ServiceCallerWidget          bjsk_uav_forest_common__StartButton__1__MyPluginUi          bjsk_uav_forest_common__StartButton__2__MyPluginUi          bjsk_uav_forest_common__StartButton__3__MyPluginUi                            6MinimizedDockWidgetsToolbar        "
+        }
+      }, 
+      "groups": {
+        "toolbar_areas": {
+          "keys": {
+            "MinimizedDockWidgetsToolbar": {
+              "type": "repr", 
+              "repr": "8"
+            }
+          }, 
+          "groups": {}
+        }
+      }
+    }
+  }
+}
