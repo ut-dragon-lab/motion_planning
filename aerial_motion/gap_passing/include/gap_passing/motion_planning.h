@@ -203,6 +203,7 @@ private:
   int ompl_mode_;
 
   double stability_cost_thre_;
+  double length_cost_thre_;
   int semi_stable_states_;
 
   int link_num_;

@@ -1,11 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <launch>
-<!-- Debug Info -->
-<arg name="debug" default="false" />
-<arg unless="$(arg debug)" name="launch_prefix" value="" />
-<arg if="$(arg debug)" name="launch_prefix" value="gdb --ex run --args" />
 
-<node name="motion_control_node" pkg="hydrus_gap_passing" type="motion_control_node" respawn="false" launch-prefix="$(arg launch_prefix)" output="screen">
+<node name="motion_control_node" pkg="hydrus_gap_passing" type="motion_control_node" respawn="false" output="screen">
   <rosparam command="load" file="$(find hydrus_gap_passing)/config/hydrus3/ompl_planning.yaml"/>
   <param name="play_log_path" type="bool" value="true"/>
   <param name="file_name" value="$(find hydrus_gap_passing)/path_log/planning_log_only_path_0p045_new4_2-o2l2.txt" />

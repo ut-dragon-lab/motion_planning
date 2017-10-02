@@ -119,11 +119,14 @@ MotionPlanning::MotionPlanning(ros::NodeHandle nh, ros::NodeHandle nhp) :nh_(nh)
 
       robot_model_loader_ = new robot_model_loader::RobotModelLoader("robot_description");
       kinematic_model_ = robot_model_loader_->getModel();
+
       planning_scene_ = new planning_scene::PlanningScene(kinematic_model_);
+
       tolerance_ = 0.01;
       acm_ = planning_scene_->getAllowedCollisionMatrix();
 
       gapEnvInit();
+
     }
 
   calculation_time_ = 0;
@@ -199,7 +202,14 @@ void MotionPlanning::motionSequenceFunc(const ros::TimerEvent &e)
           else
             {
               robot_state::RobotState& robot_state = planning_scene_->getCurrentStateNonConst();
-              robot_state.setVariablePositions((motion_control_->getState(state_index)).state_values);
+
+              std::vector<double> ex_curr_state(3 + link_num_ + 6); //se(2) + link_num + 6(?)
+              ex_curr_state[0] = (motion_control_->getState(state_index)).state_values[0]; //x
+              ex_curr_state[1] = (motion_control_->getState(state_index)).state_values[1]; //y
+              ex_curr_state[2] = (motion_control_->getState(state_index)).state_values[2]; //yaw
+              for(int index = 0 ; index < link_num_; index++)
+                ex_curr_state[index + 3] = (motion_control_->getState(state_index)).state_values[index + 3];
+              robot_state.setVariablePositions(ex_curr_state);
 
               planning_scene_->getPlanningSceneMsg(planning_scene_msg_);
               planning_scene_msg_.is_diff = true;
@@ -274,7 +284,15 @@ bool  MotionPlanning::isStateValid(const ompl::base::State *state)
   //check collision
   collision_detection::CollisionRequest collision_request;
   collision_detection::CollisionResult collision_result;
-  robot_state.setVariablePositions(current_state);
+
+  std::vector<double> ex_curr_state(3 + link_num_ + 6); //se(2) + link_num + 6(?)
+  ex_curr_state[0] = current_state[0]; //x
+  ex_curr_state[1] = current_state[1]; //y
+  ex_curr_state[2] = current_state[2]; //yaw
+  for(int index = 0 ; index < link_num_; index++)
+    ex_curr_state[index + 3] = current_state[index + 3];
+
+  robot_state.setVariablePositions(ex_curr_state);
   planning_scene_->checkCollision(collision_request, collision_result, robot_state, acm_);
 
   if(collision_result.collision) return false;
@@ -346,12 +364,29 @@ void MotionPlanning::gapEnvInit()
 
   //temporarily
   robot_state::RobotState& init_state = planning_scene_->getCurrentStateNonConst();
-  init_state.setVariablePositions(start_state_);
-  /**/
+  ROS_WARN("moveit robot state number: %d, motion control state numb: %d",  init_state.getVariableCount(),  start_state_.size());
+  /* temp */
+  std::vector<double> start_state(3 + link_num_ + 6); //se(2) + link_num + 6(?)
+  start_state[0] = start_state_[0]; //x
+  start_state[1] = start_state_[1]; //y
+  start_state[2] = start_state_[2]; //yaw
+  for(int index = 0 ; index < link_num_; index++)
+    start_state[index + 3] = start_state_[index + 3];
+  init_state.setVariablePositions(start_state);
 
   planning_scene_->getPlanningSceneMsg(planning_scene_msg_);
   planning_scene_msg_.is_diff = true;
   planning_scene_diff_pub_.publish(planning_scene_msg_);
+
+  robot_state::RobotState& robot_state = planning_scene_->getCurrentStateNonConst();
+  //check collision
+  collision_detection::CollisionRequest collision_request;
+  collision_detection::CollisionResult collision_result;
+  robot_state.setVariablePositions(start_state);
+  planning_scene_->checkCollision(collision_request, collision_result, robot_state, acm_);
+
+  if(collision_result.collision) ROS_WARN("collsion OKOKOKOKOKOKOO");
+
 }
 
 void MotionPlanning::Planning()
@@ -591,11 +626,11 @@ void MotionPlanning::rosParamInit()
 
   nhp_.param("solving_time_limit", solving_time_limit_, 3600.0);
 
-
   nhp_.param("length_opt_weight", length_opt_weight_, 1.0);
   nhp_.param("stability_opt_weight", stability_opt_weight_, 0.0);
 
   nhp_.param("stability_cost_thre", stability_cost_thre_, 100000000.0);
+  nhp_.param("length_cost_thre", length_cost_thre_, 0.0);
 
   nhp_.param("play_log_path", play_log_path_, false);
   if(play_log_path_) solved_ = true;
@@ -603,8 +638,13 @@ void MotionPlanning::rosParamInit()
 
 ompl::base::Cost MotionPlanning::onlyJointPathLimit()
 {
-  double cost = 0.1;
-  for(int i = 0; i < link_num_ - 1; i ++)
-    cost += fabs(start_state_[3 + i] - goal_state_[3 + i]);
-  return ompl::base::Cost(cost);
+  if(planning_mode_ == gap_passing::PlanningMode::ONLY_JOINTS_MODE ||
+     planning_mode_ == gap_passing::PlanningMode::JOINTS_AND_BASE_MODE)
+    {
+      if(planning_mode_ == gap_passing::PlanningMode::ONLY_JOINTS_MODE) length_cost_thre_ = 0.1;
+      for(int i = 0; i < link_num_ - 1; i ++)
+        length_cost_thre_ += fabs(start_state_[3 + i] - goal_state_[3 + i]);
+    }
+
+  return ompl::base::Cost(length_cost_thre_);
 }

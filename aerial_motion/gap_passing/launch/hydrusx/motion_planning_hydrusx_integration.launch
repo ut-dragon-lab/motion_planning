@@ -1,43 +1,44 @@
 <?xml version="1.0" encoding="utf-8"?>
 <launch>
 
-  <arg name="model" default="hex" />
-  <arg name="start_angle" default="1.0472" /> <!-- penta:1.256, hex: 1.0471-->
-  <arg name="goal_angle" default="-1.0472" />
+  <arg name="model" default="quad" />
+  <arg name="start_angle" default="1.57" />
+  <arg name="goal_angle" default="1.57" />
+
+  <param name="/robot_description_semantic" textfile="$(find gap_passing)/config/moveit/hydrusx.srdf" />
 
   <node name="motion_planning_node" pkg="gap_passing" type="motion_planning_node" respawn="false" output="screen">
-    <!-- <rosparam command="load" file="$(find hydrus_gap_passing)/config/hydrus3/kinematics.yaml"/>  -->
-    <param name="planning_plugin" value="ompl_interface/OMPLPlanner"/>
-
-    <!--<rosparam command="load" file="$(find hydrus_gap_passing)/config/hydrus3/ompl_planning.yaml"/> -->
     <param name="coefficient_rate" value="0.05"/>
-    <param name="planning_mode" value="0"/>
+    <param name="planning_mode" value="2"/> <!-- 0: only joint; 1: only base; 2: integration -->
     <param name="motion_sequence_rate" value="50"/>
     <param name="ompl_mode" value="0"/> <!-- RRT START:0 -->
 
-    <param name="gap_x_offset" value="0.45"/>
+    <param name="gap_x_offset" value="0.6"/> <!-- 0.5 -->
     <param name="gap_y_offset" value="0"/>
 
     <param name="gap_left_width" value="0.03"/>
     <param name="gap_right_width" value="0.029"/>
 
+    <param name="start_state_x" value="-1.5"/>
+    <param name="start_state_y" value="1"/>
+    <param name="start_state_theta" value="-1.57"/>
     <param name="start_state_joint1" value="$(arg start_angle)"/>
     <param name="start_state_joint2" value="$(arg start_angle)"/>
     <param name="start_state_joint3" value="$(arg start_angle)"/>
-    <param name="start_state_joint4" value="$(arg start_angle)"/>
-    <param name="start_state_joint5" value="$(arg start_angle)"/>
 
+    <param name="goal_state_x" value="3"/>
+    <param name="goal_state_y" value="1"/>
+    <param name="goal_state_theta" value="-1.57"/>
     <param name="goal_state_joint1" value="$(arg goal_angle)"/>
     <param name="goal_state_joint2" value="$(arg goal_angle)"/>
     <param name="goal_state_joint3" value="$(arg goal_angle)"/>
-    <param name="goal_state_joint4" value="$(arg goal_angle)"/>
-    <param name="goal_state_joint5" value="$(arg goal_angle)"/>
 
-    <param name="state_validity_check_res" value="0.03"/>
+    <param name="state_validity_check_res" value="0.005"/>
     <param name="valid_segment_count_factor" value="20"/> <!--20-->
 
     <!-- for transform controller -->
     <rosparam file="$(find hydrus)/config/hydrusx/$(arg model)/Hydrus.yaml" command="load" />
+    <param name="var_thre"  value= "0.10" />
     <param name="debug_log" type="bool" value="false"/>
 
     <param name="solving_time_limit" type="double" value="3600"/>
@@ -49,6 +50,7 @@
     <param name="stability_opt_weight" type="double" value="0"/>
 
     <param name="stability_cost_thre" type="double" value="1.2" />
+    <param name="length_cost_thre" type="double" value="20" /> <!-- 6 -->
 
     <param name="log_flag" type="bool" value="false" />
 
@@ -59,4 +61,5 @@
     <remap from="/hydrus/joints_ctrl" to="/hydrusx/joint_states" />
 
   </node>
+
 </launch>
