@@ -1,26 +1,60 @@
-#ifndef MOTION_PLANNING_H
-#define MOTION_PLANNING_H
+// -*- mode: c++ -*-
+/*********************************************************************
+ * Software License Agreement (BSD License)
+ *
+ *  Copyright (c) 2017, JSK Lab
+ *  All rights reserved.
+ *
+ *  Redistribution and use in source and binary forms, with or without
+ *  modification, are permitted provided that the following conditions
+ *  are met:
+ *
+ *   * Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ *   * Redistributions in binary form must reproduce the above
+ *     copyright notice, this list of conditions and the following
+ *     disclaimer in the documentation and/o2r other materials provided
+ *     with the distribution.
+ *   * Neither the name of the JSK Lab nor the names of its
+ *     contributors may be used to endorse or promote products derived
+ *     from this software without specific prior written permission.
+ *
+ *  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ *  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ *  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ *  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ *  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ *  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+ *  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ *  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ *  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ *  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+ *  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ *  POSSIBILITY OF SUCH DAMAGE.
+ *********************************************************************/
 
+#ifndef MOTION_PLANNING_H_
+#define MOTION_PLANNING_H_
 
-/*
-1. most of the consturctor of pointer should be shared pointer!!
-  e.g. transform_controller
- */
-
-#include <pluginlib/class_loader.h>
+/* ros */
 #include <ros/ros.h>
+#include <pluginlib/class_loader.h>
 #include <tf/transform_listener.h>
 
-#include <hydrus_gap_passing/PlanningMode.h>
-#include <hydrus_gap_passing/motion_control.h>
+/* basic header */
+#include <gap_passing/motion_control.h>
+#include <hydrus/transform_control.h>
 
-// MoveIt!
+
+/* moveit for FCL and visualization */
 #include <moveit/robot_model_loader/robot_model_loader.h>
 #include <moveit/planning_interface/planning_interface.h>
 #include <moveit/planning_scene/planning_scene.h>
 #include <moveit/kinematic_constraints/utils.h>
 #include <moveit_msgs/DisplayTrajectory.h>
 #include <moveit_msgs/PlanningScene.h>
+
+/* ompl */
 #include <ompl/control/SpaceInformation.h>
 #include <ompl/base/StateStorage.h>
 #include <ompl/base/spaces/SE2StateSpace.h>
@@ -36,13 +70,11 @@
 #include <ompl/geometric/SimpleSetup.h>
 #include <ompl/base/spaces/DubinsStateSpace.h>
 #include <ompl/base/DiscreteMotionValidator.h>
-#include "ompl/base/samplers/ObstacleBasedValidStateSampler.h"
-
-#include <hydrus_transform_control/transform_control.h>
-#include <aerial_robot_base/States.h>
-
-#include <ompl/base/objectives/PathLengthOptimizationObjective.h> //include!else error: expected class-name before {
+#include <ompl/base/samplers/ObstacleBasedValidStateSampler.h>
+#include <ompl/base/objectives/PathLengthOptimizationObjective.h>
 #include <ompl/base/objectives/StateCostIntegralObjective.h>
+
+/* utils */
 #include <iostream>
 #include <valarray>
 #include <limits>
@@ -58,7 +90,8 @@ class StabilityObjective :public ompl::base::StateCostIntegralObjective
 
   ompl::base::Cost stateCost(const ompl::base::State* state) const;
 
-
+  static const int HYDRUS = 0;
+  static const int DRAGON = 1;
 
  private:
   boost::shared_ptr<TransformController> transform_controller_;
@@ -71,11 +104,10 @@ class StabilityObjective :public ompl::base::StateCostIntegralObjective
   double semi_stable_cost_;
   double full_stable_cost_;
 
+  int robot_type_;
   int link_num_;
-  double link_length_;
 
 };
-
 
 class MotionPlanning
 {
@@ -83,7 +115,6 @@ class MotionPlanning
 public:
   MotionPlanning(ros::NodeHandle nh, ros::NodeHandle nhp);
   ~MotionPlanning();
-
 
   inline tf::Vector3 world2GapCoord(tf::Vector3 world_info)
   {
@@ -95,15 +126,15 @@ public:
 
   }
 
-
   static const int RRT_START_MODE = 0;
   static const int LBKPIECE1_MODE = 1;
 
-  static const int NO_OVERLAP = 0; 
+  static const int NO_OVERLAP = 0;
   static const int Y_AXIS_OVERLAP = 1; //gap coord
   static const int X_AXIS_OVERLAP = 2; //gap coord
 
-
+  static const int HYDRUS = 0;
+  static const int DRAGON = 1;
 
 private:
 
@@ -113,8 +144,6 @@ private:
   ros::Subscriber real_robot_state_sub_;
   ros::Publisher  flight_nav_;
 
-  //+++ hydrus
-  //TransformController*  transform_controller_;
   boost::shared_ptr<TransformController> transform_controller_;
 
   //*** optimation objective
@@ -139,6 +168,7 @@ private:
   double tolerance_;
 
   //real robot 
+  int robot_type_;
   bool real_robot_move_base_;
   bool get_init_state_;
   double mocap_center_to_joint_x_, mocap_center_to_joint_y_;
@@ -160,7 +190,7 @@ private:
   double state_validity_check_res_;
   int valid_segment_count_factor_;
 
-  ompl::base::StateSpacePtr hydrus_space_;
+  ompl::base::StateSpacePtr config_space_;
   ompl::base::SpaceInformationPtr space_information_;
   ompl::base::PathPtr path_;
   ompl::geometric::RRTstar* rrt_start_planner_;
@@ -168,7 +198,6 @@ private:
   double solving_time_limit_;
 
   //visualization
-  //int state_index_;
   ompl::base::StateStorage* plan_states_;
   int planning_mode_;
   int ompl_mode_;
@@ -195,18 +224,13 @@ private:
 
   void gapEnvInit();
   void Planning();
+  ompl::base::Cost onlyJointPathLimit();
 
   ompl::base::ValidStateSamplerPtr allocValidStateSampler(const ompl::base::SpaceInformation *si)
-    {
-      return ompl::base::ValidStateSamplerPtr(new ompl::base::ObstacleBasedValidStateSampler(si));
+  {
+    return ompl::base::ValidStateSamplerPtr(new ompl::base::ObstacleBasedValidStateSampler(si));
     }
 
-  float distance(float x1, float x2, float y1, float y2)
-  {
-    return sqrt((x1-x2)*(x1-x2) + (y1-y2)*(y1-y2));
-  }
-
-  ompl::base::Cost onlyJointPathLimit();
 };
 
 #endif

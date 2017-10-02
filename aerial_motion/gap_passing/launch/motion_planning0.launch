@@ -8,7 +8,7 @@
 <param name="hydrus/robot_description_semantic" textfile="$(find hydrus_gap_passing)/config/hydrus3/hydrus3.srdf" />
 
 <!-- Load to the parameter server yaml files -->
-<group ns="robot_description_planning">    
+<group ns="robot_description_planning">
   <rosparam command="load" file="$(find hydrus3_moveit_config)/config/hydrus3/joint_limits.yaml"/>
 </group>
 

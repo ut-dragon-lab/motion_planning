@@ -1,51 +1,77 @@
+// -*- mode: c++ -*-
+/*********************************************************************
+ * Software License Agreement (BSD License)
+ *
+ *  Copyright (c) 2017, JSK Lab
+ *  All rights reserved.
+ *
+ *  Redistribution and use in source and binary forms, with or without
+ *  modification, are permitted provided that the following conditions
+ *  are met:
+ *
+ *   * Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ *   * Redistributions in binary form must reproduce the above
+ *     copyright notice, this list of conditions and the following
+ *     disclaimer in the documentation and/o2r other materials provided
+ *     with the distribution.
+ *   * Neither the name of the JSK Lab nor the names of its
+ *     contributors may be used to endorse or promote products derived
+ *     from this software without specific prior written permission.
+ *
+ *  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ *  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ *  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ *  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ *  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ *  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+ *  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ *  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ *  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ *  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+ *  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ *  POSSIBILITY OF SUCH DAMAGE.
+ *********************************************************************/
+
 #ifndef MOTION_CONTROL_H
 #define MOTION_CONTROL_H
 
-#include <pluginlib/class_loader.h>
+/* ros */
 #include <ros/ros.h>
-
+#include <pluginlib/class_loader.h>
 #include <sensor_msgs/JointState.h>
-#include <hydrus_gap_passing/PlanningMode.h>
-#include <hydrus_transform_control/transform_control.h>
-#include <aerial_robot_base/States.h>
+#include <gap_passing/PlanningMode.h>
 #include <aerial_robot_base/FlightNav.h>
+#include <hydrus/transform_control.h>
 
+/* ompl */
 #include <ompl/control/SpaceInformation.h>
 #include <ompl/base/StateStorage.h>
 #include <ompl/base/spaces/SE2StateSpace.h>
 #include <ompl/control/spaces/RealVectorControlSpace.h>
 #include <ompl/config.h>
 
+/* utils */
 #include <iostream>
 #include <valarray>
 #include <limits>
 #include <vector>
 #include <sstream>
-
-// file
 #include <fstream>
-
 #include <boost/thread/mutex.hpp>
 #include <boost/thread.hpp>
-
 
 struct configuration_space{
   std::vector<double> state_values; //x,y,theta,joints
   int stable_mode; //0: full-stable, 1: semi-stable
   int dist_thre_value; //0: bad, 1; good
-  Eigen::MatrixXd k;
-  float angle_cos;
-  float angle_sin;
   int control_mode;
   configuration_space()
   {
     state_values.resize(0);
     stable_mode = 0;
     dist_thre_value = 0;
-    //k = Eigen::MatrixXd::Zero(4, 12);
-    angle_cos = 1;
-    angle_sin = 0;
-    control_mode = hydrus_gap_passing::PlanningMode::POSITION_MODE;
+    control_mode = gap_passing::PlanningMode::POSITION_MODE;
   }
 
 };
@@ -56,7 +82,7 @@ class MotionControl
 {
   /*func
     1) log
-      |- the path info 
+      |- the path info
       |-- joints entry
       |-- best cost/ calculation time
       |-- full/semi stable
@@ -95,20 +121,13 @@ class MotionControl
   inline double getMotionCost(){return best_cost_;}
   inline float getPlanningTime(){return calculation_time_;}
   inline int getSemiStableStates(){return semi_stable_states_;}
-  void getMinimumDist(std::vector<float>& min_dists)
-  {
-    min_dists[0] = minimum_x_performance_;
-    min_dists[1] = minimum_y_performance_;
-  }
-  void getMinimumDistState(std::vector<int>& min_dist_state_indexs)
-  {
-    min_dist_state_indexs[0] = minimum_x_performance_state_;
-    min_dist_state_indexs[1] = minimum_y_performance_state_;
-  }
+  inline float getMinVar() {return  min_var_; }
+  inline int  getMinVarStateIndex() {return min_var_state_;}
 
   ros::Publisher joint_cmd_pub_; //joints control
 
-
+  static const int HYDRUS = 0;
+  static const int DRAGON = 1;
 
  private:
   ros::NodeHandle nh_;
@@ -119,65 +138,47 @@ class MotionControl
 
   ros::Subscriber control_flag_sub_;
   ros::Subscriber joint_values_sub_;
-  ros::Subscriber robot_states_sub_;
 
   //thread components
   boost::thread joint_cmd_thread_;
   boost::thread move_cmd_thread_;
-  boost::thread gain_cmd_thread_;
-
-  boost::mutex real_state_mutex_;
 
   boost::shared_ptr<TransformController> transform_controller_;
-  std::vector<conf_values> planning_path_; 
-
+  std::vector<conf_values> planning_path_;
 
   bool control_flag_;
   double joint_cmd_rate_;
   double move_cmd_rate_;
-  double gain_cmd_rate_;
 
   int control_index_;
-
 
   bool play_log_path_;//if true, use file, if false, get form realtime thing
   bool log_flag_;//log info to file?
 
-
-  //std::vector<conf_values> real_robot_path_;
-
   std::string file_name_;
 
+  int robot_type_;
   int link_num_;
 
-  //some additional 
+  //some additional
   double best_cost_;
   int planning_mode_;
   double calculation_time_;
   int semi_stable_states_;
-  float minimum_x_performance_, minimum_y_performance_;
-  int minimum_x_performance_state_, minimum_y_performance_state_;
-
-  //real state
-  //aerial_robot_base::States robot_states_;
-  std::vector<double> real_states_;
+  float min_var_;
+  int min_var_state_;
 
   //joint cmd
   int backward_offset_;
   int forward_offset_;
 
-
   void jointStateCallback(const sensor_msgs::JointStateConstPtr& joint_state);
-  void robotStateCallback(const aerial_robot_base::StatesConstPtr& pose_state);
   void controlFlagCallback(const std_msgs::UInt8ConstPtr& control_msg);
 
-  void getRealStates(std::vector<double>& real_states);
-  void setMoveBaseStates(std::vector<double> move_base_states);
   void setJointStates(std::vector<double> joint_states);
 
   void jointCmd();
-  void gainCmd();
-  void moveCmd(); 
+  void moveCmd();
 };
 
 #endif
