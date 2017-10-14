@@ -1,5 +1,13 @@
 #include <aerial_recognition/object_detection/laser_detection.h>
 
+double Object2dDetection::r_max_;
+double Object2dDetection::r_min_;
+std::vector<tf::Vector3> Object2dDetection::link_center_v_;
+double Object2dDetection::link_length_;
+double Object2dDetection::link_radius_;
+double Object2dDetection::collision_margin_;
+boost::mutex Object2dDetection::collision_mutex_;
+
 Object2dDetection::Object2dDetection(ros::NodeHandle nh, ros::NodeHandle nhp):
   nh_(nh), nhp_(nhp)
 {
@@ -12,9 +20,20 @@ Object2dDetection::Object2dDetection(ros::NodeHandle nh, ros::NodeHandle nhp):
   nhp_.param("dist_thresh", dist_thresh_, 0.0);
   nhp_.param("verbose", verbose_, false);
 
+  nhp_.param("r_max", r_max_, 0.18);
+  nhp_.param("r_min", r_min_, 0.1);
+
+  /* temp */
+  nhp_.param("link_length", link_length_, 0.0);
+  nhp_.param("link_radius", link_radius_, 0.0);
+  nhp_.param("collision_margin", collision_margin_, 0.08);
 
   visualization_marker_pub_ = nh_.advertise<visualization_msgs::MarkerArray>(visualization_marker_topic_name, 1);
   object_info_pub_ = nh_.advertise<geometry_msgs::Vector3Stamped>(object_info_topic_name, 1);
+  std::string joint_state_sub_name;
+  nhp_.param("joint_state_sub_name", joint_state_sub_name, std::string("joint_state"));
+  joint_state_sub_ = nh_.subscribe(joint_state_sub_name, 1, &Object2dDetection::jointStatecallback, this);
+  start_detection_sub_ = nh_.subscribe("start_detection", 1, &Object2dDetection::startDetectionCallback, this);
 
   /* non-sync */
   nhp_.param("scan_num", scan_num_, 0);
@@ -31,14 +50,34 @@ Object2dDetection::Object2dDetection(ros::NodeHandle nh, ros::NodeHandle nhp):
       nhp_.param(string("scan") + scan_no.str() + string("_topic_name"), laserscan_topic_name, string("scan") + scan_no.str());
 
       scan_subs_[i] = nh_.subscribe<sensor_msgs::LaserScan>(laserscan_topic_name, 1, boost::bind(&Object2dDetection::laserScanCallback, this, _1, i));
+
+      /* fill the mask for the scan */
+      scan_mask_ += 1 << i;
     }
+
+  bool direct_start_detection;
+  nhp_.param("direct_start_detection", direct_start_detection, false);
+  if(!direct_start_detection) scan_mask_ |= (1 << DIRECT_START_BIT);
+
   double rate;
   nhp_.param("rate", rate, 2.0); //2hz
   main_timer_ = nhp_.createTimer(ros::Duration(1.0 / rate), &Object2dDetection::circleFitting, this);
 }
 
+void Object2dDetection::startDetectionCallback(const std_msgs::UInt8ConstPtr& msg)
+{
+  if(msg->data == 1) scan_mask_ &= ~(1 << DIRECT_START_BIT); // start
+  else
+    {// stop
+      scan_mask_ |= (1 << DIRECT_START_BIT);
+
+      visualize(0, 0, 0.0001);
+    }
+}
+
 void Object2dDetection::laserScanCallback(const sensor_msgs::LaserScanConstPtr& scan_msg, int scan_no)
 {
+  //ROS_WARN("scan no: %d, size: %d", scan_no+ 1, scan_msg->ranges.size());
 
   /* get tf */
   ros::Duration du (0.05);
@@ -78,6 +117,7 @@ void Object2dDetection::laserScanCallback(const sensor_msgs::LaserScanConstPtr& 
   {
     boost::lock_guard<boost::mutex> lock(scan_mutex_);
     scan_data_[scan_no] = data;
+    scan_mask_ &= ~(1 << scan_no);
   }
 }
 
@@ -91,7 +131,7 @@ void Object2dDetection::circleFitting(const ros::TimerEvent & e)
     boost::lock_guard<boost::mutex> lock(scan_mutex_);
     int all_data_size = 0;
 
-    if(transforms_[0].stamp_.toSec() == 0) return;
+    if(scan_mask_) return;
 
     for(auto itr = scan_data_.begin(); itr != scan_data_.end(); ++itr)
         all_data_size += size(*itr, 2);
@@ -108,9 +148,11 @@ void Object2dDetection::circleFitting(const ros::TimerEvent & e)
 
   }
 
+  ros::Time start_t = ros::Time::now();
   double x_c, y_c, r;
   boost::lock_guard<boost::mutex> lock(scan_mutex_);
   ransac(all_data, x_c, y_c, r);
+  ROS_WARN("ransace time: %f", (ros::Time::now() - start_t).toSec());
 
   /* publish */
   geometry_msgs::Vector3Stamped object_info_msg;
@@ -121,24 +163,7 @@ void Object2dDetection::circleFitting(const ros::TimerEvent & e)
   object_info_msg.vector.z = r;
   object_info_pub_.publish(object_info_msg);
 
-  visualization_msgs::MarkerArray msg;
-  visualization_msgs::Marker marker;
-  marker.header.stamp = ros::Time::now();
-  marker.header.frame_id = base_link_;
-  marker.ns = "object";
-  marker.type = visualization_msgs::Marker::CYLINDER;
-  marker.action = visualization_msgs::Marker::ADD;
-  marker.pose.position.x = x_c;
-  marker.pose.position.y = y_c;
-  marker.pose.position.z = 0;
-  marker.pose.orientation.w = 1.0;
-  marker.scale.x = 2 * r;
-  marker.scale.y = 2 * r;
-  marker.scale.z = 0.3;
-  marker.color.g = 1.0;
-  marker.color.a = 1.0;
-  msg.markers.push_back(marker);
-  visualization_marker_pub_.publish(msg);
+  visualize(x_c, y_c, r);
 }
 
 
@@ -160,14 +185,59 @@ void Object2dDetection::ransac(const CMatrixDouble& all_data, double& x_c, doubl
                   verbose_
                   );
 
-  ASSERT_(size(best_model,1)==1 && size(best_model,2)==3)
+  if(size(best_model,1) !=1 && size(best_model,2) !=3) return;
 
-    if(verbose_)
-      cout << "RANSAC finished in " << ros::Time::now().toSec() - start_t
-           << "[sec]: Best model: " << best_model << "; inlier size: "<< best_inliers.size() << endl;
+  if(verbose_)
+    cout << "RANSAC finished in " << ros::Time::now().toSec() - start_t
+         << "[sec]: Best model: " << best_model << "; inlier size: "<< best_inliers.size() << endl;
 
   x_c = best_model(0,0);
   y_c = best_model(0,1);
   r = best_model(0,2);
 }
 
+
+void Object2dDetection::visualize(double x_c, double y_c, double r)
+{
+  visualization_msgs::MarkerArray msg;
+  visualization_msgs::Marker marker;
+  marker.header.stamp = ros::Time::now();
+  marker.header.frame_id = base_link_;
+  marker.ns = "object";
+  marker.type = visualization_msgs::Marker::CYLINDER;
+  marker.action = visualization_msgs::Marker::ADD;
+  marker.pose.position.x = x_c;
+  marker.pose.position.y = y_c;
+  marker.pose.position.z = 0;
+  marker.pose.orientation.w = 1.0;
+  marker.scale.x = 2 * r;
+  marker.scale.y = 2 * r;
+  marker.scale.z = 0.3;
+  marker.color.b = 1.0;
+  marker.color.a = 1.0;
+  msg.markers.push_back(marker);
+  visualization_marker_pub_.publish(msg);
+
+}
+
+void Object2dDetection::jointStatecallback(const sensor_msgs::JointStateConstPtr& state)
+{
+  tf::Vector3 half_link(link_length_ / 2, 0, 0);
+  std::vector<tf::Vector3> link_center_v(state->position.size() + 1, half_link);
+
+  double abs_theta = 0;
+  for(int i = 0; i < state->position.size(); i++)
+    {
+      link_center_v[i+1] =
+        (tf::Matrix3x3(tf::createQuaternionFromYaw(abs_theta)) * half_link + link_center_v[i]);
+      abs_theta += state->position[i];
+      link_center_v[i+1] += (tf::Matrix3x3(tf::createQuaternionFromYaw(abs_theta)) * half_link);
+
+      //std::cout << "link" << i+2 << ": [" << link_center_v[i+1].x() << ", " << link_center_v[i+1].y() << "]" << std::endl;
+    }
+
+  {
+    boost::lock_guard<boost::mutex> lock(collision_mutex_);
+    link_center_v_ = link_center_v;
+  }
+}

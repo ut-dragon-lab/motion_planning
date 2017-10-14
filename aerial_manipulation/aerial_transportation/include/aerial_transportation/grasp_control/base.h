@@ -5,13 +5,13 @@
 /* ros */
 #include <ros/ros.h>
 
-#include <nav_msgs/Odometry.h>
 #include <aerial_robot_base/FlightNav.h>
+#include <nav_msgs/Odometry.h>
 #include <sensor_msgs/Joy.h>
 #include <geometry_msgs/Point.h>
 #include <geometry_msgs/Pose2D.h>
 #include <tf/transform_listener.h> /* for vector3 */
-
+#include <tf/transform_datatypes.h>
 
 namespace aerial_transportation
 {
@@ -72,8 +72,9 @@ namespace aerial_transportation
     bool get_uav_state_;
     bool object_found_;
     double target_height_;
-    geometry_msgs::Pose uav_position_;
-    geometry_msgs::Pose uav_init_position_; // not important
+    tf::Vector3 uav_position_;
+    float uav_yaw_;
+    tf::Vector3 uav_init_position_; // not important
     geometry_msgs::Pose2D object_position_;
 
     /* config of target object */
