@@ -1,6 +1,8 @@
 aerial_transportation_plugin_name: aerial_transportation/hydrus
 
 joint_motors_sub_name: /motor_states/joints_port
+joint_ctrl_pub_name: /hydrusx/joints_ctrl
+joint_states_sub_name: /hydrusx/joint_states
 
 nav_vel_limit: 0.3
 vel_nav_threshold: 0.2
@@ -20,13 +22,30 @@ ascending_speed: 0.1
 transportation_threshold: 0.15
 transportation_count: 1.0
 
-torque_min_threshold: 0.2
-torque_max_threshold: 0.55
+torque_min_threshold: 0.3
+torque_max_threshold: 0.8 #deprecated
 
 modification_delta_angle: 0.01
 
-box_offset_y: 0.3
+# for the kinematics of hydrus
+link_length: 0.6 # hydrus3: 0.44 
+link_radius: 0.2 # hydrus3: 0.15 #real is + 0.9(sponge)
+link_num: 4
 
+# grasp config
+tighten_delta_angle: 0.10 #hydrusx_quad: box, cylinder: 0.1; hydrus3: box, cylinder: 0.14
+grasping_rate: 4.0 #hydrusx_quad: box cylinder: 4.0; hydrus3: box: 2.0, cylinder: 1.0?
+
+# approach config
+approach_base_link: 2 #approaching second link for hydrus3; third link for hydrusx_quad
+approach_delta_angle: -0.4
+approach_pos_weight_rate: 10 #hydrusx: box: 10 cylinder: 10 (4 maybe better?)  old: 10.0 #weight algorithm
+approach_angle_weight_rate: 100.0 #weight algorithm
+
+# no velocity control gain change if uncomment following line
+#aerial_grasping_flight_velocity_control_pub_name: none
+
+# this is cheat control mode
 j1:
         approach_angle: 0.8
         hold_angle: 1.39  #tighten_angle: 0.08 # + 0.08rad(5deg)
@@ -40,13 +59,3 @@ j3:
         approach_angle: 0.8
         hold_angle: 1.46
         tighten_angle: 0.08 # + 0.08rad(5deg)
-
-
-# for the kinematics of hydrus3
-link_length: 0.44
-link_radius: 0.15 #real is 0.15 + 0.9(sponge)
-link_num: 4
-
-tighten_delta_angle: 0.14 #old: 0.12
-approach_delta_angle: -0.4
-grasping_rate: 2.0 #box: 2.0, cylinder: 1.0?
