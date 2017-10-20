@@ -1,15 +1,30 @@
 <?xml version="1.0" encoding="utf-8"?>
 <launch>
 
-  <arg name="model" default="quad" />
-  <arg name="start_angle" default="1.57" />
-  <arg name="goal_angle" default="1.57" />
+  <arg name="type" default="quad" />
+  <arg name="transformation" default="true" />
 
-  <param name="/robot_description_semantic" textfile="$(find gap_passing)/config/moveit/hydrusx.srdf" />
+  ###########  Robot Model  ###########
+  <include file="$(find hydrus)/launch/robot_model.launch" >
+    <arg name="model" value="hydrusx"/>
+    <arg name="type" value="$(arg type)" />
+    <arg name="headless" value="true" />
+    <arg name="need_joint_state" value="false"/>
+  </include >
+
+  <node name="rviz" pkg="rviz" type="rviz"
+        args="-d $(find gap_passing)/config/planning.rviz" respawn="true" />
+
+  ########## Planning for gap passing without transformation ###########
+  <param name="/robot_description_semantic" textfile="$(find gap_passing)/config/hydrusx/$(arg type)/moveit.srdf" />
 
   <node name="motion_planning_node" pkg="gap_passing" type="motion_planning_node" respawn="false" output="screen">
+    <param name="debug_log" type="bool" value="false"/>
+    <param name="log_flag" type="bool" value="false" />
+
     <param name="coefficient_rate" value="0.05"/>
-    <param name="planning_mode" value="2"/> <!-- 0: only joint; 1: only base; 2: integration -->
+    <param name="planning_mode" value="1" unless="$(arg transformation)"/>
+    <param name="planning_mode" value="2" if="$(arg transformation)"/>
     <param name="motion_sequence_rate" value="50"/>
     <param name="ompl_mode" value="0"/> <!-- RRT START:0 -->
 
@@ -22,24 +37,13 @@
     <param name="start_state_x" value="-1.5"/>
     <param name="start_state_y" value="1"/>
     <param name="start_state_theta" value="-1.57"/>
-    <param name="start_state_joint1" value="$(arg start_angle)"/>
-    <param name="start_state_joint2" value="$(arg start_angle)"/>
-    <param name="start_state_joint3" value="$(arg start_angle)"/>
 
     <param name="goal_state_x" value="3"/>
     <param name="goal_state_y" value="1"/>
     <param name="goal_state_theta" value="-1.57"/>
-    <param name="goal_state_joint1" value="$(arg goal_angle)"/>
-    <param name="goal_state_joint2" value="$(arg goal_angle)"/>
-    <param name="goal_state_joint3" value="$(arg goal_angle)"/>
 
     <param name="state_validity_check_res" value="0.005"/>
     <param name="valid_segment_count_factor" value="20"/> <!--20-->
-
-    <!-- for transform controller -->
-    <rosparam file="$(find hydrus)/config/hydrusx/$(arg model)/Hydrus.yaml" command="load" />
-    <param name="var_thre"  value= "0.10" />
-    <param name="debug_log" type="bool" value="false"/>
 
     <param name="solving_time_limit" type="double" value="3600"/>
 
@@ -50,9 +54,11 @@
     <param name="stability_opt_weight" type="double" value="0"/>
 
     <param name="stability_cost_thre" type="double" value="1.2" />
-    <param name="length_cost_thre" type="double" value="20" /> <!-- 6 -->
 
-    <param name="log_flag" type="bool" value="false" />
+    <!-- for specific param -->
+    <rosparam file="$(find hydrus)/config/hydrusx/$(arg type)/Hydrus.yaml" command="load" />
+    <rosparam file="$(find gap_passing)/config/hydrusx/$(arg type)/GapWithTransformation.yaml" command="load" if="$(arg transformation)"/>
+    <rosparam file="$(find gap_passing)/config/hydrusx/$(arg type)/GapWithoutTransformation.yaml" command="load" unless="$(arg transformation)"/>
 
     <!-- for motion control -->
     <param name="play_log_path" type="bool" value="false"/>
@@ -61,5 +67,4 @@
     <remap from="/hydrus/joints_ctrl" to="/hydrusx/joint_states" />
 
   </node>
-
 </launch>

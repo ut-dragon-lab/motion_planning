@@ -1,0 +1,7 @@
+start_state_joint1: 1.57
+start_state_joint2: 1.57
+start_state_joint3: 1.57
+
+goal_state_joint1: 1.57
+goal_state_joint2: 0
+goal_state_joint3: 0

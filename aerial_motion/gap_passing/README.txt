@@ -1,9 +1,13 @@
-aerial_trasformation for hydrus3
-1. hydrus3 bringup launch file
-roslaunch hydrus_transform_control hydrus3.launch
-2. hydrus3 aerial transformation planning and control
-roslaunch hydrus_gap_passing motion_control_from_file.launch
-a. local pc: mocap for hydrus
-roslaunch aerial_robot_base mocap.launch
-b. joy stick 
-roslaunch aerial_robot_base joy_stick.launch
+# The planning for gap passing using RRT*, along with pure transformation
+## Hydrusx
+### pure tranformation
+#### quad
+$ roslaunch  gap_passing aerial_transformation.launch type:=quad
+#### hex
+$ roslaunch  gap_passing aerial_transformation.launch type:=hex
+
+### gap passing
+#### without transformation
+$ roslaunch gap_passing gap_passing_planning.launch transformation:=false
+#### with transformation
+$ roslaunch gap_passing gap_passing_planning.launch transformation:=true
