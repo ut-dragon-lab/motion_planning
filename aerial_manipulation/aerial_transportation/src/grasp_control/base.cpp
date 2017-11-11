@@ -37,11 +37,6 @@ namespace aerial_transportation
     nhp_.param("object_pos_sub_name", object_pos_sub_name_, std::string("/object"));
     nhp_.param("func_loop_rate", func_loop_rate_, 40.0);
 
-    /* nav param */
-    nhp_.param("nav_vel_limit", nav_vel_limit_, 0.2);
-    nhp_.param("vel_nav_threshold", vel_nav_threshold_, 0.4);
-    nhp_.param("vel_nav_gain", vel_nav_gain_, 1.0);
-
     nhp_.param("approach_pos_threshold", approach_pos_threshold_, 0.05);
     nhp_.param("approach_yaw_threshold", approach_yaw_threshold_, 0.1);
     nhp_.param("approach_count", approach_count_, 2.0); //sec
@@ -143,54 +138,23 @@ namespace aerial_transportation
 
           /* nav part */
           tf::Vector3 delta((object_position_.x + object_offset_.x()) - uav_position_.x(), (object_position_.y + object_offset_.y()) - uav_position_.y(), 0.0);
-          //ROS_INFO("object_position_.x: %f, object_offset_.x():%f, uav_position_.x():%f", object_position_.x, object_offset_.x(), uav_position_.x());
-          //ROS_INFO("object_position_.y: %f, object_offset_.y():%f, uav_position_.y():%f", object_position_.y, object_offset_.y(), uav_position_.y());
 
-          if(delta.length() < vel_nav_threshold_)
+          aerial_robot_base::FlightNav nav_msg;
+          nav_msg.header.stamp = ros::Time::now();
+          nav_msg.target = aerial_robot_base::FlightNav::BASELINK;
+          nav_msg.pos_xy_nav_mode = aerial_robot_base::FlightNav::POS_MODE;
+          nav_msg.target_pos_x = object_position_.x + object_offset_.x();
+          nav_msg.target_pos_y = object_position_.y + object_offset_.y();
+          nav_msg.pos_z_nav_mode = aerial_robot_base::FlightNav::NO_NAVIGATION;
+          nav_msg.psi_nav_mode = aerial_robot_base::FlightNav::NO_NAVIGATION;
+          if(object_head_direction_)
             {
-              aerial_robot_base::FlightNav nav_msg;
-              nav_msg.header.stamp = ros::Time::now();
-              nav_msg.pos_xy_nav_mode = aerial_robot_base::FlightNav::POS_MODE;
-              nav_msg.target_pos_x = object_position_.x + object_offset_.x();
-              nav_msg.target_pos_y = object_position_.y + object_offset_.y();
-              nav_msg.pos_z_nav_mode = aerial_robot_base::FlightNav::NO_NAVIGATION;
-              nav_msg.psi_nav_mode = aerial_robot_base::FlightNav::NO_NAVIGATION;
-              if(object_head_direction_)
-                {
-                  nav_msg.psi_nav_mode = aerial_robot_base::FlightNav::POS_MODE;
-                  nav_msg.target_psi = object_position_.theta + object_offset_.z();
-                  if(nav_msg.target_psi > M_PI) nav_msg.target_psi -= (2 * M_PI);
-                  if(nav_msg.target_psi < -M_PI) nav_msg.target_psi += (2 * M_PI);
-                }
-              uav_nav_pub_.publish(nav_msg);
+              nav_msg.psi_nav_mode = aerial_robot_base::FlightNav::POS_MODE;
+              nav_msg.target_psi = object_position_.theta + object_offset_.z();
+              if(nav_msg.target_psi > M_PI) nav_msg.target_psi -= (2 * M_PI);
+              if(nav_msg.target_psi < -M_PI) nav_msg.target_psi += (2 * M_PI);
             }
-          else
-            {// should use vel nav
-              tf::Vector3 nav_vel = delta * vel_nav_gain_;
-              //ROS_INFO("DEBUG: nav vel is x: %f, y: %f, delta_x: %f, delta_y: %f", nav_vel.x(), nav_vel.y(), delta.x(), delta.y());
-
-              double speed = nav_vel.length();
-              if(speed  > nav_vel_limit_)
-                {
-                  //ROS_WARN("exceeds the vel limitation: %f", speed);
-                  nav_vel *= (nav_vel_limit_ / speed);
-                }
-
-              aerial_robot_base::FlightNav nav_msg;
-              nav_msg.pos_xy_nav_mode = aerial_robot_base::FlightNav::VEL_MODE;
-              nav_msg.target_vel_x = nav_vel.x();
-              nav_msg.target_vel_y = nav_vel.y();
-              nav_msg.pos_z_nav_mode = aerial_robot_base::FlightNav::NO_NAVIGATION;
-              nav_msg.psi_nav_mode = aerial_robot_base::FlightNav::NO_NAVIGATION;
-              if(object_head_direction_)
-                {
-                  nav_msg.psi_nav_mode = aerial_robot_base::FlightNav::POS_MODE;
-                  nav_msg.target_psi = object_position_.theta + object_offset_.z();
-                  if(nav_msg.target_psi > M_PI) nav_msg.target_psi -= (2 * M_PI);
-                  if(nav_msg.target_psi < -M_PI) nav_msg.target_psi += (2 * M_PI);
-                }
-              uav_nav_pub_.publish(nav_msg);
-            }
+          uav_nav_pub_.publish(nav_msg);
 
           /* phase shift condition */
           bool approach = true;
@@ -232,6 +196,7 @@ namespace aerial_transportation
           /* send nav msg */
           aerial_robot_base::FlightNav nav_msg;
 	  nav_msg.header.stamp = ros::Time::now();
+          nav_msg.target = aerial_robot_base::FlightNav::BASELINK;
           nav_msg.pos_xy_nav_mode = aerial_robot_base::FlightNav::POS_MODE;
           nav_msg.target_pos_x = uav_position_.x();
           nav_msg.target_pos_y = uav_position_.y();
@@ -253,38 +218,15 @@ namespace aerial_transportation
           /* nav part */
           tf::Vector3 delta(box_point_.x + box_offset_.x() - uav_position_.x(), box_point_.y  + box_offset_.y() - uav_position_.y(), 0.0);
 
-          if(delta.length() < vel_nav_threshold_)
-            {
-              aerial_robot_base::FlightNav nav_msg;
-	      nav_msg.header.stamp = ros::Time::now();
-              nav_msg.pos_xy_nav_mode = aerial_robot_base::FlightNav::POS_MODE;
-              nav_msg.target_pos_x = box_point_.x + box_offset_.x();
-              nav_msg.target_pos_y = box_point_.y + box_offset_.y();
-              nav_msg.pos_z_nav_mode = aerial_robot_base::FlightNav::NO_NAVIGATION;
-              nav_msg.psi_nav_mode = aerial_robot_base::FlightNav::NO_NAVIGATION;
-              uav_nav_pub_.publish(nav_msg);
-            }
-          else
-            {// should use vel nav
-              tf::Vector3 nav_vel = delta * vel_nav_gain_;
-              //ROS_INFO("DEBUG: nav vel is x: %f, y: %f, delta_x: %f, delta_y: %f", nav_vel.x(), nav_vel.y(), delta.x(), delta.y());
-
-              double speed = nav_vel.length();
-              if(speed  > nav_vel_limit_)
-                {
-                  //ROS_WARN("exceeds the vel limitation: %f", speed);
-                  nav_vel *= (nav_vel_limit_ / speed);
-                }
-
-              aerial_robot_base::FlightNav nav_msg;
-	      nav_msg.header.stamp = ros::Time::now();
-              nav_msg.pos_xy_nav_mode = aerial_robot_base::FlightNav::VEL_MODE;
-              nav_msg.target_vel_x = nav_vel.x();
-              nav_msg.target_vel_y = nav_vel.y();
-              nav_msg.pos_z_nav_mode = aerial_robot_base::FlightNav::NO_NAVIGATION;
-              nav_msg.psi_nav_mode = aerial_robot_base::FlightNav::NO_NAVIGATION;
-              uav_nav_pub_.publish(nav_msg);
-            }
+          aerial_robot_base::FlightNav nav_msg;
+          nav_msg.header.stamp = ros::Time::now();
+          nav_msg.target = aerial_robot_base::FlightNav::BASELINK;
+          nav_msg.pos_xy_nav_mode = aerial_robot_base::FlightNav::POS_MODE;
+          nav_msg.target_pos_x = box_point_.x + box_offset_.x();
+          nav_msg.target_pos_y = box_point_.y + box_offset_.y();
+          nav_msg.pos_z_nav_mode = aerial_robot_base::FlightNav::NO_NAVIGATION;
+          nav_msg.psi_nav_mode = aerial_robot_base::FlightNav::NO_NAVIGATION;
+          uav_nav_pub_.publish(nav_msg);
 
           /* phase shift condition */
           if(delta.length() < transportation_threshold_)
@@ -305,43 +247,20 @@ namespace aerial_transportation
         }
       case RETURN_PHASE:
         {
-          tf::Vector3 delta(uav_init_position_.x() - uav_position_.x() , uav_init_position_.y() - uav_position_.y() , 0);
+          //tf::Vector3 delta(uav_init_position_.x() - uav_position_.x() , uav_init_position_.y() - uav_position_.y() , 0);
 
-          if(delta.length() < vel_nav_threshold_)
-            {// shift to pos nav and also shift to idle phase
-              aerial_robot_base::FlightNav nav_msg;
-	      nav_msg.header.stamp = ros::Time::now();
-              nav_msg.pos_xy_nav_mode = aerial_robot_base::FlightNav::POS_MODE;
-              nav_msg.target_pos_x = uav_init_position_.x();
-              nav_msg.target_pos_y = uav_init_position_.y();
-              nav_msg.pos_z_nav_mode = aerial_robot_base::FlightNav::NO_NAVIGATION;
-              nav_msg.psi_nav_mode = aerial_robot_base::FlightNav::NO_NAVIGATION;
-              uav_nav_pub_.publish(nav_msg);
+          aerial_robot_base::FlightNav nav_msg;
+          nav_msg.header.stamp = ros::Time::now();
+          nav_msg.target = aerial_robot_base::FlightNav::BASELINK;
+          nav_msg.pos_xy_nav_mode = aerial_robot_base::FlightNav::POS_MODE;
+          nav_msg.target_pos_x = uav_init_position_.x();
+          nav_msg.target_pos_y = uav_init_position_.y();
+          nav_msg.pos_z_nav_mode = aerial_robot_base::FlightNav::NO_NAVIGATION;
+          nav_msg.psi_nav_mode = aerial_robot_base::FlightNav::NO_NAVIGATION;
+          uav_nav_pub_.publish(nav_msg);
 
-              phase_ = IDLE_PHASE;
-              ROS_INFO("Shifht to IDLE_PHASE");
-            }
-          else
-            {// should use vel nav
-              tf::Vector3 nav_vel = delta * vel_nav_gain_;
-              //ROS_INFO("DEBUG: nav vel is x: %f, y: %f, delta_x: %f, delta_y: %f", nav_vel.x(), nav_vel.y(), delta.x(), delta.y());
-
-              double speed = nav_vel.length();
-              if(speed  > nav_vel_limit_)
-                {
-                  //ROS_WARN("exceeds the vel limitation: %f", speed);
-                  nav_vel *= (nav_vel_limit_ / speed);
-                }
-
-              aerial_robot_base::FlightNav nav_msg;
-              nav_msg.header.stamp = ros::Time::now();
-              nav_msg.pos_xy_nav_mode = aerial_robot_base::FlightNav::VEL_MODE;
-              nav_msg.target_vel_x = nav_vel.x();
-              nav_msg.target_vel_y = nav_vel.y();
-              nav_msg.pos_z_nav_mode = aerial_robot_base::FlightNav::NO_NAVIGATION;
-              nav_msg.psi_nav_mode = aerial_robot_base::FlightNav::NO_NAVIGATION;
-              uav_nav_pub_.publish(nav_msg);
-            }
+          phase_ = IDLE_PHASE;
+          ROS_INFO("Shifht to IDLE_PHASE");
           break;
         }
       default:
