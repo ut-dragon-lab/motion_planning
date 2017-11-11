@@ -52,9 +52,6 @@ namespace aerial_transportation
     std::string uav_state_sub_name_;
     std::string object_pos_sub_name_;
     double func_loop_rate_;
-    double nav_vel_limit_;
-    double vel_nav_threshold_;
-    double vel_nav_gain_;
     double approach_pos_threshold_; // the pos convergence posecondition for object approach
     double approach_yaw_threshold_; // the yaw convergence condition for object approach
     double approach_count_; //the convergence duration (sec)
