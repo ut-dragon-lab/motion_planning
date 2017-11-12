@@ -18,7 +18,7 @@
   ########## Planning for gap passing without transformation ###########
   <param name="/robot_description_semantic" textfile="$(find gap_passing)/config/hydrusx/$(arg type)/moveit.srdf" />
 
-  <node name="motion_planning_node" pkg="gap_passing" type="motion_planning_node" respawn="false" output="screen">
+  <node name="motion_planning_node" pkg="gap_passing" type="se2_motion_planning_node" respawn="false" output="screen">
     <param name="debug_log" type="bool" value="false"/>
     <param name="log_flag" type="bool" value="false" />
 
@@ -27,12 +27,6 @@
     <param name="planning_mode" value="2" if="$(arg transformation)"/>
     <param name="motion_sequence_rate" value="50"/>
     <param name="ompl_mode" value="0"/> <!-- RRT START:0 -->
-
-    <param name="gap_x_offset" value="0.6"/> <!-- 0.5 -->
-    <param name="gap_y_offset" value="0"/>
-
-    <param name="gap_left_width" value="0.03"/>
-    <param name="gap_right_width" value="0.029"/>
 
     <param name="start_state_x" value="-1.5"/>
     <param name="start_state_y" value="1"/>
@@ -59,6 +53,7 @@
     <rosparam file="$(find hydrus)/config/hydrusx/$(arg type)/Hydrus.yaml" command="load" />
     <rosparam file="$(find gap_passing)/config/hydrusx/$(arg type)/GapWithTransformation.yaml" command="load" if="$(arg transformation)"/>
     <rosparam file="$(find gap_passing)/config/hydrusx/$(arg type)/GapWithoutTransformation.yaml" command="load" unless="$(arg transformation)"/>
+    <rosparam file="$(find gap_passing)/config/gap/HorizontalGapNoOverlap.yaml" command="load" />
 
     <!-- for motion control -->
     <param name="play_log_path" type="bool" value="false"/>

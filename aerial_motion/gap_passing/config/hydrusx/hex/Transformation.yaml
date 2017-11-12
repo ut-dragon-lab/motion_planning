@@ -9,3 +9,5 @@ goal_state_joint2: -1.0472
 goal_state_joint3: -1.0472
 goal_state_joint4: -1.0472
 goal_state_joint5: -1.0472
+
+var_thre: 0.45

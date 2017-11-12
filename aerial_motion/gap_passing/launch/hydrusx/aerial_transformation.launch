@@ -14,7 +14,7 @@
         args="-d $(find gap_passing)/config/planning.rviz" respawn="true" />
 
   ########## Planning for aerial transformation ###########
-  <node name="motion_planning_node" pkg="gap_passing" type="motion_planning_node" respawn="false" output="screen">
+  <node name="motion_planning_node" pkg="gap_passing" type="se2_motion_planning_node" respawn="false" output="screen">
     <param name="planning_plugin" value="ompl_interface/OMPLPlanner"/>
 
     <param name="debug_log" type="bool" value="false"/>

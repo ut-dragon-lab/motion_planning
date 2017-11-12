@@ -6,30 +6,30 @@
   <disable_collisions link1="link1" link2="link2" reason="Adjacent" />
   <disable_collisions link1="link1" link2="link3" reason="Never" />
   <disable_collisions link1="link1" link2="link4" reason="Never" />
-  <disable_collisions link1="link1" link2="propeller1" reason="Adjacent" />
-  <disable_collisions link1="link1" link2="propeller2" reason="Never" />
-  <disable_collisions link1="link1" link2="propeller3" reason="Never" />
-  <disable_collisions link1="link1" link2="propeller4" reason="Never" />
+  <disable_collisions link1="link1" link2="thrust1" reason="Adjacent" />
+  <disable_collisions link1="link1" link2="thrust2" reason="Never" />
+  <disable_collisions link1="link1" link2="thrust3" reason="Never" />
+  <disable_collisions link1="link1" link2="thrust4" reason="Never" />
   <disable_collisions link1="link2" link2="link3" reason="Adjacent" />
   <disable_collisions link1="link2" link2="link4" reason="Never" />
-  <disable_collisions link1="link2" link2="propeller1" reason="Never" />
-  <disable_collisions link1="link2" link2="propeller2" reason="Adjacent" />
-  <disable_collisions link1="link2" link2="propeller3" reason="Never" />
-  <disable_collisions link1="link2" link2="propeller4" reason="Never" />
+  <disable_collisions link1="link2" link2="thrust1" reason="Never" />
+  <disable_collisions link1="link2" link2="thrust2" reason="Adjacent" />
+  <disable_collisions link1="link2" link2="thrust3" reason="Never" />
+  <disable_collisions link1="link2" link2="thrust4" reason="Never" />
   <disable_collisions link1="link3" link2="link4" reason="Adjacent" />
-  <disable_collisions link1="link3" link2="propeller1" reason="Never" />
-  <disable_collisions link1="link3" link2="propeller2" reason="Never" />
-  <disable_collisions link1="link3" link2="propeller3" reason="Adjacent" />
-  <disable_collisions link1="link3" link2="propeller4" reason="Never" />
-  <disable_collisions link1="link4" link2="propeller1" reason="Never" />
-  <disable_collisions link1="link4" link2="propeller2" reason="Never" />
-  <disable_collisions link1="link4" link2="propeller3" reason="Never" />
-  <disable_collisions link1="link4" link2="propeller4" reason="Adjacent" />
-  <disable_collisions link1="propeller1" link2="propeller2" reason="Never" />
-  <disable_collisions link1="propeller1" link2="propeller3" reason="Never" />
-  <disable_collisions link1="propeller1" link2="propeller4" reason="Never" />
-  <disable_collisions link1="propeller2" link2="propeller3" reason="Never" />
-  <disable_collisions link1="propeller2" link2="propeller4" reason="Never" />
-  <disable_collisions link1="propeller3" link2="propeller4" reason="Never" />
+  <disable_collisions link1="link3" link2="thrust1" reason="Never" />
+  <disable_collisions link1="link3" link2="thrust2" reason="Never" />
+  <disable_collisions link1="link3" link2="thrust3" reason="Adjacent" />
+  <disable_collisions link1="link3" link2="thrust4" reason="Never" />
+  <disable_collisions link1="link4" link2="thrust1" reason="Never" />
+  <disable_collisions link1="link4" link2="thrust2" reason="Never" />
+  <disable_collisions link1="link4" link2="thrust3" reason="Never" />
+  <disable_collisions link1="link4" link2="thrust4" reason="Adjacent" />
+  <disable_collisions link1="thrust1" link2="thrust2" reason="Never" />
+  <disable_collisions link1="thrust1" link2="thrust3" reason="Never" />
+  <disable_collisions link1="thrust1" link2="thrust4" reason="Never" />
+  <disable_collisions link1="thrust2" link2="thrust3" reason="Never" />
+  <disable_collisions link1="thrust2" link2="thrust4" reason="Never" />
+  <disable_collisions link1="thrust3" link2="thrust4" reason="Never" />
 
 </robot>
