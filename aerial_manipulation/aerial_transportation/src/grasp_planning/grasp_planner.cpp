@@ -942,7 +942,7 @@ namespace grasp_planning
 
   void Base::qpInit()
   {
-    fc_solver_ = boost::shared_ptr<SQProblem>(new SQProblem(contact_num_ * 3, contact_num_ * 3 + 6));
+    fc_solver_ = boost::shared_ptr<SQProblem>(new SQProblem(contact_num_ * 3, contact_num_ * 4 + 6));
     qp_init_flag_ = false;
 
     /* Hessian */
@@ -953,15 +953,15 @@ namespace grasp_planning
       H_.block(3 * i, 3 * i, 3, 3) = h;
 
     /* linear constraints */
-    A_ = MatrixXd::Zero(6 + contact_num_ * 3, contact_num_ * 3);
-    MatrixXd G_fric = MatrixXd::Zero(3 * contact_num_, 3 * contact_num_);
-    MatrixXd g_fric(3,3);
-    g_fric << fric_x_mu_, -1, 0, fric_x_mu_, 1, 0, fric_z_mu_, 0, -1;
+    A_ = MatrixXd::Zero(6 + contact_num_ * 4, contact_num_ * 3);
+    MatrixXd G_fric = MatrixXd::Zero(4 * contact_num_, 3 * contact_num_);
+    MatrixXd g_fric(4,3);
+    g_fric << fric_x_mu_, -1, 0, fric_x_mu_, 1, 0, fric_z_mu_, 0, -1, fric_z_mu_, 0, 1;
     for(int i = 0; i < contact_num_; i++)
       { /* G_{fric} = diag(G_{fric \ 1}, \cdots, G_{fric \ K}), G_{fric}f_{FC} \req 0 */
-        G_fric.block(3 * i, 3 * i, 3, 3) = g_fric;
+        G_fric.block(4 * i, 3 * i, 4, 3) = g_fric;
       }
-    A_.block(6, 0, 3 * contact_num_, 3 * contact_num_) = G_fric;
+    A_.block(6, 0, 4 * contact_num_, 3 * contact_num_) = G_fric;
     if(debug_)
       {
         std::cout << "  A_ : \n " << A_ << std::endl;
@@ -972,8 +972,8 @@ namespace grasp_planning
     g_ = MatrixXd::Zero(1, contact_num_ * 3);
 
     /* lower & upper bound for linear constraints */
-    lA_ = VectorXd::Zero(6 + contact_num_ * 3);
-    uA_ = VectorXd::Constant(6 + contact_num_ * 3, INFTY);
+    lA_ = VectorXd::Zero(6 + contact_num_ * 4);
+    uA_ = VectorXd::Constant(6 + contact_num_ * 4, INFTY);
     VectorXd Fe(6);
     Fe << 0, 0, -object_mass_ * 9.797, 0, 0, 0; //external force
     lA_.block(0, 0, 6, 1) = - Fe;
@@ -985,9 +985,8 @@ namespace grasp_planning
       }
 
     /* lower & upper bound for variables */
-    lb_ = VectorXd::Zero(contact_num_ * 3);
-    for(int i = 0; i < contact_num_; i++)
-      lb_(i * 3 + 1) = - INFTY;
+    lb_ = VectorXd::Constant(contact_num_ * 3, -INFTY);
+    for(int i = 0; i < contact_num_; i++) lb_(i * 3) = 0;
     ub_ = VectorXd::Constant(contact_num_ * 3, INFTY);
     if(debug_)
       {
