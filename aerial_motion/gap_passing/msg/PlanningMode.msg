@@ -7,3 +7,6 @@ byte ORIGINAL_MODE  = 3
 #control mode
 byte POSITION_MODE = 0
 byte VELOCITY_MODE = 1
+
+byte SE2 = 0
+byte SE3 = 1

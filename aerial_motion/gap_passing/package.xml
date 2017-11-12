@@ -22,6 +22,7 @@
   <build_depend>moveit_ros_planning_interface</build_depend>
   <build_depend>aerial_robot_base</build_depend>
   <build_depend>hydrus</build_depend>
+  <build_depend>dragon</build_depend>
   <build_depend>message_generation</build_depend>
   <build_depend>cmake_modules</build_depend>
 
@@ -36,6 +37,7 @@
   <run_depend>moveit_ros_planning_interface</run_depend>
   <run_depend>aerial_robot_base</run_depend>
   <run_depend>hydrus</run_depend>
+  <run_depend>dragon</run_depend>
   <run_depend>message_runtime</run_depend>
 
 

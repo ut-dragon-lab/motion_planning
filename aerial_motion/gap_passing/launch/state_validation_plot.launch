@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<launch>
-<node name="state_validation_plot" pkg="hydrus_gap_passing" type="state_validation_l4.py" respawn="false"  output="screen">
-  <param name="file_name" value="$(find hydrus_gap_passing)/path_log/state_validation_log.txt" />
-
-</node>
-</launch>

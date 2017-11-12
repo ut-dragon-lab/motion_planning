@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<launch>
+
+<node name="motion_control_node" pkg="gap_passing" type="motion_control_node" respawn="false" output="screen">
+  <param name="play_log_path" type="bool" value="true"/>
+  <param name="file_name" value="$(find gap_passing)/path_log/planning_log_only_path_0p045_new4_2-o2l2.txt" />
+
+  <rosparam file="$(find hydrus)/config/hydrus3/quad/Hydrus.yaml" command="load" />
+  <param name="debug_log" type="bool" value="false"/>
+
+  <param name="gain_cmd_rate" type="double" value="10.0" />
+  <param name="joint_cmd_rate" type="double" value="20.0" />
+  <!-- test -->
+<!--  <remap from="/hydrus/joints_ctrl" to="/joint_states" /> -->
+
+</node>
+</launch>
