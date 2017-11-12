@@ -33,7 +33,7 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *********************************************************************/
 
-#include <gap_passing/motion_control.h>
+#include <gap_passing/se3/motion_control.h>
 
 int main(int argc, char **argv)
 {
@@ -41,9 +41,9 @@ int main(int argc, char **argv)
 
   ros::NodeHandle nh;
   ros::NodeHandle nhp("~");
-  
-  boost::shared_ptr<TransformController> transform_controller;
-  MotionControl *motion_control = new MotionControl(nh,nhp, transform_controller);
+
+  boost::shared_ptr<DragonTransformController> transform_controller;
+  se3::MotionControl *motion_control = new se3::MotionControl(nh,nhp, transform_controller);
   ros::spin();
 
   ros::shutdown();
