@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+<launch>
+  <arg name="object" default="convex_polygonal_column" />
+  <arg name="only_pub" default = "false" />
+
+  <node pkg="aerial_transportation" name="convex_polygonal_column_display" type="grasp_form_search_object.py" output="screen">
+    <param name = "object_mass" value = "1.0" />
+    <param name = "only_pub" value ="$(arg only_pub)" />
+    <rosparam file="$(find aerial_transportation)/config/object/$(arg object).yaml" command="load" />
+  </node>
+</launch>

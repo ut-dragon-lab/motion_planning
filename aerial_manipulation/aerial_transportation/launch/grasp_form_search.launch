@@ -1,0 +1,29 @@
+<?xml version="1.0"?>
+<launch>
+  <arg name = "object" default = "cylinder" />
+  <arg name = "robot_model" default = "hydrusx" />
+  <arg name = "robot_type" default = "quad" />
+  <arg name = "headless" default = "true" />
+  <arg name = "play_file_flag" default = "false" />
+  <arg name = "file_result_flag" default = "true" /> <!-- output searching result -->
+  <arg name = "test_grasp_flag" default = "false" /> <!-- test kinematics and statics -->
+
+  <include file="$(find hydrus)/launch/robot_model.launch" >
+    <arg name = "model" value = "$(arg robot_model)" />
+    <arg name = "type" value = "$(arg robot_type)" />
+    <arg name = "need_joint_state" value = "false" />
+    <arg name="headless" value="$(arg headless)" />
+  </include>
+
+  <node pkg="aerial_transportation" name="grasp_form_search" type="grasp_form_search_node" output="screen">
+    <rosparam file="$(find aerial_transportation)/config/hydrus.yaml" command="load" />
+    <rosparam file="$(find aerial_transportation)/config/grasp_form_search.yaml" command="load" />
+
+    <param name="test_grasp_flag" value ="$(arg test_grasp_flag)" />
+    <param name="play_file_flag" value ="$(arg play_file_flag)" />
+    <param name="file_result_flag" value ="false" if = "$(arg play_file_flag)"/>
+    <param name="file_result_flag" value ="$(arg file_result_flag)" unless = "$(arg play_file_flag)"/>
+    <param name="searching_file_name" value = "$(find aerial_transportation)/log/searching_result_$(arg object).txt"/>
+  </node>
+
+</launch>

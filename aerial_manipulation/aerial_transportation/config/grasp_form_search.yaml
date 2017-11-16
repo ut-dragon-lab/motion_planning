@@ -1,0 +1,28 @@
+# general
+verbose: true
+
+# kinematics
+kinematics_verbose: false
+joint_angle_limit: 1.57 #1.65
+
+#statics: 
+statics_verbose: false
+fric_z_mu: 0.5
+fric_x_mu: 0.3
+
+# visualize
+visualize_verbose: true
+link1_frame_name: link1
+object_frame_name: object
+
+# search algorithm
+search_verbose: true
+search_file_log_flag: true
+# full search
+one_side_flag: true
+res_d: 0.005
+res_delta: 0.001
+delta_valid_range: 0.087 # 5deg 
+d_valid_range: 0.03
+thrust_weight: 0.5
+torque_weight: 0.5

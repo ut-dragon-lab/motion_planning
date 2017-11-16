@@ -1,0 +1,10 @@
+int8 UNKNOWN = -1
+int8 CONVEX_POLYGONAL_COLUMN = 0
+int8 CYLINDER = 1
+
+int8 object_type
+geometry_msgs/Inertia inertia
+geometry_msgs/Vector3[] vertices
+---
+bool status
+string message

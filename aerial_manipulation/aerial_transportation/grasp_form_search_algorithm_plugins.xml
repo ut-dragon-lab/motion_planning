@@ -1,0 +1,5 @@
+<library path="lib/libgrasp_form_search_algorithm_pluginlib">
+  <class name="search_algorithm_plugin/full_search" type="grasp_form_search::FullSearch" base_class_type="grasp_form_search::SearchAlgorithmBase">
+    <description>full-sesarch based grasp searching plugin.</description>
+  </class>
+</library>

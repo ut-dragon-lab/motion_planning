@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<launch>
+  <arg name="object" default="convex" />
+
+  <node name="grasp_planning_result_plot" pkg="aerial_transportation" type="grasp_full_search_plot.py" respawn="false"  output="screen">
+    <param name="object" value="$(arg object)" />
+    <param name="file_name" value="$(find aerial_transportation)/log/full_searching_$(arg object).txt" />
+
+
+</node>
+</launch>

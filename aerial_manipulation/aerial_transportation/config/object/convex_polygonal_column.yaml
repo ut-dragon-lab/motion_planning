@@ -1,18 +1,20 @@
 #the geometric config of object 
-# a_i: the position of vertex
+
+object_type: 0
 
 vertex_num: 4
 
 # position of each vertex
-x_1: 0
-y_1: 0
+x_1: -0.2
+y_1: -0.2
 
-x_2: 0.3 #0.2
-y_2: 0.0
+x_2: 0.2 #0.2
+y_2: -0.2
 
-x_3: 0.3
-y_3: 0.3
+x_3: 0.2
+y_3: 0.2
 
-x_4: 0
-y_4: 0.3
+x_4: -0.2
+y_4: 0.2
+
 

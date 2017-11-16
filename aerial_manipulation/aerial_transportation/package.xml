@@ -19,8 +19,12 @@
   <build_depend>rospy</build_depend>
   <build_depend>std_msgs</build_depend>
   <build_depend>sensor_msgs</build_depend>
+  <build_depend>hydrus</build_depend>
   <build_depend>dynamixel_msgs</build_depend>
   <build_depend>tf</build_depend>
+  <build_depend>tf_conversions</build_depend>
+  <build_depend>eigen_conversions</build_depend>
+  <build_depend>message_generation</build_depend>
   <run_depend>aerial_robot_base</run_depend>
   <run_depend>dynamic_reconfigure</run_depend>
   <run_depend>geometry_msgs</run_depend>
@@ -33,11 +37,13 @@
   <run_depend>dynamixel_msgs</run_depend>
   <run_depend>sensor_msgs</run_depend>
   <run_depend>tf</run_depend>
-
+  <run_depend>tf_conversions</run_depend>
+  <run_depend>eigen_conversions</run_depend>
+  <run_depend>message_runtime</run_depend>
+  <run_depend>hydrus</run_depend>
 
   <!-- The export tag contains other, unspecified, tags -->
   <export>
-    <aerial_transportation plugin="${prefix}/aerial_transportation_plugins.xml" />
-    <aerial_transportation plugin="${prefix}/grasp_planning_plugins.xml" />
+    <aerial_transportation plugin="${prefix}/grasp_form_search_algorithm_plugins.xml" />
   </export>
 </package>

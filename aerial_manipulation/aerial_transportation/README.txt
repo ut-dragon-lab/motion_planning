@@ -1,67 +1,26 @@
-# grasp planning:
-## 1. object config publishment
+# best grasp form searching :
+
+1. searching launch :
 ```
-$ roslaunch aerial_transportation object.launch (object:=cylinder)
+$  roslaunch aerial_transportation grasp_form_search.launch 
 ```
-## 2. grasp planning
+If add ``` test_grasp_flag:= true```, then no search execute, instead, kinematics and statics will start once. And ```file_result_flag:= true ``` willl record the search result which will be used later. Set ```search_file_log_flag``` in /config/grasp_form_search.yaml to true will start result the full search result map.
+
+
+2. object configuration :
 ```
-$ roslaunch aerial_transportation grasp_planning.launch
-```
-(please check the grasp_planning.yaml, file record option)
-## 3. robot model
-```
-$ roslaunch aerial_robot_model aerial_robot_model.launch simulation:=false (model:=xxxxx)
+$ roslaunch aerial_transportation test_object.launch (object:=cylinder)
 ```
 
-e.g. model:= hydrusx/hydrux_quad 
+3. use rviz to cehck 
 
-# grasp control(test):
-## 1. object config publishment
-```
-$ roslaunch aerial_transportation object.launch (object:=cylinder)
-```
 
-## 2. grasp control(test)
+# play the already search result:
 ```
-$ roslaunch aerial_transportation grasp_planning.launch control_test:=true (object:=cylinder)
+$  roslaunch aerial_transportation grasp_form_search.launch object:=convex(cylinder)  play_file_flag:=true
 ```
 
-## 3. robot model
+# plot full search result:
 ```
-$ roslaunch aerial_robot_model aerial_robot_model.launch simulation:=false (model:=xxxxx)
-```
-
-e.g. model:= hydrusx/hydrux_quad 
-
-# grasp demonstration:
-
-## 1. hydrus aerial_robot bringup launch
-```
-$ roslaunch hydrus_transform_control hydrusx_bringup.launch (model:=quad)
-```
-
-## 2. hydrus grasp planning&control launch
-
-### box: 
-```
-$ roslaunch aerial_transportation aerial_transportation.launch plugin_name:=hydrus debug:=true
-```
-
-### cylinder: 
-```
-$ roslaunch aerial_transportation aerial_transportation.launch plugin_name:=hydrus debug:=true object:=cylinder
-```
-
-### local pc: 
-
-#### 1) mocap for hydrus and object
-```
-$ roslaunch aerial_transportation mocap_assistant.launch 
-```
-P.S. please swith the mocap project in your windows PC according to the object(box or cylinder)
-
-#### 2) joy stick
-
-```
-$ roslaunch aerial_robot_base joy_stick.launch
+$ roslaunch aerial_transportation grasp_form_search_result_plot.launch object:=cylinder
 ```
