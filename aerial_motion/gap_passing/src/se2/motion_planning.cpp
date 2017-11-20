@@ -50,6 +50,8 @@ namespace se2
 
     planning_scene_diff_pub_ = nh_.advertise<moveit_msgs::PlanningScene>("planning_scene", 1);
 
+    keyposes_server_ = nh_.advertiseService("keyposes_server", &MotionPlanning::getKeyposes, this);
+
     if(planning_mode_ != gap_passing::PlanningMode::ONLY_JOINTS_MODE)
       {
         while(planning_scene_diff_pub_.getNumSubscribers() < 1)
@@ -101,6 +103,7 @@ namespace se2
 
     static int state_index = 0;
     static std::vector<conf_values> planning_path;
+    sensor_msgs::JointState joint_state;
 
     if(solved_ && ros::ok())
       {
@@ -119,6 +122,33 @@ namespace se2
 
             planning_path.resize(0);
             motion_control_->getPlanningPath(planning_path);
+
+            if(planning_mode_ == gap_passing::PlanningMode::JOINTS_AND_BASE_MODE){
+              for(int i = 0; i < joint_num_; i++)
+                {
+                  std::stringstream ss;
+                  ss << i + 1;
+                  joint_state.name.push_back(std::string("joint") + ss.str());
+                }
+              keyposes_cog_vec_.resize(0);
+              for (int i = 0; i < motion_control_->getPathSize(); ++i){
+                joint_state.position.resize(0);
+                for (int j = 0; j < joint_num_; ++j)
+                  joint_state.position.push_back((motion_control_->getState(i)).state_values[3 + j]);
+                transform_controller_->kinematics(joint_state);
+                tf::Transform cog_to_root = transform_controller_->getCog();
+                tf::Transform root_to_world;
+                root_to_world.
+                  setOrigin(tf::Vector3((motion_control_->getState(i)).state_values[0],
+                                        (motion_control_->getState(i)).state_values[1],
+                                        0.0));
+                tf::Quaternion q;
+                q.setRPY(0.0, 0.0, (motion_control_->getState(i)).state_values[2]);
+                root_to_world.setRotation(q);
+                tf::Transform cog_to_world = root_to_world * cog_to_root;
+                keyposes_cog_vec_.push_back(cog_to_world);
+              }
+            }
 
             first_flag = false;
           }
@@ -163,6 +193,42 @@ namespace se2
           }
 
       }
+  }
+
+  bool MotionPlanning::getKeyposes(gap_passing::Keyposes::Request &req, gap_passing::Keyposes::Response &res)
+  {
+    int keyposes_num = keyposes_cog_vec_.size();
+    if (solved_ && ros::ok() && keyposes_num){
+      res.available_flag = true;
+      res.states_cnt = keyposes_num;
+      res.state_num = 3 + joint_num_;
+      res.data.array.layout.dim.push_back(std_msgs::MultiArrayDimension());
+      res.data.array.layout.dim.push_back(std_msgs::MultiArrayDimension());
+      res.data.array.layout.dim[0].label = "height";
+      res.data.array.layout.dim[1].label = "width";
+      res.data.array.layout.dim[0].size = keyposes_num;
+      res.data.array.layout.dim[1].size = 3 + joint_num_;
+      res.data.array.layout.dim[0].stride = keyposes_num * (3 + joint_num_);
+      res.data.array.layout.dim[1].stride = 3 + joint_num_;
+      res.data.array.layout.data_offset = 0;
+
+      for (int i = 0; i < keyposes_num; ++i){
+        res.data.array.data.push_back(keyposes_cog_vec_[i].getOrigin().getX());
+        res.data.array.data.push_back(keyposes_cog_vec_[i].getOrigin().getY());
+        tf::Quaternion q = keyposes_cog_vec_[i].getRotation();
+        tf::Matrix3x3  rot_mat(q);
+        tfScalar e_r, e_p, e_y;
+        rot_mat.getRPY(e_r, e_p, e_y);
+        res.data.array.data.push_back(e_y);
+        for (int j = 0; j < joint_num_; ++j)
+          res.data.array.data.push_back((motion_control_->getState(i)).state_values[3 + j]);
+      }
+    }
+    else{
+      res.available_flag = false;
+      res.states_cnt = 0;
+    }
+    return true;
   }
 
   bool  MotionPlanning::isStateValid(const ompl::base::State *state)

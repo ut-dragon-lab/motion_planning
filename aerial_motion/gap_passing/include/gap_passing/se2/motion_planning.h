@@ -44,6 +44,7 @@
 /* basic header */
 #include <gap_passing/se2/motion_control.h>
 #include <hydrus/transform_control.h>
+#include <gap_passing/Keyposes.h>
 
 
 /* moveit for FCL and visualization */
@@ -137,6 +138,9 @@ namespace se2
 
     double tolerance_;
 
+    ros::ServiceServer keyposes_server_;
+    std::vector<tf::Transform> keyposes_cog_vec_;
+
     //real robot 
     bool real_robot_move_base_;
     bool get_init_state_;
@@ -198,6 +202,7 @@ namespace se2
     {
       return ompl::base::ValidStateSamplerPtr(new ompl::base::ObstacleBasedValidStateSampler(si));
     }
+    bool getKeyposes(gap_passing::Keyposes::Request &req, gap_passing::Keyposes::Response &res);
 
   };
 

@@ -13,11 +13,14 @@ find_package(catkin REQUIRED COMPONENTS
   hydrus
   dragon
   cmake_modules
+  message_generation
 )
 
 find_package(ompl)
 
-add_message_files(FILES PlanningMode.msg)
+add_message_files(FILES PlanningMode.msg float64Array.msg)
+add_service_files(FILES Keyposes.srv)
+
 generate_messages(DEPENDENCIES std_msgs)
 
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")

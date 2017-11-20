@@ -1,0 +1,6 @@
+bool inquiry
+---
+bool available_flag
+int8 state_num
+int64 states_cnt
+float64Array data
