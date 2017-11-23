@@ -202,26 +202,26 @@ namespace se2
       res.available_flag = true;
       res.states_cnt = keyposes_num;
       res.state_num = 3 + joint_num_;
-      res.data.array.layout.dim.push_back(std_msgs::MultiArrayDimension());
-      res.data.array.layout.dim.push_back(std_msgs::MultiArrayDimension());
-      res.data.array.layout.dim[0].label = "height";
-      res.data.array.layout.dim[1].label = "width";
-      res.data.array.layout.dim[0].size = keyposes_num;
-      res.data.array.layout.dim[1].size = 3 + joint_num_;
-      res.data.array.layout.dim[0].stride = keyposes_num * (3 + joint_num_);
-      res.data.array.layout.dim[1].stride = 3 + joint_num_;
-      res.data.array.layout.data_offset = 0;
+      res.data.layout.dim.push_back(std_msgs::MultiArrayDimension());
+      res.data.layout.dim.push_back(std_msgs::MultiArrayDimension());
+      res.data.layout.dim[0].label = "height";
+      res.data.layout.dim[1].label = "width";
+      res.data.layout.dim[0].size = keyposes_num;
+      res.data.layout.dim[1].size = 3 + joint_num_;
+      res.data.layout.dim[0].stride = keyposes_num * (3 + joint_num_);
+      res.data.layout.dim[1].stride = 3 + joint_num_;
+      res.data.layout.data_offset = 0;
 
       for (int i = 0; i < keyposes_num; ++i){
-        res.data.array.data.push_back(keyposes_cog_vec_[i].getOrigin().getX());
-        res.data.array.data.push_back(keyposes_cog_vec_[i].getOrigin().getY());
+        res.data.data.push_back(keyposes_cog_vec_[i].getOrigin().getX());
+        res.data.data.push_back(keyposes_cog_vec_[i].getOrigin().getY());
         tf::Quaternion q = keyposes_cog_vec_[i].getRotation();
         tf::Matrix3x3  rot_mat(q);
         tfScalar e_r, e_p, e_y;
         rot_mat.getRPY(e_r, e_p, e_y);
-        res.data.array.data.push_back(e_y);
+        res.data.data.push_back(e_y);
         for (int j = 0; j < joint_num_; ++j)
-          res.data.array.data.push_back((motion_control_->getState(i)).state_values[3 + j]);
+          res.data.data.push_back((motion_control_->getState(i)).state_values[3 + j]);
       }
     }
     else{
