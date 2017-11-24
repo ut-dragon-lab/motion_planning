@@ -45,6 +45,7 @@
 #include <gap_passing/se2/motion_control.h>
 #include <hydrus/transform_control.h>
 #include <gap_passing/Keyposes.h>
+#include <gap_passing/Endposes.h>
 
 
 /* moveit for FCL and visualization */
@@ -140,6 +141,7 @@ namespace se2
 
     ros::ServiceServer keyposes_server_;
     std::vector<tf::Transform> keyposes_cog_vec_;
+    ros::ServiceClient endposes_client_;
 
     //real robot 
     bool real_robot_move_base_;
@@ -157,6 +159,7 @@ namespace se2
     tf::Vector3 right_half_corner;
 
     //original planning
+    bool default_keyposes_flag_;
     std::vector<double> start_state_;
     std::vector<double> goal_state_;
 

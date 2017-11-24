@@ -51,6 +51,28 @@ namespace se2
     planning_scene_diff_pub_ = nh_.advertise<moveit_msgs::PlanningScene>("planning_scene", 1);
 
     keyposes_server_ = nh_.advertiseService("keyposes_server", &MotionPlanning::getKeyposes, this);
+    endposes_client_ = nh_.serviceClient<gap_passing::Endposes>("endposes_server");
+
+    if (!default_keyposes_flag_){
+      gap_passing::Endposes endposes_srv;
+      endposes_srv.request.inquiry = true;
+      ROS_INFO("Waiting for endposes from service.");
+      while (!endposes_client_.call(endposes_srv)){
+        // wait for endposes
+      }
+      for (int i = 0; i < 3 + joint_num_; ++i){
+        start_state_[i] = endposes_srv.response.start_pose.data[i];
+        goal_state_[i] = endposes_srv.response.end_pose.data[i];
+      }
+      ROS_INFO("Get endposes from serivce.");
+      std::cout << "Start state: ";
+      for (int i = 0; i < 3 + joint_num_; ++i)
+        std::cout << start_state_[i] << ", ";
+      std::cout << "\nEnd state: ";
+      for (int i = 0; i < 3 + joint_num_; ++i)
+        std::cout << goal_state_[i] << ", ";
+      std::cout << "\n";
+    }
 
     if(planning_mode_ != gap_passing::PlanningMode::ONLY_JOINTS_MODE)
       {
@@ -578,6 +600,7 @@ namespace se2
     nhp_.param("planning_mode", planning_mode_, 0); //ONLY_JOINTS_MODE
     nhp_.param("motion_sequence_rate", motion_sequence_rate_, 10.0);
 
+    nhp_.param("default_keyposes", default_keyposes_flag_, true);
     start_state_.resize(3 + joint_num_);
     nhp_.param("start_state_x", start_state_[0], 0.0);
     nhp_.param("start_state_y", start_state_[1], 0.5);

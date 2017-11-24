@@ -19,7 +19,7 @@ find_package(catkin REQUIRED COMPONENTS
 find_package(ompl)
 
 add_message_files(FILES PlanningMode.msg)
-add_service_files(FILES Keyposes.srv)
+add_service_files(FILES Keyposes.srv Endposes.srv)
 
 generate_messages(DEPENDENCIES std_msgs)
 
