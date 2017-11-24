@@ -201,7 +201,7 @@ namespace se2
     if (solved_ && ros::ok() && keyposes_num){
       res.available_flag = true;
       res.states_cnt = keyposes_num;
-      res.state_num = 3 + joint_num_;
+      res.dim = 3 + joint_num_;
       res.data.layout.dim.push_back(std_msgs::MultiArrayDimension());
       res.data.layout.dim.push_back(std_msgs::MultiArrayDimension());
       res.data.layout.dim[0].label = "height";
