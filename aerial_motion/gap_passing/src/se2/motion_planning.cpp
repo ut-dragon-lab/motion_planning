@@ -60,10 +60,8 @@ namespace se2
       while (!endposes_client_.call(endposes_srv)){
         // wait for endposes
       }
-      for (int i = 0; i < 3 + joint_num_; ++i){
-        start_state_[i] = endposes_srv.response.start_pose.data[i];
-        goal_state_[i] = endposes_srv.response.end_pose.data[i];
-      }
+      start_state_ = cog2root(endposes_srv.response.start_pose.data);
+      goal_state_ = cog2root(endposes_srv.response.end_pose.data);
       ROS_INFO("Get endposes from serivce.");
       std::cout << "Start state: ";
       for (int i = 0; i < 3 + joint_num_; ++i)
@@ -146,29 +144,13 @@ namespace se2
             motion_control_->getPlanningPath(planning_path);
 
             if(planning_mode_ == gap_passing::PlanningMode::JOINTS_AND_BASE_MODE){
-              for(int i = 0; i < joint_num_; i++)
-                {
-                  std::stringstream ss;
-                  ss << i + 1;
-                  joint_state.name.push_back(std::string("joint") + ss.str());
-                }
               keyposes_cog_vec_.resize(0);
               for (int i = 0; i < motion_control_->getPathSize(); ++i){
-                joint_state.position.resize(0);
-                for (int j = 0; j < joint_num_; ++j)
-                  joint_state.position.push_back((motion_control_->getState(i)).state_values[3 + j]);
-                transform_controller_->kinematics(joint_state);
-                tf::Transform cog_to_root = transform_controller_->getCog();
-                tf::Transform root_to_world;
-                root_to_world.
-                  setOrigin(tf::Vector3((motion_control_->getState(i)).state_values[0],
-                                        (motion_control_->getState(i)).state_values[1],
-                                        0.0));
-                tf::Quaternion q;
-                q.setRPY(0.0, 0.0, (motion_control_->getState(i)).state_values[2]);
-                root_to_world.setRotation(q);
-                tf::Transform cog_to_world = root_to_world * cog_to_root;
-                keyposes_cog_vec_.push_back(cog_to_world);
+                std::vector<double> keypose_root; // keypose in root frame
+                for (int j = 0; j < 3 + joint_num_; ++j)
+                  keypose_root.push_back((motion_control_->getState(i)).state_values[j]);
+                std::vector<double> keypose_cog = root2cog(keypose_root);
+                keyposes_cog_vec_.push_back(keypose_cog);
               }
             }
 
@@ -235,15 +217,8 @@ namespace se2
       res.data.layout.data_offset = 0;
 
       for (int i = 0; i < keyposes_num; ++i){
-        res.data.data.push_back(keyposes_cog_vec_[i].getOrigin().getX());
-        res.data.data.push_back(keyposes_cog_vec_[i].getOrigin().getY());
-        tf::Quaternion q = keyposes_cog_vec_[i].getRotation();
-        tf::Matrix3x3  rot_mat(q);
-        tfScalar e_r, e_p, e_y;
-        rot_mat.getRPY(e_r, e_p, e_y);
-        res.data.data.push_back(e_y);
-        for (int j = 0; j < joint_num_; ++j)
-          res.data.data.push_back((motion_control_->getState(i)).state_values[3 + j]);
+        for (int j = 0; j < 3 + joint_num_; ++j)
+          res.data.data.push_back(keyposes_cog_vec_[i][j]);
       }
     }
     else{
@@ -326,6 +301,79 @@ namespace se2
     if(collision_result.collision) return false;
 
     return true;
+  }
+
+  std::vector<double> MotionPlanning::cog2root(std::vector<double> &keypose)
+  {
+    sensor_msgs::JointState joint_state;
+    for(int i = 0; i < joint_num_; i++)
+      {
+        std::stringstream ss;
+        ss << i + 1;
+        joint_state.name.push_back(std::string("joint") + ss.str());
+      }
+    joint_state.position.resize(0);
+    for (int j = 0; j < joint_num_; ++j)
+      joint_state.position.push_back(keypose[3 + j]);
+    transform_controller_->kinematics(joint_state);
+    tf::Transform cog_root = transform_controller_->getCog(); // cog in root frame
+    tf::Transform root_cog = cog_root.inverse();
+    tf::Transform cog_world;
+    cog_world.setOrigin(tf::Vector3(keypose[0],
+                                    keypose[1],
+                                    0.0));
+    tf::Quaternion q;
+    q.setRPY(0.0, 0.0, keypose[2]);
+    cog_world.setRotation(q);
+    tf::Transform root_world = cog_world * root_cog;
+
+    std::vector<double> keypose_root;
+    keypose_root.push_back(root_world.getOrigin().getX());
+    keypose_root.push_back(root_world.getOrigin().getY());
+    q = root_world.getRotation();
+    tf::Matrix3x3  rot_mat(q);
+    tfScalar e_r, e_p, e_y;
+    rot_mat.getRPY(e_r, e_p, e_y);
+    keypose_root.push_back(e_y);
+    for (int i = 0; i < joint_num_; i++)
+      keypose_root.push_back(keypose[3 + i]);
+    return keypose_root;
+  }
+
+  std::vector<double> MotionPlanning::root2cog(std::vector<double> &keypose)
+  {
+    sensor_msgs::JointState joint_state;
+    for(int i = 0; i < joint_num_; i++)
+      {
+        std::stringstream ss;
+        ss << i + 1;
+        joint_state.name.push_back(std::string("joint") + ss.str());
+      }
+    joint_state.position.resize(0);
+    for (int j = 0; j < joint_num_; ++j)
+      joint_state.position.push_back(keypose[3 + j]);
+    transform_controller_->kinematics(joint_state);
+    tf::Transform cog_root = transform_controller_->getCog();
+    tf::Transform root_world;
+    root_world.setOrigin(tf::Vector3(keypose[0],
+                                     keypose[1],
+                                     0.0));
+    tf::Quaternion q;
+    q.setRPY(0.0, 0.0, keypose[2]);
+    root_world.setRotation(q);
+    tf::Transform cog_world = root_world * cog_root;
+
+    std::vector<double> keypose_root;
+    keypose_root.push_back(cog_world.getOrigin().getX());
+    keypose_root.push_back(cog_world.getOrigin().getY());
+    q = cog_world.getRotation();
+    tf::Matrix3x3  rot_mat(q);
+    tfScalar e_r, e_p, e_y;
+    rot_mat.getRPY(e_r, e_p, e_y);
+    keypose_root.push_back(e_y);
+    for (int i = 0; i < joint_num_; i++)
+      keypose_root.push_back(keypose[3 + i]);
+    return keypose_root;
   }
 
   void MotionPlanning::gapEnvInit()

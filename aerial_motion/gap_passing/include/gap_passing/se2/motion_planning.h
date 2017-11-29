@@ -140,7 +140,7 @@ namespace se2
     double tolerance_;
 
     ros::ServiceServer keyposes_server_;
-    std::vector<tf::Transform> keyposes_cog_vec_;
+    std::vector<std::vector<double> > keyposes_cog_vec_;
     ros::ServiceClient endposes_client_;
 
     //real robot 
@@ -194,6 +194,9 @@ namespace se2
     void motionSequenceFunc(const ros::TimerEvent &e);
 
     bool isStateValid(const ompl::base::State *state);
+
+    std::vector<double> cog2root(std::vector<double> &keypose); // transfer cog based keypose to root based
+    std::vector<double> root2cog(std::vector<double> &keypose); // transfer root based keypose to cog based
 
     void rosParamInit();
 
