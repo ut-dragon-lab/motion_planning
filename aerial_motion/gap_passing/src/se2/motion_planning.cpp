@@ -43,6 +43,7 @@ namespace se2
   {
     transform_controller_ = boost::shared_ptr<TransformController>(new TransformController(nh_, nhp_, false));
     joint_num_ = transform_controller_->getRotorNum() - 1;
+    move_start_flag_ = false;
 
     rosParamInit();
 
@@ -52,6 +53,9 @@ namespace se2
 
     keyposes_server_ = nh_.advertiseService("keyposes_server", &MotionPlanning::getKeyposes, this);
     endposes_client_ = nh_.serviceClient<gap_passing::Endposes>("endposes_server");
+    robot_move_start_sub_ = nh_.subscribe<std_msgs::Empty>("/move_start", 1, &MotionPlanning::moveStartCallback, this);
+    cog_odom_sub_ = nh_.subscribe<nav_msgs::Odometry>("/uav/cog/odom", 1, &MotionPlanning::cogOdomCallback, this);
+    joint_states_sub_ = nh_.subscribe<sensor_msgs::JointState>("/hydrusx/joint_states", 1, &MotionPlanning::jointStatesCallback, this);
 
     if (!default_keyposes_flag_){
       gap_passing::Endposes endposes_srv;
@@ -180,12 +184,36 @@ namespace se2
                 robot_state::RobotState& robot_state = planning_scene_->getCurrentStateNonConst();
 
                 std::vector<double> ex_curr_state(3 + joint_num_ + 7); //se(2) + joint_num + 7
-                ex_curr_state[0] = (motion_control_->getState(state_index)).state_values[0]; //x
-                ex_curr_state[1] = (motion_control_->getState(state_index)).state_values[1]; //y
-                ex_curr_state[2] = (motion_control_->getState(state_index)).state_values[2]; //yaw
-                for(int index = 0 ; index < joint_num_; index++)
-                  ex_curr_state[index + 3] = (motion_control_->getState(state_index)).state_values[index + 3];
-                robot_state.setVariablePositions(ex_curr_state);
+                if (move_start_flag_){
+                  ex_curr_state[0] = cog_odom_.pose.pose.position.x; //x
+                  ex_curr_state[1] = cog_odom_.pose.pose.position.y; //y
+                  tf::Quaternion q(cog_odom_.pose.pose.orientation.x,
+                                   cog_odom_.pose.pose.orientation.y,
+                                   cog_odom_.pose.pose.orientation.z,
+                                   cog_odom_.pose.pose.orientation.w);
+                  tf::Matrix3x3 rot_mat;
+                  rot_mat.setRotation(q);
+                  tfScalar r,p,y;
+                  rot_mat.getRPY(r, p, y);
+                  ex_curr_state[2] = y; //yaw
+                  for(int index = 0 ; index < joint_num_; index++)
+                    ex_curr_state[index + 3] = joint_states_.position[index];
+                  std::vector<double> ex_cog_state;
+                  for (int i = 0; i < 3 + joint_num_; ++i)
+                    ex_cog_state.push_back(ex_curr_state[i]);
+                  std::vector<double> ex_root_state = cog2root(ex_cog_state);
+                  for (int i = 0; i < 3 + joint_num_; ++i)
+                    ex_curr_state[i] = ex_root_state[i];
+                  robot_state.setVariablePositions(ex_curr_state);
+                }
+                else{
+                  ex_curr_state[0] = (motion_control_->getState(state_index)).state_values[0]; //x
+                  ex_curr_state[1] = (motion_control_->getState(state_index)).state_values[1]; //y
+                  ex_curr_state[2] = (motion_control_->getState(state_index)).state_values[2]; //yaw
+                  for(int index = 0 ; index < joint_num_; index++)
+                    ex_curr_state[index + 3] = (motion_control_->getState(state_index)).state_values[index + 3];
+                  robot_state.setVariablePositions(ex_curr_state);
+                }
 
                 planning_scene_->getPlanningSceneMsg(planning_scene_msg_);
                 planning_scene_msg_.is_diff = true;
@@ -696,4 +724,15 @@ namespace se2
     return ompl::base::Cost(length_cost_thre_);
   }
 
+  void MotionPlanning::moveStartCallback(const std_msgs::Empty msg){
+    move_start_flag_ = true;
+  }
+
+  void MotionPlanning::cogOdomCallback(const nav_msgs::OdometryConstPtr& odom_msg){
+    cog_odom_ = *odom_msg;
+  }
+
+  void MotionPlanning::jointStatesCallback(const sensor_msgs::JointStateConstPtr& msg){
+    joint_states_ = *msg;
+  }
 }

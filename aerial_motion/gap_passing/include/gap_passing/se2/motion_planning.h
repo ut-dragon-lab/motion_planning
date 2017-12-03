@@ -55,6 +55,9 @@
 #include <moveit/kinematic_constraints/utils.h>
 #include <moveit_msgs/DisplayTrajectory.h>
 #include <moveit_msgs/PlanningScene.h>
+#include <std_msgs/Empty.h>
+#include <nav_msgs/Odometry.h>
+#include <sensor_msgs/JointState.h>
 
 /* ompl */
 #include <ompl/control/SpaceInformation.h>
@@ -116,6 +119,9 @@ namespace se2
     ros::Publisher planning_scene_diff_pub_;
     ros::Subscriber real_robot_state_sub_;
     ros::Publisher  flight_nav_;
+    ros::Subscriber robot_move_start_sub_;
+    ros::Subscriber cog_odom_sub_;
+    ros::Subscriber joint_states_sub_;
 
     boost::shared_ptr<TransformController> transform_controller_;
 
@@ -191,6 +197,11 @@ namespace se2
 
     double best_cost_;
 
+    bool move_start_flag_;
+
+    nav_msgs::Odometry cog_odom_;
+    sensor_msgs::JointState joint_states_;
+
     void motionSequenceFunc(const ros::TimerEvent &e);
 
     bool isStateValid(const ompl::base::State *state);
@@ -210,6 +221,9 @@ namespace se2
     }
     bool getKeyposes(gap_passing::Keyposes::Request &req, gap_passing::Keyposes::Response &res);
 
+    void cogOdomCallback(const nav_msgs::OdometryConstPtr& odom_msg);
+    void moveStartCallback(const std_msgs::Empty msg);
+    void jointStatesCallback(const sensor_msgs::JointStateConstPtr& msg);
   };
 
 };

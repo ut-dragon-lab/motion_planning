@@ -14,6 +14,8 @@ find_package(catkin REQUIRED COMPONENTS
   dragon
   cmake_modules
   message_generation
+  std_msgs
+  nav_msgs
 )
 
 find_package(ompl)
