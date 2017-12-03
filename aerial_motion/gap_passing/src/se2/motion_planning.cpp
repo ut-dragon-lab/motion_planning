@@ -60,16 +60,16 @@ namespace se2
       while (!endposes_client_.call(endposes_srv)){
         // wait for endposes
       }
-      start_state_ = cog2root(endposes_srv.response.start_pose.data);
-      goal_state_ = cog2root(endposes_srv.response.end_pose.data);
       ROS_INFO("Get endposes from serivce.");
       std::cout << "Start state: ";
       for (int i = 0; i < 3 + joint_num_; ++i)
-        std::cout << start_state_[i] << ", ";
+        std::cout << endposes_srv.response.start_pose.data[i] << ", ";
       std::cout << "\nEnd state: ";
       for (int i = 0; i < 3 + joint_num_; ++i)
-        std::cout << goal_state_[i] << ", ";
+        std::cout << endposes_srv.response.end_pose.data[i] << ", ";
       std::cout << "\n";
+      start_state_ = cog2root(endposes_srv.response.start_pose.data);
+      goal_state_ = cog2root(endposes_srv.response.end_pose.data);
     }
 
     if(planning_mode_ != gap_passing::PlanningMode::ONLY_JOINTS_MODE)
