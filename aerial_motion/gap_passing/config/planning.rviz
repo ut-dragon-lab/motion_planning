@@ -9,9 +9,10 @@ Panels:
         - /TF1/Frames1
         - /PlanningScene1
         - /PlanningScene1/Scene Geometry1
+        - /PlanningScene1/Scene Robot1
         - /Odometry1
       Splitter Ratio: 0.5
-    Tree Height: 359
+    Tree Height: 747
   - Class: rviz/Selection
     Name: Selection
   - Class: rviz/Tool Properties
@@ -69,18 +70,110 @@ Visualization Manager:
     - Alpha: 1
       Class: rviz/RobotModel
       Collision Enabled: false
-      Enabled: false
+      Enabled: true
       Links:
         All Links Enabled: true
         Expand Joint Details: false
         Expand Link Details: false
         Expand Tree: false
         Link Tree Style: Links in Alphabetic Order
+        bat1:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        bat2:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        bat3:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        bat4:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        fc:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        head:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        joint1_module:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        joint2_module:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        joint3_module:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        link1:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        link2:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        link3:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        link4:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        pc_c:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        root:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        sensor_c:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        tail:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        thrust1:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        thrust2:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        thrust3:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        thrust4:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
       Name: RobotModel
       Robot Description: robot_description
       TF Prefix: ""
       Update Interval: 0
-      Value: false
+      Value: true
       Visual Enabled: true
     - Class: moveit_rviz_plugin/PlanningScene
       Enabled: true
@@ -195,7 +288,7 @@ Visualization Manager:
             Show Axes: false
             Show Trail: false
             Value: true
-        Robot Alpha: 1
+        Robot Alpha: 0.5
         Show Robot Collision: false
         Show Robot Visual: true
       Value: true
@@ -234,7 +327,7 @@ Visualization Manager:
       Marker Topic: /reconstructed_path_markers
       Name: MarkerArray
       Namespaces:
-        control_polygon: true
+        {}
       Queue Size: 100
       Value: true
     - Angle Tolerance: 0.100000001
@@ -273,7 +366,7 @@ Visualization Manager:
       Value: true
   Enabled: true
   Global Options:
-    Background Color: 48; 48; 48
+    Background Color: 240; 240; 240
     Fixed Frame: nav
     Frame Rate: 30
   Name: root

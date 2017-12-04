@@ -56,8 +56,7 @@
 #include <moveit_msgs/DisplayTrajectory.h>
 #include <moveit_msgs/PlanningScene.h>
 #include <std_msgs/Empty.h>
-#include <nav_msgs/Odometry.h>
-#include <sensor_msgs/JointState.h>
+#include <std_msgs/Float64MultiArray.h>
 
 /* ompl */
 #include <ompl/control/SpaceInformation.h>
@@ -120,8 +119,7 @@ namespace se2
     ros::Subscriber real_robot_state_sub_;
     ros::Publisher  flight_nav_;
     ros::Subscriber robot_move_start_sub_;
-    ros::Subscriber cog_odom_sub_;
-    ros::Subscriber joint_states_sub_;
+    ros::Subscriber desired_state_sub_;
 
     boost::shared_ptr<TransformController> transform_controller_;
 
@@ -199,8 +197,7 @@ namespace se2
 
     bool move_start_flag_;
 
-    nav_msgs::Odometry cog_odom_;
-    sensor_msgs::JointState joint_states_;
+    std::vector<double> deisred_state_;
 
     void motionSequenceFunc(const ros::TimerEvent &e);
 
@@ -221,9 +218,8 @@ namespace se2
     }
     bool getKeyposes(gap_passing::Keyposes::Request &req, gap_passing::Keyposes::Response &res);
 
-    void cogOdomCallback(const nav_msgs::OdometryConstPtr& odom_msg);
     void moveStartCallback(const std_msgs::Empty msg);
-    void jointStatesCallback(const sensor_msgs::JointStateConstPtr& msg);
+    void desiredStateCallback(const std_msgs::Float64MultiArrayConstPtr& msg);
   };
 
 };

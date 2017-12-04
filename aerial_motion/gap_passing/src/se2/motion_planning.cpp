@@ -54,8 +54,7 @@ namespace se2
     keyposes_server_ = nh_.advertiseService("keyposes_server", &MotionPlanning::getKeyposes, this);
     endposes_client_ = nh_.serviceClient<gap_passing::Endposes>("endposes_server");
     robot_move_start_sub_ = nh_.subscribe<std_msgs::Empty>("/move_start", 1, &MotionPlanning::moveStartCallback, this);
-    cog_odom_sub_ = nh_.subscribe<nav_msgs::Odometry>("/uav/cog/odom", 1, &MotionPlanning::cogOdomCallback, this);
-    joint_states_sub_ = nh_.subscribe<sensor_msgs::JointState>("/hydrusx/joint_states", 1, &MotionPlanning::jointStatesCallback, this);
+    desired_state_sub_ = nh_.subscribe<std_msgs::Float64MultiArray>("/desired_state", 1, &MotionPlanning::desiredStateCallback, this);
 
     if (!default_keyposes_flag_){
       gap_passing::Endposes endposes_srv;
@@ -74,6 +73,10 @@ namespace se2
       std::cout << "\n";
       start_state_ = cog2root(endposes_srv.response.start_pose.data);
       goal_state_ = cog2root(endposes_srv.response.end_pose.data);
+
+      // initalization desired state variable, since desired state is not received until robot is really moving (later than receive move start topic)
+      for (int i = 0; i < 3 + joint_num_; ++i)
+        deisred_state_.push_back(start_state_[i]);
     }
 
     if(planning_mode_ != gap_passing::PlanningMode::ONLY_JOINTS_MODE)
@@ -185,23 +188,7 @@ namespace se2
 
                 std::vector<double> ex_curr_state(3 + joint_num_ + 7); //se(2) + joint_num + 7
                 if (move_start_flag_){
-                  ex_curr_state[0] = cog_odom_.pose.pose.position.x; //x
-                  ex_curr_state[1] = cog_odom_.pose.pose.position.y; //y
-                  tf::Quaternion q(cog_odom_.pose.pose.orientation.x,
-                                   cog_odom_.pose.pose.orientation.y,
-                                   cog_odom_.pose.pose.orientation.z,
-                                   cog_odom_.pose.pose.orientation.w);
-                  tf::Matrix3x3 rot_mat;
-                  rot_mat.setRotation(q);
-                  tfScalar r,p,y;
-                  rot_mat.getRPY(r, p, y);
-                  ex_curr_state[2] = y; //yaw
-                  for(int index = 0 ; index < joint_num_; index++)
-                    ex_curr_state[index + 3] = joint_states_.position[index];
-                  std::vector<double> ex_cog_state;
-                  for (int i = 0; i < 3 + joint_num_; ++i)
-                    ex_cog_state.push_back(ex_curr_state[i]);
-                  std::vector<double> ex_root_state = cog2root(ex_cog_state);
+                  std::vector<double> ex_root_state = cog2root(deisred_state_);
                   for (int i = 0; i < 3 + joint_num_; ++i)
                     ex_curr_state[i] = ex_root_state[i];
                   robot_state.setVariablePositions(ex_curr_state);
@@ -728,11 +715,8 @@ namespace se2
     move_start_flag_ = true;
   }
 
-  void MotionPlanning::cogOdomCallback(const nav_msgs::OdometryConstPtr& odom_msg){
-    cog_odom_ = *odom_msg;
-  }
-
-  void MotionPlanning::jointStatesCallback(const sensor_msgs::JointStateConstPtr& msg){
-    joint_states_ = *msg;
+  void MotionPlanning::desiredStateCallback(const std_msgs::Float64MultiArrayConstPtr& msg){
+    for (int i = 0; i < 3 + joint_num_; ++i)
+      deisred_state_[i] = msg->data[i];
   }
 }
