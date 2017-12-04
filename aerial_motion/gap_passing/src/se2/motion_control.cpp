@@ -218,7 +218,7 @@ namespace se2
     if(log_flag_)
       {
         std::ofstream ofs;
-        ofs.open( "planning_log.txt" );
+        ofs.open(file_name_);
         ofs << "start_state: " << start_state[0] << " " <<start_state[1] << " " << 
           start_state[2] << " " << start_state[3] <<  " " << start_state[4] <<
           " " << start_state[5] << std::endl;
