@@ -56,7 +56,7 @@ namespace se2
     robot_move_start_sub_ = nh_.subscribe<std_msgs::Empty>("/move_start", 1, &MotionPlanning::moveStartCallback, this);
     desired_state_sub_ = nh_.subscribe<std_msgs::Float64MultiArray>("/desired_state", 1, &MotionPlanning::desiredStateCallback, this);
 
-    if (!default_keyposes_flag_){
+    if (!play_log_path_){
       gap_passing::Endposes endposes_srv;
       endposes_srv.request.inquiry = true;
       ROS_INFO("Waiting for endposes from service.");
@@ -663,7 +663,6 @@ namespace se2
     nhp_.param("planning_mode", planning_mode_, 0); //ONLY_JOINTS_MODE
     nhp_.param("motion_sequence_rate", motion_sequence_rate_, 10.0);
 
-    nhp_.param("default_keyposes", default_keyposes_flag_, true);
     start_state_.resize(3 + joint_num_);
     nhp_.param("start_state_x", start_state_[0], 0.0);
     nhp_.param("start_state_y", start_state_[1], 0.5);

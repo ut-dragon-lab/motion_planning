@@ -163,7 +163,6 @@ namespace se2
     tf::Vector3 right_half_corner;
 
     //original planning
-    bool default_keyposes_flag_;
     std::vector<double> start_state_;
     std::vector<double> goal_state_;
 
