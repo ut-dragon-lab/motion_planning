@@ -56,7 +56,13 @@ namespace se2
     robot_move_start_sub_ = nh_.subscribe<std_msgs::Empty>("/move_start", 1, &MotionPlanning::moveStartCallback, this);
     desired_state_sub_ = nh_.subscribe<std_msgs::Float64MultiArray>("/desired_state", 1, &MotionPlanning::desiredStateCallback, this);
 
-    if (!play_log_path_){
+    // if play log path, start/goal state is already read when initalizing motion_control_
+    if (play_log_path_){
+      start_state_ = motion_control_->start_state_;
+      goal_state_ = motion_control_->goal_state_;
+    }
+    // if plan path online, start/goal state is requested from ros service
+    else{
       gap_passing::Endposes endposes_srv;
       endposes_srv.request.inquiry = true;
       ROS_INFO("Waiting for endposes from service.");
@@ -73,11 +79,11 @@ namespace se2
       std::cout << "\n";
       start_state_ = cog2root(endposes_srv.response.start_pose.data);
       goal_state_ = cog2root(endposes_srv.response.end_pose.data);
-
-      // initalization desired state variable, since desired state is not received until robot is really moving (later than receive move start topic)
-      for (int i = 0; i < 3 + joint_num_; ++i)
-        deisred_state_.push_back(start_state_[i]);
     }
+
+    // initalization desired state variable, since desired state is not received until robot is really moving (later than receive move start topic)
+    for (int i = 0; i < 3 + joint_num_; ++i)
+      deisred_state_.push_back(start_state_[i]);
 
     if(planning_mode_ != gap_passing::PlanningMode::ONLY_JOINTS_MODE)
       {

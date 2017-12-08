@@ -128,6 +128,9 @@ namespace se2
 
     ros::Publisher joint_cmd_pub_; //joints control
 
+    std::vector<double> start_state_;
+    std::vector<double> goal_state_;
+
   private:
     ros::NodeHandle nh_;
     ros::NodeHandle nhp_;

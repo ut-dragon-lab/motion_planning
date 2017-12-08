@@ -71,6 +71,9 @@ namespace se2
     planning_path_.resize(0);
     planning_mode_ = gap_passing::PlanningMode::ONLY_JOINTS_MODE;
 
+    start_state_.resize(3 + joint_num_);
+    goal_state_.resize(3 + joint_num_);
+
     min_var_ = 1e6;
     min_var_state_ = 0;
     semi_stable_states_ = 0;
@@ -130,11 +133,15 @@ namespace se2
     best_cost_ = best_cost;
     calculation_time_ = calculation_time;
     planning_mode_ = planning_mode;
+    for (int i = 0; i < 3 + joint_num_; ++i){
+      start_state_[i] = start_state[i];
+      goal_state_[i] = goal_state[i];
+    }
 
     conf_values state;
     //use start state to initialize the state
-    state.state_values.resize(start_state.size());
-    state.state_values = start_state;
+    state.state_values.resize(start_state_.size());
+    state.state_values = start_state_;
     state.stable_mode = TransformController::LQI_FOUR_AXIS_MODE;
     state.dist_thre_value = 1;
     state.control_mode = gap_passing::PlanningMode::POSITION_MODE;
@@ -219,12 +226,12 @@ namespace se2
       {
         std::ofstream ofs;
         ofs.open(file_name_);
-        ofs << "start_state: " << start_state[0] << " " <<start_state[1] << " " << 
-          start_state[2] << " " << start_state[3] <<  " " << start_state[4] <<
-          " " << start_state[5] << std::endl;
-        ofs << "goal_state: " << goal_state[0] << " " <<goal_state[1] << " " <<
-          goal_state[2] << " " << goal_state[3] << " " <<goal_state[4] << " " << 
-          goal_state[5] << std::endl;
+        ofs << "start_state_: " << start_state_[0] << " " <<start_state_[1] << " " << 
+          start_state_[2] << " " << start_state_[3] <<  " " << start_state_[4] <<
+          " " << start_state_[5] << std::endl;
+        ofs << "goal_state_: " << goal_state_[0] << " " <<goal_state_[1] << " " <<
+          goal_state_[2] << " " << goal_state_[3] << " " <<goal_state_[4] << " " << 
+          goal_state_[5] << std::endl;
 
         ofs << "states: " << state_list  << std::endl;
         ofs << "planning_mode: " << planning_mode << std::endl;
@@ -258,8 +265,6 @@ namespace se2
       }
 
     //hard code
-    std::vector<double> start_state(6,0);
-    std::vector<double> goal_state(6,0);
     int state_list;
     std::stringstream ss[11];
     std::string str;
@@ -267,19 +272,19 @@ namespace se2
     //1 start and goal state
     std::getline(ifs, str);
     ss[0].str(str);
-    ss[0] >> header >> start_state[0] >> start_state[1] >> start_state[2] 
-          >> start_state[3] >> start_state[4] >> start_state[5];
+    ss[0] >> header >> start_state_[0] >> start_state_[1] >> start_state_[2] 
+          >> start_state_[3] >> start_state_[4] >> start_state_[5];
     std::cout << header << std::endl;
     std::getline(ifs, str);
     ss[1].str(str);
-    ss[1] >> header >> goal_state[0] >> goal_state[1] >> goal_state[2] 
-          >> goal_state[3] >> goal_state[4] >> goal_state[5];
+    ss[1] >> header >> goal_state_[0] >> goal_state_[1] >> goal_state_[2] 
+          >> goal_state_[3] >> goal_state_[4] >> goal_state_[5];
     std::cout << header << std::endl;
     ROS_WARN("from (%f, %f, %f, %f, %f, %f) to (%f, %f, %f, %f, %f, %f)",
-             start_state[0], start_state[1], start_state[2],
-             start_state[3], start_state[4], start_state[5],
-             goal_state[0], goal_state[1], goal_state[2],
-             goal_state[3], goal_state[4], goal_state[5]);
+             start_state_[0], start_state_[1], start_state_[2],
+             start_state_[3], start_state_[4], start_state_[5],
+             goal_state_[0], goal_state_[1], goal_state_[2],
+             goal_state_[3], goal_state_[4], goal_state_[5]);
 
     //states size, planning time, motion cost
     std::getline(ifs, str);
