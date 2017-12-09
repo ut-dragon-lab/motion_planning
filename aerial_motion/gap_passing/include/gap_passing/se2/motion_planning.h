@@ -83,30 +83,6 @@
 
 namespace se2
 {
-  class StabilityObjective :public ompl::base::StateCostIntegralObjective
-  {
-  public:
-    StabilityObjective(ros::NodeHandle nh, ros::NodeHandle nhp, const ompl::base::SpaceInformationPtr& si, boost::shared_ptr<TransformController>  transform_controller, int planning_mode);
-
-    ~StabilityObjective(){};
-
-    ompl::base::Cost stateCost(const ompl::base::State* state) const;
-
-  private:
-    boost::shared_ptr<TransformController> transform_controller_;
-    int planning_mode_;
-
-    ros::NodeHandle nh_;
-    ros::NodeHandle nhp_;
-
-    //ros param
-    double semi_stable_cost_;
-    double full_stable_cost_;
-
-    int joint_num_;
-
-  };
-
   class MotionPlanning
   {
 
@@ -143,7 +119,6 @@ namespace se2
 
     //*** optimation objective
     ompl::base::PathLengthOptimizationObjective* path_length_opt_objective_;
-    StabilityObjective* stability_objective_;
 
     //*** planning control
     MotionControl* motion_control_;

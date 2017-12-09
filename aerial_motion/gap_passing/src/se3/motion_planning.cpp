@@ -43,64 +43,6 @@
 /* the StabilityObjective does not work!!!!! */
 namespace se3
 {
-  StabilityObjective::StabilityObjective(ros::NodeHandle nh, ros::NodeHandle nhp, const ompl::base::SpaceInformationPtr& si, boost::shared_ptr<DragonTransformController>  transform_controller, int planning_mode): ompl::base::StateCostIntegralObjective(si, true)
-  {
-    nh_ = nh;
-    nhp_ = nhp;
-    transform_controller_ = transform_controller;
-
-    planning_mode_  = planning_mode;
-
-    joint_num_ = (transform_controller_->getRotorNum() -1) * 2; //special dragon 2dof joint
-
-    nhp_.param("stable_cost", stable_cost_, 0.0);
-
-  }
-
-  ompl::base::Cost StabilityObjective::stateCost(const ompl::base::State* state) const
-  {
-    sensor_msgs::JointState joint_state;
-    for(int i = 0; i < joint_num_; i++)
-      {
-        std::stringstream ss;
-        ss << i + 1;
-        joint_state.name.push_back(std::string("joint") + ss.str());
-      }
-
-    if(planning_mode_ == gap_passing::PlanningMode::ONLY_JOINTS_MODE)
-      {
-        for(int i = 0; i < joint_num_; i++)
-          joint_state.position.push_back(state->as<ompl::base::RealVectorStateSpace::StateType>()->values[i]);
-      }
-    else if(planning_mode_ == gap_passing::PlanningMode::ONLY_BASE_MODE)
-      {
-        /* do not need check */
-        return ompl::base::Cost(stable_cost_);
-      }
-    else if(planning_mode_ == gap_passing::PlanningMode::JOINTS_AND_BASE_MODE)
-      {
-        const ompl::base::CompoundState* state_tmp = dynamic_cast<const ompl::base::CompoundState*>(state);
-        for(int i = 0; i < joint_num_; i++)
-          joint_state.position.push_back(state_tmp->as<ompl::base::RealVectorStateSpace::StateType>(1)->values[i]);
-      }
-
-    //TODO bug: no gimbal
-    transform_controller_->kinematics(joint_state);
-    /* 1: check the rotor distance from the axes; duplicate with the state validation */
-    if(!transform_controller_->distThreCheck())
-      return ompl::base::Cost(std::numeric_limits<double>::infinity());
-    /* 2: chekc the rotor overlap */
-    if(!transform_controller_->overlapCheck())
-      return ompl::base::Cost(std::numeric_limits<double>::infinity());
-    /* 3: stability check */
-    /* special for dragon */
-    if(!transform_controller_->modelling())
-      return ompl::base::Cost(std::numeric_limits<double>::infinity());
-
-    else
-      return ompl::base::Cost(stable_cost_);
-  }
-
   MotionPlanning::MotionPlanning(ros::NodeHandle nh, ros::NodeHandle nhp) :nh_(nh), nhp_(nhp)
   {
     transform_controller_ = boost::shared_ptr<DragonTransformController>(new DragonTransformController(nh_, nhp_, false));
@@ -152,8 +94,6 @@ namespace se3
     delete plan_states_;
     delete rrt_start_planner_;
     delete path_length_opt_objective_;
-    delete stability_objective_;
-
     delete motion_control_;
   }
 
@@ -705,39 +645,13 @@ namespace se3
     //optimation objective
     path_length_opt_objective_ = new ompl::base::PathLengthOptimizationObjective(space_information_);
     path_length_opt_objective_->setCostThreshold(onlyJointPathLimit());
-    //deubg
     std::cout << "path length opt cost thre is "<<  path_length_opt_objective_->getCostThreshold() << std::endl;
-
-    stability_objective_ = new StabilityObjective(nh_, nhp_, space_information_, transform_controller_, planning_mode_);
-    stability_objective_->setCostThreshold(ompl::base::Cost(stability_cost_thre_));
-    std::cout << "stability_objective  opt cost thre is "<<  stability_objective_->getCostThreshold() << std::endl;
-
     ompl::base::OptimizationObjectivePtr lengthObj(path_length_opt_objective_);
-    ompl::base::OptimizationObjectivePtr stabilityObj(stability_objective_);
 
     ompl::base::PlannerPtr planner;
     if(ompl_mode_ == RRT_START_MODE)
       {
-        //original for optimization
-        if(length_opt_weight_ == 0)
-          {
-            pdef->setOptimizationObjective(stabilityObj);
-            ROS_WARN("only stability optimazation");
-          }
-        else if(stability_opt_weight_ == 0)
-          {
-            pdef->setOptimizationObjective(lengthObj);
-            ROS_WARN("only path lengyh optimazation");
-
-          }
-        else
-          {
-            //reset the cost thresold of pathlength
-            path_length_opt_objective_->setCostThreshold(ompl::base::Cost(std::numeric_limits<double>::infinity()));
-            pdef->setOptimizationObjective(length_opt_weight_* lengthObj + stability_opt_weight_ * stabilityObj);
-            ROS_WARN("both path lengyh and stability optimazation");
-          }
-
+        pdef->setOptimizationObjective(lengthObj);
         rrt_start_planner_ = new ompl::geometric::RRTstar(space_information_);
         planner = ompl::base::PlannerPtr(rrt_start_planner_);
       }
