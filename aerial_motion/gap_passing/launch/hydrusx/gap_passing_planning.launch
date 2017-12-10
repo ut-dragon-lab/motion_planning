@@ -3,6 +3,7 @@
 
   <arg name="type" default="quad" />
   <arg name="transformation" default="true" />
+  <arg name="simulator" default="true" />
 
   ###########  Robot Model  ###########
   <include file="$(find hydrus)/launch/robot_model.launch" >
@@ -13,7 +14,7 @@
   </include >
 
   <node name="rviz" pkg="rviz" type="rviz"
-        args="-d $(find gap_passing)/config/planning.rviz" respawn="true" />
+        args="-d $(find gap_passing)/config/planning.rviz" respawn="true" if="$(arg simulator)" />
 
   ########## Planning for gap passing without transformation ###########
   <param name="/robot_description_semantic" textfile="$(find gap_passing)/config/hydrusx/$(arg type)/moveit.srdf" />
@@ -21,6 +22,8 @@
   <node name="motion_planning_node" pkg="gap_passing" type="se2_motion_planning_node" respawn="false" output="screen">
     <param name="debug_log" type="bool" value="false"/>
     <param name="log_flag" type="bool" value="false" />
+
+    <param name="simulator" type="bool" value="$(arg simulator)" />
 
     <param name="coefficient_rate" value="0.05"/>
     <param name="planning_mode" value="1" unless="$(arg transformation)"/>

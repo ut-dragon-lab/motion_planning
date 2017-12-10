@@ -85,7 +85,7 @@ namespace se2
     for (int i = 0; i < 3 + joint_num_; ++i)
       deisred_state_.push_back(start_state_[i]);
 
-    if(planning_mode_ != gap_passing::PlanningMode::ONLY_JOINTS_MODE)
+    if(simulator_ && planning_mode_ != gap_passing::PlanningMode::ONLY_JOINTS_MODE)
       {
         while(planning_scene_diff_pub_.getNumSubscribers() < 1)
           {
@@ -169,7 +169,7 @@ namespace se2
 
             first_flag = false;
           }
-        else
+        else if(simulator_)
           {
             if(planning_mode_ == gap_passing::PlanningMode::ONLY_JOINTS_MODE)
               {
@@ -657,6 +657,8 @@ namespace se2
 
   void MotionPlanning::rosParamInit()
   {
+    nhp_.param("simulator", simulator_, true);
+
     nhp_.param("gap_left_x", gap_left_x_, 1.0);
     nhp_.param("gap_left_y", gap_left_y_, 0.3);
     nhp_.param("gap_x_offset", gap_x_offset_, 0.6); //minus: overlap

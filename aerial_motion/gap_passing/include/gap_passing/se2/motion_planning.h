@@ -123,6 +123,9 @@ namespace se2
 
     boost::shared_ptr<TransformController> transform_controller_;
 
+    /* simulator flag */
+    bool simulator_;
+
     //*** optimation objective
     ompl::base::PathLengthOptimizationObjective* path_length_opt_objective_;
 
