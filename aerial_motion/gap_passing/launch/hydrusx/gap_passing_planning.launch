@@ -4,6 +4,8 @@
   <arg name="type" default="quad" />
   <arg name="transformation" default="true" />
   <arg name="simulator" default="true" />
+  <arg name="record_log" default="false" />
+  <arg name="play_log" default="false" />
 
   ###########  Robot Model  ###########
   <include file="$(find hydrus)/launch/robot_model.launch" >
@@ -21,7 +23,7 @@
 
   <node name="motion_planning_node" pkg="gap_passing" type="se2_motion_planning_node" respawn="false" output="screen">
     <param name="debug_log" type="bool" value="false"/>
-    <param name="log_flag" type="bool" value="false" />
+    <param name="log_flag" type="bool" value="$(arg record_log)" />
 
     <param name="simulator" type="bool" value="$(arg simulator)" />
 
@@ -59,7 +61,7 @@
     <rosparam file="$(find gap_passing)/config/gap/HorizontalGapNoOverlap.yaml" command="load" />
 
     <!-- for motion control -->
-    <param name="play_log_path" type="bool" value="false"/>
+    <param name="play_log_path" type="bool" value="$(arg play_log)"/>
     <param name="file_name" value="$(find gap_passing)/path_log/planning_log.txt" />
 
     <remap from="/hydrus/joints_ctrl" to="/hydrusx/joint_states" />
