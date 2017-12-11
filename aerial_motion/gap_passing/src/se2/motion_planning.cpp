@@ -169,7 +169,7 @@ namespace se2
 
             first_flag = false;
           }
-        else
+        else if(simulator_)
           {
             if(planning_mode_ == gap_passing::PlanningMode::ONLY_JOINTS_MODE)
               {
@@ -657,6 +657,8 @@ namespace se2
 
   void MotionPlanning::rosParamInit()
   {
+    nhp_.param("simulator", simulator_, true);
+
     nhp_.param("gap_left_x", gap_left_x_, 1.0);
     nhp_.param("gap_left_y", gap_left_y_, 0.3);
     nhp_.param("gap_x_offset", gap_x_offset_, 0.6); //minus: overlap
