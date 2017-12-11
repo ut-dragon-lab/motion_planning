@@ -85,7 +85,7 @@ namespace se2
     for (int i = 0; i < 3 + joint_num_; ++i)
       deisred_state_.push_back(start_state_[i]);
 
-    if(simulator_ && planning_mode_ != gap_passing::PlanningMode::ONLY_JOINTS_MODE)
+    if(planning_mode_ != gap_passing::PlanningMode::ONLY_JOINTS_MODE)
       {
         while(planning_scene_diff_pub_.getNumSubscribers() < 1)
           {
