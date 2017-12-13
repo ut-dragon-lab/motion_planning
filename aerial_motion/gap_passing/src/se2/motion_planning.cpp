@@ -85,7 +85,7 @@ namespace se2
     for (int i = 0; i < 3 + joint_num_; ++i)
       deisred_state_.push_back(start_state_[i]);
 
-    if(planning_mode_ != gap_passing::PlanningMode::ONLY_JOINTS_MODE)
+    if(simulator_ && planning_mode_ != gap_passing::PlanningMode::ONLY_JOINTS_MODE)
       {
         while(planning_scene_diff_pub_.getNumSubscribers() < 1)
           {
@@ -97,14 +97,10 @@ namespace se2
 
         robot_model_loader_ = new robot_model_loader::RobotModelLoader("robot_description");
         kinematic_model_ = robot_model_loader_->getModel();
-
         planning_scene_ = new planning_scene::PlanningScene(kinematic_model_);
-
         tolerance_ = 0.01;
         acm_ = planning_scene_->getAllowedCollisionMatrix();
-
         gapEnvInit();
-
       }
 
     calculation_time_ = 0;
