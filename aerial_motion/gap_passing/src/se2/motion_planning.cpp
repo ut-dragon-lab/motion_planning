@@ -53,7 +53,7 @@ namespace se2
 
     keyposes_server_ = nh_.advertiseService("keyposes_server", &MotionPlanning::getKeyposes, this);
     endposes_client_ = nh_.serviceClient<gap_passing::Endposes>("endposes_server");
-    robot_move_start_sub_ = nh_.subscribe<std_msgs::Empty>("/move_start", 1, &MotionPlanning::moveStartCallback, this);
+    robot_move_start_sub_ = nh_.subscribe<std_msgs::Empty>("/move_start_plannar", 1, &MotionPlanning::moveStartCallback, this);
     desired_state_sub_ = nh_.subscribe<std_msgs::Float64MultiArray>("/desired_state", 1, &MotionPlanning::desiredStateCallback, this);
 
     // if play log path, start/goal state is already read when initalizing motion_control_
