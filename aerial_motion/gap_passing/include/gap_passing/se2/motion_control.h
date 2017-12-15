@@ -173,6 +173,10 @@ namespace se2
     int backward_offset_;
     int forward_offset_;
 
+    // state offset from file
+    double file_state_offset_x_;
+    double file_state_offset_y_;
+
     void jointStateCallback(const sensor_msgs::JointStateConstPtr& joint_state);
     void controlFlagCallback(const std_msgs::UInt8ConstPtr& control_msg);
 

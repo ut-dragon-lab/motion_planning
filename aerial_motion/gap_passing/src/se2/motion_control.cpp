@@ -52,6 +52,9 @@ namespace se2
     nhp_.param("backward_offset", backward_offset_, 100);
     nhp_.param("forward_offset", forward_offset_, 100);
 
+    nhp_.param("file_state_offset_x", file_state_offset_x_, 0.0);
+    nhp_.param("file_state_offset_y", file_state_offset_y_, 0.0);
+
     if(play_log_path_) log_flag_ = false;
     nhp_.param("file_name", file_name_, std::string("planning_log.txt"));
 
@@ -275,11 +278,15 @@ namespace se2
     ss[0] >> header >> start_state_[0] >> start_state_[1] >> start_state_[2] 
           >> start_state_[3] >> start_state_[4] >> start_state_[5];
     std::cout << header << std::endl;
+    start_state_[0] += file_state_offset_x_;
+    start_state_[1] += file_state_offset_y_;
     std::getline(ifs, str);
     ss[1].str(str);
     ss[1] >> header >> goal_state_[0] >> goal_state_[1] >> goal_state_[2] 
           >> goal_state_[3] >> goal_state_[4] >> goal_state_[5];
     std::cout << header << std::endl;
+    goal_state_[0] += file_state_offset_x_;
+    goal_state_[1] += file_state_offset_y_;
     ROS_WARN("from (%f, %f, %f, %f, %f, %f) to (%f, %f, %f, %f, %f, %f)",
              start_state_[0], start_state_[1], start_state_[2],
              start_state_[3], start_state_[4], start_state_[5],
@@ -329,6 +336,8 @@ namespace se2
 
         ss_tmp[0] >> header >> state.state_values[0] >> state.state_values[1] >> state.state_values[2] >> state.state_values[3] >>state.state_values[4] >> state.state_values[5] >> state.stable_mode >> state.dist_thre_value;
 
+        state.state_values[0] += file_state_offset_x_;
+        state.state_values[1] += file_state_offset_y_;
         planning_path_.push_back(state);
 
         //debug

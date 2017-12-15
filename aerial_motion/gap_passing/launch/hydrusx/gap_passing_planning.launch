@@ -57,6 +57,9 @@
 
     <param name="stability_cost_thre" type="double" value="1.2" />
 
+    <param name="file_state_offset_x" type="double" value="0.0" />
+    <param name="file_state_offset_y" type="double" value="0.0" />
+
     <!-- for specific param -->
     <rosparam file="$(find hydrus)/config/hydrusx/$(arg type)/Hydrus.yaml" command="load" />
     <rosparam file="$(find gap_passing)/config/hydrusx/$(arg type)/GapWithTransformation.yaml" command="load" if="$(arg transformation)"/>
