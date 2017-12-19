@@ -67,7 +67,7 @@
     <param name="play_log_path" type="bool" value="$(arg play_log)"/>
     <param name="file_name" value="$(find gap_passing)/path_log/planning_log.txt" />
 
-    <remap from="/hydrus/joints_ctrl" to="/hydrusx/joint_states" />
+    <remap from="/hydrus/joints_ctrl" to="/hydrusx/joints_ctrl" />
 
   </node>
 </launch>
