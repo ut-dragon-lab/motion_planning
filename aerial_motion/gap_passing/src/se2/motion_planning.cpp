@@ -56,6 +56,11 @@ namespace se2
     robot_move_start_sub_ = nh_.subscribe<std_msgs::Empty>("/move_start", 1, &MotionPlanning::moveStartCallback, this);
     desired_state_sub_ = nh_.subscribe<std_msgs::Float64MultiArray>("/desired_state", 1, &MotionPlanning::desiredStateCallback, this);
 
+    /* experiment data replay */
+    experiment_scene_diff_pub_ = nh_.advertise<moveit_msgs::PlanningScene>("experiment_scene", 1);
+    experiment_robot_cog_odom_sub_ = nh_.subscribe<nav_msgs::Odometry>("/uav/cog/odom", 1, &MotionPlanning::experimentRobotOdomCallback, this);
+    experiment_robot_joint_states_sub_ = nh_.subscribe<sensor_msgs::JointState>("/hydrusx/joint_states", 1, &MotionPlanning::experimentRobotJointStatesCallback, this);
+
     // if play log path, start/goal state is already read when initalizing motion_control_
     if (play_log_path_){
       start_state_ = motion_control_->start_state_;
@@ -98,6 +103,7 @@ namespace se2
         robot_model_loader_ = new robot_model_loader::RobotModelLoader("robot_description");
         kinematic_model_ = robot_model_loader_->getModel();
         planning_scene_ = new planning_scene::PlanningScene(kinematic_model_);
+        experiment_scene_ = new planning_scene::PlanningScene(kinematic_model_);
         tolerance_ = 0.01;
         acm_ = planning_scene_->getAllowedCollisionMatrix();
         gapEnvInit();
@@ -117,6 +123,7 @@ namespace se2
       {
         delete robot_model_loader_;
         delete planning_scene_;
+        delete experiment_scene_;
       }
 
     delete plan_states_;
@@ -207,6 +214,39 @@ namespace se2
                 planning_scene_->getPlanningSceneMsg(planning_scene_msg_);
                 planning_scene_msg_.is_diff = true;
                 planning_scene_diff_pub_.publish(planning_scene_msg_);
+
+                /* experiment data replay */
+                if (replay_experiment_data_flag_){
+                  robot_state::RobotState& replay_robot_state = experiment_scene_->getCurrentStateNonConst();
+                  std::vector<double> replay_curr_state(3 + joint_num_ + 7); //se(2) + joint_num + 7
+                  if (move_start_flag_){
+                    std::vector<double> replay_cog_state;
+                    replay_cog_state.push_back(experiment_robot_cog_odom_.pose.pose.position.x);
+                    replay_cog_state.push_back(experiment_robot_cog_odom_.pose.pose.position.y);
+                    // yaw
+                    tf::Quaternion q(experiment_robot_cog_odom_.pose.pose.orientation.x,
+                                     experiment_robot_cog_odom_.pose.pose.orientation.y,
+                                     experiment_robot_cog_odom_.pose.pose.orientation.z,
+                                     experiment_robot_cog_odom_.pose.pose.orientation.w);
+                    tf::Matrix3x3 rot_mat;
+                    rot_mat.setRotation(q);
+                    tfScalar r,p,y;
+                    rot_mat.getRPY(r, p, y);
+                    replay_cog_state.push_back(y);
+                    for (int i = 0; i < joint_num_; ++i) // joints
+                      replay_cog_state.push_back(experiment_robot_joint_states_.position[i]);
+
+                    std::vector<double> replay_root_state = cog2root(replay_cog_state);
+                    for (int i = 0; i < 3 + joint_num_; ++i)
+                      replay_curr_state[i] = replay_root_state[i];
+                    replay_robot_state.setVariablePositions(replay_curr_state);
+
+                    experiment_scene_->getPlanningSceneMsg(experiment_scene_msg_);
+                    experiment_scene_msg_.is_diff = true;
+                    experiment_scene_diff_pub_.publish(experiment_scene_msg_);
+                  }
+
+                }
               }
 
             state_index ++;
@@ -654,6 +694,7 @@ namespace se2
   void MotionPlanning::rosParamInit()
   {
     nhp_.param("simulator", simulator_, true);
+    nhp_.param("replay_experiment_data", replay_experiment_data_flag_, false);
 
     nhp_.param("gap_left_x", gap_left_x_, 1.0);
     nhp_.param("gap_left_y", gap_left_y_, 0.3);
@@ -721,5 +762,13 @@ namespace se2
   void MotionPlanning::desiredStateCallback(const std_msgs::Float64MultiArrayConstPtr& msg){
     for (int i = 0; i < 3 + joint_num_; ++i)
       deisred_state_[i] = msg->data[i];
+  }
+
+  void MotionPlanning::experimentRobotOdomCallback(const nav_msgs::OdometryConstPtr& msg){
+    experiment_robot_cog_odom_ = *msg;
+  }
+
+  void MotionPlanning::experimentRobotJointStatesCallback(const sensor_msgs::JointStateConstPtr& joints_msg){
+    experiment_robot_joint_states_ = *joints_msg;
   }
 }

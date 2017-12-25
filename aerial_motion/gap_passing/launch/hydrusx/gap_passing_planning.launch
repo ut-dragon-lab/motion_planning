@@ -6,6 +6,7 @@
   <arg name="simulator" default="true" />
   <arg name="record_log" default="false" />
   <arg name="play_log" default="false" />
+  <arg name="replay_experiment_data" default="false" />
 
   ###########  Robot Model  ###########
   <group if="$(arg simulator)">
@@ -29,6 +30,8 @@
     <param name="log_flag" type="bool" value="$(arg record_log)" />
 
     <param name="simulator" type="bool" value="$(arg simulator)" />
+
+    <param name="replay_experiment_data" type="bool" value="$(arg replay_experiment_data)" />
 
     <param name="coefficient_rate" value="0.05"/>
     <param name="planning_mode" value="1" unless="$(arg transformation)"/>
