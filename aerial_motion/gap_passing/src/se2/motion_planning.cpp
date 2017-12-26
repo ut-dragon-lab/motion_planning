@@ -103,6 +103,7 @@ namespace se2
         robot_model_loader_ = new robot_model_loader::RobotModelLoader("robot_description");
         kinematic_model_ = robot_model_loader_->getModel();
         planning_scene_ = new planning_scene::PlanningScene(kinematic_model_);
+        /* experiment data replay */
         experiment_scene_ = new planning_scene::PlanningScene(kinematic_model_);
         tolerance_ = 0.01;
         acm_ = planning_scene_->getAllowedCollisionMatrix();
@@ -123,6 +124,7 @@ namespace se2
       {
         delete robot_model_loader_;
         delete planning_scene_;
+        /* experiment data replay */
         delete experiment_scene_;
       }
 
@@ -694,6 +696,7 @@ namespace se2
   void MotionPlanning::rosParamInit()
   {
     nhp_.param("simulator", simulator_, true);
+    /* experiment data replay */
     nhp_.param("replay_experiment_data", replay_experiment_data_flag_, false);
 
     nhp_.param("gap_left_x", gap_left_x_, 1.0);

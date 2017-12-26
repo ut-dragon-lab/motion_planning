@@ -76,4 +76,10 @@
     <remap from="/hydrus/joints_ctrl" to="/hydrusx/joints_ctrl" />
 
   </node>
+
+  ###########  Replay experiment data  ###########
+  <!-- <group if="$(arg replay_experiment_data)"> -->
+  <!--   <node name="motion_data_replay_node" pkg="gap_passing" type="se2_motion_data_replay_node" respawn="false" output="screen"/> -->
+  <!-- </group> -->
+
 </launch>
