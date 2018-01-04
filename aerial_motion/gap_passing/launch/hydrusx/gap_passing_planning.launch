@@ -6,6 +6,7 @@
   <arg name="simulator" default="true" />
   <arg name="record_log" default="false" />
   <arg name="play_log" default="false" />
+  <arg name="replay_experiment_data" default="false" />
 
   ###########  Robot Model  ###########
   <group if="$(arg simulator)">
@@ -73,4 +74,12 @@
     <remap from="/hydrus/joints_ctrl" to="/hydrusx/joints_ctrl" />
 
   </node>
+
+  ###########  Replay experiment data  ###########
+  <group if="$(arg replay_experiment_data)">
+    <node name="motion_data_replay_node" pkg="gap_passing" type="se2_motion_data_replay_node" respawn="false" output="screen">
+      <rosparam file="$(find hydrus)/config/hydrusx/$(arg type)/Hydrus.yaml" command="load" />
+    </node>
+  </group>
+
 </launch>
