@@ -42,7 +42,6 @@ namespace se2
   {
     transform_controller_ = boost::shared_ptr<TransformController>(new TransformController(nh_, nhp_, false));
     joint_num_ = transform_controller_->getRotorNum() - 1;
-    transform_controller_->modelling();
 
     move_start_flag_ = false;
 
@@ -128,17 +127,7 @@ namespace se2
     for (int j = 0; j < joint_num_; ++j)
       joint_state.position.push_back(keypose[3 + j]);
     transform_controller_->kinematics(joint_state);
-    transform_controller_->modelling();
     tf::Transform cog_root = transform_controller_->getCog(); // cog in root frame
-    // delete
-    tf::Quaternion q_cog = cog_root.getRotation();
-    tf::Matrix3x3  cog_mat(q_cog);
-    tfScalar cog_r, cog_p, cog_y;
-    cog_mat.getRPY(cog_r, cog_p, cog_y);
-    std::cout << "cog_root: " << cog_r << ", "
-              << cog_p << ", "
-              << cog_y << "\n";
-
     tf::Transform root_cog = cog_root.inverse();
     tf::Transform cog_world;
     cog_world.setOrigin(tf::Vector3(keypose[0],

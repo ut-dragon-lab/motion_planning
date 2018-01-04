@@ -31,8 +31,6 @@
 
     <param name="simulator" type="bool" value="$(arg simulator)" />
 
-    <param name="replay_experiment_data" type="bool" value="$(arg replay_experiment_data)" />
-
     <param name="coefficient_rate" value="0.05"/>
     <param name="planning_mode" value="1" unless="$(arg transformation)"/>
     <param name="planning_mode" value="2" if="$(arg transformation)"/>
@@ -78,8 +76,10 @@
   </node>
 
   ###########  Replay experiment data  ###########
-  <!-- <group if="$(arg replay_experiment_data)"> -->
-  <!--   <node name="motion_data_replay_node" pkg="gap_passing" type="se2_motion_data_replay_node" respawn="false" output="screen"/> -->
-  <!-- </group> -->
+  <group if="$(arg replay_experiment_data)">
+    <node name="motion_data_replay_node" pkg="gap_passing" type="se2_motion_data_replay_node" respawn="false" output="screen">
+      <rosparam file="$(find hydrus)/config/hydrusx/$(arg type)/Hydrus.yaml" command="load" />
+    </node>
+  </group>
 
 </launch>
