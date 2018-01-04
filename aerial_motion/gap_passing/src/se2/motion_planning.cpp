@@ -222,19 +222,23 @@ namespace se2
     if (solved_ && ros::ok() && keyposes_num){
       res.available_flag = true;
       res.states_cnt = keyposes_num;
-      res.dim = 3 + joint_num_;
+      res.dim = 4 + joint_num_;
       res.data.layout.dim.push_back(std_msgs::MultiArrayDimension());
       res.data.layout.dim.push_back(std_msgs::MultiArrayDimension());
       res.data.layout.dim[0].label = "height";
       res.data.layout.dim[1].label = "width";
       res.data.layout.dim[0].size = keyposes_num;
-      res.data.layout.dim[1].size = 3 + joint_num_;
-      res.data.layout.dim[0].stride = keyposes_num * (3 + joint_num_);
-      res.data.layout.dim[1].stride = 3 + joint_num_;
+      res.data.layout.dim[1].size = 4 + joint_num_;
+      res.data.layout.dim[0].stride = keyposes_num * (4 + joint_num_);
+      res.data.layout.dim[1].stride = 4 + joint_num_;
       res.data.layout.data_offset = 0;
 
       for (int i = 0; i < keyposes_num; ++i){
-        for (int j = 0; j < 3 + joint_num_; ++j)
+        for (int j = 0; j < 2; ++j)
+          res.data.data.push_back(keyposes_cog_vec_[i][j]);
+        /* z axis value is set to 0.0 in se2 planning */
+        res.data.data.push_back(0.0);
+        for (int j = 2; j < 3 + joint_num_; ++j)
           res.data.data.push_back(keyposes_cog_vec_[i][j]);
       }
     }
