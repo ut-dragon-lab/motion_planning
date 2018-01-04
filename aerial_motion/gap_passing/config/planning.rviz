@@ -11,6 +11,8 @@ Panels:
         - /PlanningScene1/Scene Geometry1
         - /PlanningScene1/Scene Robot1
         - /Odometry1
+        - /PlanningScene2
+        - /PlanningScene2/Scene Robot1
       Splitter Ratio: 0.5
     Tree Height: 747
   - Class: rviz/Selection
@@ -327,7 +329,7 @@ Visualization Manager:
       Marker Topic: /reconstructed_path_markers
       Name: MarkerArray
       Namespaces:
-        {}
+        control_polygon: true
       Queue Size: 100
       Value: true
     - Angle Tolerance: 0.100000001
@@ -364,6 +366,123 @@ Visualization Manager:
       Topic: /uav/cog/odom
       Unreliable: false
       Value: true
+    - Class: moveit_rviz_plugin/PlanningScene
+      Enabled: true
+      Move Group Namespace: ""
+      Name: PlanningScene
+      Planning Scene Topic: /experiment_scene
+      Robot Description: robot_description
+      Scene Geometry:
+        Scene Alpha: 0.899999976
+        Scene Color: 50; 230; 50
+        Scene Display Time: 0.200000003
+        Show Scene Geometry: true
+        Voxel Coloring: Z-Axis
+        Voxel Rendering: Occupied Voxels
+      Scene Robot:
+        Attached Body Color: 150; 50; 150
+        Links:
+          All Links Enabled: true
+          Expand Joint Details: false
+          Expand Link Details: false
+          Expand Tree: false
+          Link Tree Style: Links in Alphabetic Order
+          bat1:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          bat2:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          bat3:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          bat4:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          fc:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          head:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          joint1_module:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          joint2_module:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          joint3_module:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          link1:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          link2:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          link3:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          link4:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          pc_c:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          root:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          sensor_c:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          tail:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+          thrust1:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          thrust2:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          thrust3:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+          thrust4:
+            Alpha: 1
+            Show Axes: false
+            Show Trail: false
+            Value: true
+        Robot Alpha: 1
+        Show Robot Collision: false
+        Show Robot Visual: true
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 240; 240; 240
@@ -395,9 +514,9 @@ Visualization Manager:
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 2.96747875
-        Y: -0.229192182
-        Z: 0.00341537618
+        X: -0.306611359
+        Y: 0.0756525174
+        Z: 0.00312226824
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.0500000007
       Invert Z Axis: false
