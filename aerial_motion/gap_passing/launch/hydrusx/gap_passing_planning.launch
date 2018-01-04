@@ -18,7 +18,10 @@
     </include >
 
     <node name="rviz" pkg="rviz" type="rviz"
-          args="-d $(find gap_passing)/config/planning.rviz" respawn="true" />
+          args="-d $(find gap_passing)/config/data_replay.rviz" respawn="true" if="$(arg replay_experiment_data)"/>
+
+    <node name="rviz" pkg="rviz" type="rviz"
+          args="-d $(find gap_passing)/config/planning.rviz" respawn="true" unless="$(arg replay_experiment_data)"/>
 
   </group>
 
