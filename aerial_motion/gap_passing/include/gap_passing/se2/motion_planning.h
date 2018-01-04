@@ -78,10 +78,6 @@
 #include <ompl/base/objectives/PathLengthOptimizationObjective.h>
 #include <ompl/base/objectives/StateCostIntegralObjective.h>
 
-/* experiment data replay */
-#include <nav_msgs/Odometry.h>
-#include <sensor_msgs/JointState.h>
-
 /* utils */
 #include <iostream>
 #include <valarray>
@@ -168,18 +164,6 @@ namespace se2
     double gap_right_width_;
     tf::Vector3 left_half_corner;
     tf::Vector3 right_half_corner;
-
-    //*** experiment data replay
-    bool replay_experiment_data_flag_;
-    planning_scene::PlanningScene* experiment_scene_;
-    moveit_msgs::PlanningScene experiment_scene_msg_;
-    ros::Publisher experiment_scene_diff_pub_;
-    ros::Subscriber experiment_robot_cog_odom_sub_;
-    ros::Subscriber experiment_robot_joint_states_sub_;
-    nav_msgs::Odometry experiment_robot_cog_odom_;
-    sensor_msgs::JointState experiment_robot_joint_states_;
-    void experimentRobotOdomCallback(const nav_msgs::OdometryConstPtr& msg);
-    void experimentRobotJointStatesCallback(const sensor_msgs::JointStateConstPtr& joint_msg);
 
     //original planning
     std::vector<double> start_state_;
