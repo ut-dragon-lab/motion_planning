@@ -85,4 +85,8 @@
     </node>
   </group>
 
+  ###########  Aerial trajectory  ###########
+  <include file="$(find bspline_generator)/launch/aerial_trajectory_plannar.launch" >
+  </include>
+
 </launch>
