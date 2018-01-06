@@ -13,18 +13,23 @@ find_package(catkin REQUIRED COMPONENTS
   hydrus
   dragon
   cmake_modules
+  message_generation
+  std_msgs
+  nav_msgs
 )
 
 find_package(ompl)
 
 add_message_files(FILES PlanningMode.msg)
+add_service_files(FILES Keyposes.srv Endposes.srv)
+
 generate_messages(DEPENDENCIES std_msgs)
 
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 
 catkin_package(
   INCLUDE_DIRS include
-  LIBRARIES se2_motion_planning
+  LIBRARIES se2_motion_data_replay se2_motion_planning se2_motion_control
   CATKIN_DEPENDS roscpp  geometry_msgs sensor_msgs tf  moveit_msgs  moveit_core  moveit_ros_planning_interface  pluginlib  hydrus aerial_robot_base message_runtime
 )
 
@@ -52,6 +57,14 @@ target_link_libraries (se2_motion_planning ${catkin_LIBRARIES}  ${Boost_LIBRARIE
 add_executable(se2_motion_planning_node src/se2/motion_planning_node.cpp)
 add_dependencies(se2_motion_planning  ${PROJECT_NAME}_gencpp)
 target_link_libraries (se2_motion_planning_node ${catkin_LIBRARIES}  ${Boost_LIBRARIES} se2_motion_planning se2_motion_control ${OMPL_LIBRARIES})
+
+Add_library (se2_motion_data_replay src/se2/motion_data_replay.cpp )
+add_dependencies(se2_motion_data_replay  ${PROJECT_NAME}_gencpp)
+target_link_libraries (se2_motion_data_replay ${catkin_LIBRARIES}  ${Boost_LIBRARIES} ${OMPL_LIBRARIES})
+
+add_executable(se2_motion_data_replay_node src/se2/motion_data_replay_node.cpp)
+add_dependencies(se2_motion_data_replay  ${PROJECT_NAME}_gencpp)
+target_link_libraries (se2_motion_data_replay_node ${catkin_LIBRARIES}  ${Boost_LIBRARIES} se2_motion_data_replay se2_motion_control ${OMPL_LIBRARIES})
 
 # SE(3)
 add_library (se3_motion_control src/se3/motion_control.cpp)

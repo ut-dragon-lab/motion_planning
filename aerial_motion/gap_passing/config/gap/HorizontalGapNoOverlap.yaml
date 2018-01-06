@@ -1,5 +1,5 @@
 gap_x_offset: 0.0
-gap_y_offset: 0.5
-gap_left_width: 0.03
-gap_right_width: 0.029
-gap_left_x: 0
+gap_y_offset: 0.7
+gap_left_width: 0.03 ## 0.1 + 0.03
+gap_right_width: 0.03 ## 0.1 + 0.029
+gap_left_x: -0.7

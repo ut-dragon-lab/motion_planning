@@ -7,5 +7,5 @@ goal_state_joint2: 1.57
 goal_state_joint3: 1.57
 
 # planning cost 
-length_cost_thre: 16
+length_cost_thre: 8 # 16
 var_thre: 0.35 # ku: 0.35

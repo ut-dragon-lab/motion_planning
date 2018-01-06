@@ -33,8 +33,8 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *********************************************************************/
 
-#ifndef MOTION_PLANNING_H_
-#define MOTION_PLANNING_H_
+#ifndef MOTION_DATA_REPLAY_H_
+#define MOTION_DATA_REPLAY_H_
 
 /* ros */
 #include <ros/ros.h>
@@ -78,6 +78,10 @@
 #include <ompl/base/objectives/PathLengthOptimizationObjective.h>
 #include <ompl/base/objectives/StateCostIntegralObjective.h>
 
+/* experiment data replay */
+#include <nav_msgs/Odometry.h>
+#include <sensor_msgs/JointState.h>
+
 /* utils */
 #include <iostream>
 #include <valarray>
@@ -87,12 +91,12 @@
 
 namespace se2
 {
-  class MotionPlanning
+  class MotionDataReplay
   {
 
   public:
-    MotionPlanning(ros::NodeHandle nh, ros::NodeHandle nhp);
-    ~MotionPlanning();
+    MotionDataReplay(ros::NodeHandle nh, ros::NodeHandle nhp);
+    ~MotionDataReplay();
 
     inline tf::Vector3 world2GapCoord(tf::Vector3 world_info)
     {
@@ -164,6 +168,20 @@ namespace se2
     double gap_right_width_;
     tf::Vector3 left_half_corner;
     tf::Vector3 right_half_corner;
+
+    //*** experiment data replay
+    bool experiment_odom_recv_flag_;
+    bool experiment_joint_states_recv_flag_;
+    bool replay_experiment_data_flag_;
+    planning_scene::PlanningScene* experiment_scene_;
+    moveit_msgs::PlanningScene experiment_scene_msg_;
+    ros::Publisher experiment_scene_diff_pub_;
+    ros::Subscriber experiment_robot_cog_odom_sub_;
+    ros::Subscriber experiment_robot_joint_states_sub_;
+    nav_msgs::Odometry experiment_robot_cog_odom_;
+    sensor_msgs::JointState experiment_robot_joint_states_;
+    void experimentRobotOdomCallback(const nav_msgs::OdometryConstPtr& msg);
+    void experimentRobotJointStatesCallback(const sensor_msgs::JointStateConstPtr& joint_msg);
 
     //original planning
     std::vector<double> start_state_;

@@ -43,6 +43,7 @@ namespace se2
   {
     transform_controller_ = boost::shared_ptr<TransformController>(new TransformController(nh_, nhp_, false));
     joint_num_ = transform_controller_->getRotorNum() - 1;
+    move_start_flag_ = false;
 
     rosParamInit();
 
@@ -50,7 +51,41 @@ namespace se2
 
     planning_scene_diff_pub_ = nh_.advertise<moveit_msgs::PlanningScene>("planning_scene", 1);
 
-    if(planning_mode_ != gap_passing::PlanningMode::ONLY_JOINTS_MODE)
+    keyposes_server_ = nh_.advertiseService("keyposes_server", &MotionPlanning::getKeyposes, this);
+    endposes_client_ = nh_.serviceClient<gap_passing::Endposes>("endposes_server");
+    robot_move_start_sub_ = nh_.subscribe<std_msgs::Empty>("/move_start", 1, &MotionPlanning::moveStartCallback, this);
+    desired_state_sub_ = nh_.subscribe<std_msgs::Float64MultiArray>("/desired_state", 1, &MotionPlanning::desiredStateCallback, this);
+
+    // if play log path, start/goal state is already read when initalizing motion_control_
+    if (play_log_path_){
+      start_state_ = motion_control_->start_state_;
+      goal_state_ = motion_control_->goal_state_;
+    }
+    // if plan path online, start/goal state is requested from ros service
+    else{
+      gap_passing::Endposes endposes_srv;
+      endposes_srv.request.inquiry = true;
+      ROS_INFO("Waiting for endposes from service.");
+      while (!endposes_client_.call(endposes_srv)){
+        // wait for endposes
+      }
+      ROS_INFO("Get endposes from serivce.");
+      std::cout << "Start state: ";
+      for (int i = 0; i < 3 + joint_num_; ++i)
+        std::cout << endposes_srv.response.start_pose.data[i] << ", ";
+      std::cout << "\nEnd state: ";
+      for (int i = 0; i < 3 + joint_num_; ++i)
+        std::cout << endposes_srv.response.end_pose.data[i] << ", ";
+      std::cout << "\n";
+      start_state_ = cog2root(endposes_srv.response.start_pose.data);
+      goal_state_ = cog2root(endposes_srv.response.end_pose.data);
+    }
+
+    // initalization desired state variable, since desired state is not received until robot is really moving (later than receive move start topic)
+    for (int i = 0; i < 3 + joint_num_; ++i)
+      deisred_state_.push_back(start_state_[i]);
+
+    if(simulator_ && planning_mode_ != gap_passing::PlanningMode::ONLY_JOINTS_MODE)
       {
         while(planning_scene_diff_pub_.getNumSubscribers() < 1)
           {
@@ -62,14 +97,10 @@ namespace se2
 
         robot_model_loader_ = new robot_model_loader::RobotModelLoader("robot_description");
         kinematic_model_ = robot_model_loader_->getModel();
-
         planning_scene_ = new planning_scene::PlanningScene(kinematic_model_);
-
         tolerance_ = 0.01;
         acm_ = planning_scene_->getAllowedCollisionMatrix();
-
         gapEnvInit();
-
       }
 
     calculation_time_ = 0;
@@ -101,6 +132,7 @@ namespace se2
 
     static int state_index = 0;
     static std::vector<conf_values> planning_path;
+    sensor_msgs::JointState joint_state;
 
     if(solved_ && ros::ok())
       {
@@ -120,9 +152,20 @@ namespace se2
             planning_path.resize(0);
             motion_control_->getPlanningPath(planning_path);
 
+            if(planning_mode_ == gap_passing::PlanningMode::JOINTS_AND_BASE_MODE){
+              keyposes_cog_vec_.resize(0);
+              for (int i = 0; i < motion_control_->getPathSize(); ++i){
+                std::vector<double> keypose_root; // keypose in root frame
+                for (int j = 0; j < 3 + joint_num_; ++j)
+                  keypose_root.push_back((motion_control_->getState(i)).state_values[j]);
+                std::vector<double> keypose_cog = root2cog(keypose_root);
+                keyposes_cog_vec_.push_back(keypose_cog);
+              }
+            }
+
             first_flag = false;
           }
-        else
+        else if(simulator_)
           {
             if(planning_mode_ == gap_passing::PlanningMode::ONLY_JOINTS_MODE)
               {
@@ -146,12 +189,20 @@ namespace se2
                 robot_state::RobotState& robot_state = planning_scene_->getCurrentStateNonConst();
 
                 std::vector<double> ex_curr_state(3 + joint_num_ + 7); //se(2) + joint_num + 7
-                ex_curr_state[0] = (motion_control_->getState(state_index)).state_values[0]; //x
-                ex_curr_state[1] = (motion_control_->getState(state_index)).state_values[1]; //y
-                ex_curr_state[2] = (motion_control_->getState(state_index)).state_values[2]; //yaw
-                for(int index = 0 ; index < joint_num_; index++)
-                  ex_curr_state[index + 3] = (motion_control_->getState(state_index)).state_values[index + 3];
-                robot_state.setVariablePositions(ex_curr_state);
+                if (move_start_flag_){
+                  std::vector<double> ex_root_state = cog2root(deisred_state_);
+                  for (int i = 0; i < 3 + joint_num_; ++i)
+                    ex_curr_state[i] = ex_root_state[i];
+                  robot_state.setVariablePositions(ex_curr_state);
+                }
+                else{
+                  ex_curr_state[0] = (motion_control_->getState(state_index)).state_values[0]; //x
+                  ex_curr_state[1] = (motion_control_->getState(state_index)).state_values[1]; //y
+                  ex_curr_state[2] = (motion_control_->getState(state_index)).state_values[2]; //yaw
+                  for(int index = 0 ; index < joint_num_; index++)
+                    ex_curr_state[index + 3] = (motion_control_->getState(state_index)).state_values[index + 3];
+                  robot_state.setVariablePositions(ex_curr_state);
+                }
 
                 planning_scene_->getPlanningSceneMsg(planning_scene_msg_);
                 planning_scene_msg_.is_diff = true;
@@ -163,6 +214,39 @@ namespace se2
           }
 
       }
+  }
+
+  bool MotionPlanning::getKeyposes(gap_passing::Keyposes::Request &req, gap_passing::Keyposes::Response &res)
+  {
+    int keyposes_num = keyposes_cog_vec_.size();
+    if (solved_ && ros::ok() && keyposes_num){
+      res.available_flag = true;
+      res.states_cnt = keyposes_num;
+      res.dim = 4 + joint_num_;
+      res.data.layout.dim.push_back(std_msgs::MultiArrayDimension());
+      res.data.layout.dim.push_back(std_msgs::MultiArrayDimension());
+      res.data.layout.dim[0].label = "height";
+      res.data.layout.dim[1].label = "width";
+      res.data.layout.dim[0].size = keyposes_num;
+      res.data.layout.dim[1].size = 4 + joint_num_;
+      res.data.layout.dim[0].stride = keyposes_num * (4 + joint_num_);
+      res.data.layout.dim[1].stride = 4 + joint_num_;
+      res.data.layout.data_offset = 0;
+
+      for (int i = 0; i < keyposes_num; ++i){
+        for (int j = 0; j < 2; ++j)
+          res.data.data.push_back(keyposes_cog_vec_[i][j]);
+        /* z axis value is set to 0.0 in se2 planning */
+        res.data.data.push_back(0.0);
+        for (int j = 2; j < 3 + joint_num_; ++j)
+          res.data.data.push_back(keyposes_cog_vec_[i][j]);
+      }
+    }
+    else{
+      res.available_flag = false;
+      res.states_cnt = 0;
+    }
+    return true;
   }
 
   bool  MotionPlanning::isStateValid(const ompl::base::State *state)
@@ -238,6 +322,79 @@ namespace se2
     if(collision_result.collision) return false;
 
     return true;
+  }
+
+  std::vector<double> MotionPlanning::cog2root(std::vector<double> &keypose)
+  {
+    sensor_msgs::JointState joint_state;
+    for(int i = 0; i < joint_num_; i++)
+      {
+        std::stringstream ss;
+        ss << i + 1;
+        joint_state.name.push_back(std::string("joint") + ss.str());
+      }
+    joint_state.position.resize(0);
+    for (int j = 0; j < joint_num_; ++j)
+      joint_state.position.push_back(keypose[3 + j]);
+    transform_controller_->kinematics(joint_state);
+    tf::Transform cog_root = transform_controller_->getCog(); // cog in root frame
+    tf::Transform root_cog = cog_root.inverse();
+    tf::Transform cog_world;
+    cog_world.setOrigin(tf::Vector3(keypose[0],
+                                    keypose[1],
+                                    0.0));
+    tf::Quaternion q;
+    q.setRPY(0.0, 0.0, keypose[2]);
+    cog_world.setRotation(q);
+    tf::Transform root_world = cog_world * root_cog;
+
+    std::vector<double> keypose_root;
+    keypose_root.push_back(root_world.getOrigin().getX());
+    keypose_root.push_back(root_world.getOrigin().getY());
+    q = root_world.getRotation();
+    tf::Matrix3x3  rot_mat(q);
+    tfScalar e_r, e_p, e_y;
+    rot_mat.getRPY(e_r, e_p, e_y);
+    keypose_root.push_back(e_y);
+    for (int i = 0; i < joint_num_; i++)
+      keypose_root.push_back(keypose[3 + i]);
+    return keypose_root;
+  }
+
+  std::vector<double> MotionPlanning::root2cog(std::vector<double> &keypose)
+  {
+    sensor_msgs::JointState joint_state;
+    for(int i = 0; i < joint_num_; i++)
+      {
+        std::stringstream ss;
+        ss << i + 1;
+        joint_state.name.push_back(std::string("joint") + ss.str());
+      }
+    joint_state.position.resize(0);
+    for (int j = 0; j < joint_num_; ++j)
+      joint_state.position.push_back(keypose[3 + j]);
+    transform_controller_->kinematics(joint_state);
+    tf::Transform cog_root = transform_controller_->getCog();
+    tf::Transform root_world;
+    root_world.setOrigin(tf::Vector3(keypose[0],
+                                     keypose[1],
+                                     0.0));
+    tf::Quaternion q;
+    q.setRPY(0.0, 0.0, keypose[2]);
+    root_world.setRotation(q);
+    tf::Transform cog_world = root_world * cog_root;
+
+    std::vector<double> keypose_root;
+    keypose_root.push_back(cog_world.getOrigin().getX());
+    keypose_root.push_back(cog_world.getOrigin().getY());
+    q = cog_world.getRotation();
+    tf::Matrix3x3  rot_mat(q);
+    tfScalar e_r, e_p, e_y;
+    rot_mat.getRPY(e_r, e_p, e_y);
+    keypose_root.push_back(e_y);
+    for (int i = 0; i < joint_num_; i++)
+      keypose_root.push_back(keypose[3 + i]);
+    return keypose_root;
   }
 
   void MotionPlanning::gapEnvInit()
@@ -500,6 +657,8 @@ namespace se2
 
   void MotionPlanning::rosParamInit()
   {
+    nhp_.param("simulator", simulator_, true);
+
     nhp_.param("gap_left_x", gap_left_x_, 1.0);
     nhp_.param("gap_left_y", gap_left_y_, 0.3);
     nhp_.param("gap_x_offset", gap_x_offset_, 0.6); //minus: overlap
@@ -559,4 +718,12 @@ namespace se2
     return ompl::base::Cost(length_cost_thre_);
   }
 
+  void MotionPlanning::moveStartCallback(const std_msgs::Empty msg){
+    move_start_flag_ = true;
+  }
+
+  void MotionPlanning::desiredStateCallback(const std_msgs::Float64MultiArrayConstPtr& msg){
+    for (int i = 0; i < 3 + joint_num_; ++i)
+      deisred_state_[i] = msg->data[i];
+  }
 }
