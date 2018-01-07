@@ -84,6 +84,10 @@ namespace aerial_controller_interface{
     bool debug_;
     bool move_start_flag_;
 
+    double nav_p_gain_;
+    double yaw_p_gain_;
+    double joint_p_gain_;
+
     ros::Publisher robot_start_pub_;
     ros::Publisher takeoff_pub_;
     ros::Publisher joints_ctrl_pub_;

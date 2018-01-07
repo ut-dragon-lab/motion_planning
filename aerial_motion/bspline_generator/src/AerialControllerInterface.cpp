@@ -65,6 +65,9 @@ namespace aerial_controller_interface{
   void AerialControllerInterface::init_param(){
     move_start_flag_ = false;
     nhp_.param("debug_output", debug_, false);
+    nhp_.param("nav_p_gain", nav_p_gain_, 1.0);
+    nhp_.param("yaw_p_gain", yaw_p_gain_, 1.0);
+    nhp_.param("joint_p_gain", joint_p_gain_, 0.0);
 
     for (int i = 0; i < joint_num_; ++i){
       joints_ang_vec_.push_back(0.0);
@@ -82,17 +85,16 @@ namespace aerial_controller_interface{
 
   void AerialControllerInterface::ff_controller(std::vector<double> &ff_term, std::vector<double> &target){
     /* pid controller */
-    double p_gain = 1.0;
     tf::Vector3 ff_vel(ff_term[0], ff_term[1], ff_term[2]);
     tf::Vector3 target_pos(target[0], target[1], target[2]);
     tf::Vector3 vel;
-    vel = ff_vel + p_gain * (target_pos - cog_pos_);
+    vel = ff_vel + nav_p_gain_ * (target_pos - cog_pos_);
 
-    double target_yaw = target[3] + p_gain * yawDistance(target[3], cog_ang_[2]);
+    double target_yaw = target[3] + yaw_p_gain_ * yawDistance(target[3], cog_ang_[2]);
     std::vector<double> target_joints;
     for (int i = 0; i < joint_num_; ++i){
       target_joints.push_back(target[4 + i]
-                              + p_gain * (target[4 + i] - joints_ang_vec_[i]));
+                              + joint_p_gain_ * (target[4 + i] - joints_ang_vec_[i]));
     }
 
     if (debug_){

@@ -17,5 +17,11 @@
     <param name="start_x" value="-1.4" />
     <param name="start_y" value="0.17" />
     <param name="start_yaw" value="-1.57" />
+
+    <!-- trajectory tracking relate -->
+    <param name="nav_p_gain" value="0.3" />
+    <param name="yaw_p_gain" value="0.4" />
+    <param name="joint_p_gain" value="0.0" />
+
   </node>
 </launch>
