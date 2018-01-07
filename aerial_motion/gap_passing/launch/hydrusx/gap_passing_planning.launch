@@ -85,4 +85,10 @@
     </node>
   </group>
 
+  ###########  Aerial trajectory  ###########
+  <group unless="$(arg replay_experiment_data)">
+    <include file="$(find bspline_generator)/launch/aerial_trajectory_plannar.launch" >
+    </include>
+  </group>
+
 </launch>
