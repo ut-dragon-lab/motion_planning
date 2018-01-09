@@ -155,40 +155,6 @@ namespace bspline_generator{
     ROS_INFO("Spline display finished.");
   }
 
-  double BsplineGenerator::getContinousYaw(double yaw, int id){
-    static double prev_yaw = 0.0;
-    double new_yaw = yaw;
-    if (id == 0){
-      prev_yaw = new_yaw;
-    }
-    else{
-      if (fabs(new_yaw - prev_yaw) > 3.0){ // jumping gap in yaw angle
-        if (new_yaw > prev_yaw){
-          while (fabs(new_yaw - prev_yaw) > 3.0){ // Adjust yaw
-            new_yaw -= 2 * PI;
-            if (new_yaw < prev_yaw - 2 * PI){ // adjust overhead
-              ROS_ERROR("Could not find suitable yaw. previous yaw: %f, current yaw: %f", prev_yaw, yaw);
-              new_yaw += 2 * PI;
-              break;
-            }
-          }
-        }
-        else{
-          while (fabs(new_yaw - prev_yaw) > 3.0){
-            new_yaw += 2 * PI;
-            if (new_yaw > prev_yaw + 2 * PI){
-              ROS_ERROR("Could not find suitable yaw. previous yaw: %f, current yaw: %f", prev_yaw, yaw);
-              new_yaw -= 2 * PI;
-              break;
-            }
-          }
-        }
-      }
-      prev_yaw = new_yaw;
-    }
-    return new_yaw;
-  }
-
   std::vector<double> BsplineGenerator::getPosition(double time){
     return bspline_ptr_->evaluate(time);
   }
