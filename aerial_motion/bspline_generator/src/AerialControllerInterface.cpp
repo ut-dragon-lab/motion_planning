@@ -68,6 +68,8 @@ namespace aerial_controller_interface{
     nhp_.param("nav_p_gain", nav_p_gain_, 1.0);
     nhp_.param("yaw_p_gain", yaw_p_gain_, 1.0);
     nhp_.param("joint_p_gain", joint_p_gain_, 0.0);
+    nhp_.param("joint_upperbound", joint_upperbound_, 1.57);
+    nhp_.param("joint_lowerbound", joint_lowerbound_, -1.57);
 
     for (int i = 0; i < joint_num_; ++i){
       joints_ang_vec_.push_back(0.0);
@@ -132,9 +134,13 @@ namespace aerial_controller_interface{
     sensor_msgs::JointState joints_msg;
     joints_msg.header = nav_msg.header;
     for (int i = 0; i < joint_num_; ++i){
-      if (target_joints[i] > PI / 2.0){ // todo: inner collision avoidance
-        ROS_ERROR("joint %d angle: %f is larger than PI/2.", i, target_joints[i]);
-        target_joints[i] = PI / 2.0;
+      if (target_joints[i] > joint_upperbound_){
+        ROS_ERROR("joint %d angle: %f is larger than upperbound.", i, target_joints[i]);
+        target_joints[i] = joint_upperbound_;
+      }
+      else if (target_joints[i] < joint_lowerbound_){
+        ROS_ERROR("joint %d angle: %f is smaller than lowerbound.", i, target_joints[i]);
+        target_joints[i] = joint_lowerbound_;
       }
       joints_msg.position.push_back(target_joints[i]);
     }
