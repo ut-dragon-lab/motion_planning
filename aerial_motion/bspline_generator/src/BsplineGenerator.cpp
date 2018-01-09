@@ -96,7 +96,11 @@ namespace bspline_generator{
         else if (id >= keyposes_srv.response.states_cnt)
           id = keyposes_srv.response.states_cnt - 1;
         int index_s = id * keyposes_srv.response.dim;
-        for (int j = 0; j < keyposes_srv.response.dim; ++j)
+        for (int j = 0; j < 3; ++j)
+          control_pts_ptr_->control_pts.data.push_back(keyposes_srv.response.data.data[index_s + j]);
+        // keep euler angle continous
+        control_pts_ptr_->control_pts.data.push_back(generateContinousEulerAngle(keyposes_srv.response.data.data[index_s + 3], id));
+        for (int j = 4; j < keyposes_srv.response.dim; ++j)
           control_pts_ptr_->control_pts.data.push_back(keyposes_srv.response.data.data[index_s + j]);
       }
 
@@ -178,5 +182,39 @@ namespace bspline_generator{
       keypose.push_back(control_pts_ptr_->control_pts.data[start_index + i]);
 
     return keypose;
+  }
+
+  double BsplineGenerator::generateContinousEulerAngle(double ang, int id){
+    static double prev_ang = 0.0;
+    double new_ang = ang;
+    if (id == 0){
+      prev_ang = new_ang;
+    }
+    else{
+      if (fabs(new_ang - prev_ang) > PI){ // jumping gap in ang angle
+        if (new_ang > prev_ang){
+          while (fabs(new_ang - prev_ang) > PI){ // Adjust ang
+            new_ang -= 2 * PI;
+            if (new_ang < prev_ang - 2 * PI){ // adjust overhead
+              ROS_ERROR("Could not find suitable ang. previous ang: %f, current ang: %f", prev_ang, ang);
+              new_ang += 2 * PI;
+              break;
+            }
+          }
+        }
+        else{
+          while (fabs(new_ang - prev_ang) > PI){
+            new_ang += 2 * PI;
+            if (new_ang > prev_ang + 2 * PI){
+              ROS_ERROR("Could not find suitable ang. previous ang: %f, current ang: %f", prev_ang, ang);
+              new_ang -= 2 * PI;
+              break;
+            }
+          }
+        }
+      }
+      prev_ang = new_ang;
+    }
+    return new_ang;
   }
 }

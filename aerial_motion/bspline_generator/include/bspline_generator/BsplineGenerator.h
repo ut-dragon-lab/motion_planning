@@ -69,6 +69,7 @@ namespace bspline_generator{
     ControlPoints* control_pts_ptr_;
     ros::ServiceClient sampling_plannar_client_;
     void waitForKeyposes();
+    double generateContinousEulerAngle(double ang, int id);
   };
 }
 #endif

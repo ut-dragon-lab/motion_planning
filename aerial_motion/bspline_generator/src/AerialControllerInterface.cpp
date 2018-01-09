@@ -209,13 +209,15 @@ namespace aerial_controller_interface{
     move_start_flag_ = true;
   }
 
-  double AerialControllerInterface::yawDistance(double target_yaw, double cur_yaw){
+  double AerialControllerInterface::yawDistance(double target_y, double cur_y){
+    double target_yaw = target_y;
+    double cur_yaw = cur_y;
     if (fabs(cur_yaw - target_yaw) > PI){ // jumping gap in yaw angle
       if (cur_yaw > target_yaw){
         while (fabs(cur_yaw - target_yaw) > PI){ // Adjust yaw
           cur_yaw -= 2 * PI;
           if (cur_yaw < target_yaw - 2 * PI){ // adjust overhead
-            ROS_ERROR("Could not find yaw distance. target yaw: %f, current yaw: %f", target_yaw, cur_yaw);
+            ROS_ERROR("Could not find yaw distance. target yaw: %f, current yaw: %f", target_y, cur_y);
             cur_yaw += 2 * PI;
             break;
           }
@@ -225,7 +227,7 @@ namespace aerial_controller_interface{
         while (fabs(cur_yaw - target_yaw) > PI){
           cur_yaw += 2 * PI;
           if (cur_yaw > target_yaw + 2 * PI){
-            ROS_ERROR("Could not find yaw distance. previous yaw: %f, current yaw: %f", target_yaw, cur_yaw);
+            ROS_ERROR("Could not find yaw distance. target yaw: %f, current yaw: %f", target_y, cur_y);
             cur_yaw -= 2 * PI;
             break;
           }
