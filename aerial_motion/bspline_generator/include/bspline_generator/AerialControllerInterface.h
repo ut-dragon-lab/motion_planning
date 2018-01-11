@@ -88,6 +88,9 @@ namespace aerial_controller_interface{
     double yaw_p_gain_;
     double joint_p_gain_;
 
+    double joint_upperbound_;
+    double joint_lowerbound_;
+
     ros::Publisher robot_start_pub_;
     ros::Publisher takeoff_pub_;
     ros::Publisher joints_ctrl_pub_;

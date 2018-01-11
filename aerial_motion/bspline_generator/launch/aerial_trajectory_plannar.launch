@@ -22,6 +22,8 @@
     <param name="nav_p_gain" value="0.3" />
     <param name="yaw_p_gain" value="0.4" />
     <param name="joint_p_gain" value="0.0" />
+    <param name="joint_upperbound" value="1.58" />
+    <param name="joint_lowerbound" value="-1.58" />
 
   </node>
 </launch>
