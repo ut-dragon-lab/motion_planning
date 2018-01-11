@@ -382,7 +382,7 @@ namespace se3
         nhp_.param("gap_y_width", gap_y_width, 1.0);
         nhp_.param("gap_height", gap_height, 0.3);
 
-        geometry_msgs::Pose pose1, pose2,pose3,pose4;
+        geometry_msgs::Pose pose1, pose2,pose3,pose4, pose5, pose6;
         pose1.position.x = gap_x_width / 2 + wall_length / 2;
         pose1.position.y = 0;
         pose1.position.z = gap_height;
@@ -403,8 +403,17 @@ namespace se3
         pose4.position.z = gap_height;
         pose4.orientation.w = 1.0;
 
+        pose5.position.x = 0;
+        pose5.position.y = 0;
+        pose5.position.z = z_high_bound_;
+        pose5.orientation.w = 1.0;
 
-        shape_msgs::SolidPrimitive primitive1, primitive2, primitive3, primitive4;
+        pose6.position.x = 0;
+        pose6.position.y = 0;
+        pose6.position.z = 0;
+        pose6.orientation.w = 1.0;
+
+        shape_msgs::SolidPrimitive primitive1, primitive2, primitive3, primitive4, primitive5, primitive6;
         primitive1.type = primitive1.BOX;
         primitive1.dimensions.resize(3);
 
@@ -434,6 +443,23 @@ namespace se3
         primitive4.dimensions[2] = 0.05;
         collision_object.primitives.push_back(primitive4);
         collision_object.primitive_poses.push_back(pose4);
+
+        primitive5.type = primitive2.BOX;
+        primitive5.dimensions.resize(3);
+        primitive5.dimensions[0] = wall_length;
+        primitive5.dimensions[1] = wall_length;
+        primitive5.dimensions[2] = 0.05;
+        collision_object.primitives.push_back(primitive5);
+        collision_object.primitive_poses.push_back(pose5);
+
+        primitive6.type = primitive2.BOX;
+        primitive6.dimensions.resize(3);
+        primitive6.dimensions[0] = wall_length;
+        primitive6.dimensions[1] = wall_length;
+        primitive6.dimensions[2] = 0.05;
+        collision_object.primitives.push_back(primitive6);
+        collision_object.primitive_poses.push_back(pose6);
+
       }
 
     collision_object.operation = collision_object.ADD;
@@ -559,7 +585,7 @@ namespace se3
     else if(planning_mode_ == gap_passing::PlanningMode::JOINTS_AND_BASE_MODE)
       {
         config_space_ = r_base + r_joints;
-        //config_space_->as<ompl::base::CompoundStateSpace>()->setSubspaceWeight(1, 0.1);
+        config_space_->as<ompl::base::CompoundStateSpace>()->setSubspaceWeight(1, 0.001);
         space_information_  = ompl::base::SpaceInformationPtr(new ompl::base::SpaceInformation(config_space_));
         space_information_->setStateValidityChecker(boost::bind(&MotionPlanning::isStateValid, this, _1));
       }
