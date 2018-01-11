@@ -73,14 +73,9 @@ namespace se3
 
     control_index_ = 0;
 
-    if(play_log_path_)
-      {
-        planFromFile();
-      }
-    else
-      {
-        transform_controller_ = transform_controller;
-      }
+    if(play_log_path_) planFromFile();
+
+    transform_controller_ = transform_controller;
 
     control_flag_ = false;
 
@@ -238,17 +233,12 @@ namespace se3
       {
         std::ofstream ofs;
         ofs.open( "dragon_planning_log.txt" );
-        ofs << "start_state: " << start_state[0] << " " <<start_state[1] << " " << 
-          start_state[2] << " " << start_state[3] <<  " " << start_state[4] << " " <<
-          start_state[5]  << " " << start_state[6];
-
-        for(int j = 0; j < joint_num_; j++) ofs   << " " << start_state[7 + j];
+        ofs << "start_state:";
+        for(int j = 0; j < 7 + 2 * joint_num_ + 2; j++) ofs   << " " << start_state[j];
         ofs << std::endl;
 
-        ofs << "goal_state: " << goal_state[0] << " " <<goal_state[1] << " " <<
-          goal_state[2] << " " << goal_state[3] << " " <<goal_state[4] << " " << 
-          goal_state[5] <<  " " <<  goal_state[6];
-        for(int j = 0; j < joint_num_; j++) ofs   << " " << goal_state[7 + j];
+        ofs << "goal_state:";
+        for(int j = 0; j < 7 + 2 * joint_num_ + 2; j++) ofs   << " " << goal_state[j];
         ofs << std::endl;
 
         ofs << "states: " << state_list  << std::endl;
@@ -263,11 +253,8 @@ namespace se3
 
         for(int k = 0; k < state_list;  k++)
           {
-            ofs << "state" << k << ": " << planning_path_[k].state_values[0] << " "
-                << planning_path_[k].state_values[1] << " " << planning_path_[k].state_values[2]
-                << " " <<planning_path_[k].state_values[3] << " " << planning_path_[k].state_values[4]
-                << " " <<planning_path_[k].state_values[5] << " " << planning_path_[k].state_values[6];
-            for(int j = 0; j < joint_num_; j++) ofs << " "  << planning_path_[k].state_values[7 + j];
+            ofs << "state" << k << ":";
+            for(int j = 0; j < 7 + 2 * joint_num_ + 2; j++) ofs << " "  << planning_path_[k].state_values[j];
             ofs<< " " <<planning_path_[k].dist_var << " " << planning_path_[k].max_force <<  std::endl;
           }
         ofs << "end"  << std::endl;
@@ -285,8 +272,8 @@ namespace se3
         return;
       }
 
-    std::vector<double> start_state(7 + joint_num_,0);
-    std::vector<double> goal_state(7 + joint_num_,0);
+    std::vector<double> start_state(7 + 2 * joint_num_ + 2, 0);
+    std::vector<double> goal_state(7 + 2 * joint_num_ + 2, 0);
     int state_list;
     std::stringstream ss[11];
     std::string str;
@@ -294,17 +281,15 @@ namespace se3
     //1 start and goal state
     std::getline(ifs, str);
     ss[0].str(str);
-    ss[0] >> header >> start_state[0] >> start_state[1] >> start_state[2]
-          >> start_state[3] >> start_state[4] >> start_state[5] >> start_state[6];
-    for(int i; i < joint_num_; i++) ss[0] >> start_state[7 + i];
+    ss[0] >> header;
+    for(int i = 0; i < 7 + 2 * joint_num_ + 2; i++) ss[0] >> start_state[i];
     std::cout << header << std::endl;
     std::getline(ifs, str);
     ss[1].str(str);
-    ss[1] >> header >> goal_state[0] >> goal_state[1] >> goal_state[2]
-          >> goal_state[3] >> goal_state[4] >> goal_state[5] >> goal_state[6];
-    for(int i; i < joint_num_; i++) ss[1] >> goal_state[7 + i];
+    ss[1] >> header;
+    for(int i = 0; i < 7 + 2 * joint_num_ + 2; i++) ss[1] >> goal_state[i];
     std::cout << header << std::endl;
-    ROS_WARN("from (%f, %f, %f, %f, %f, %f, %f) to (%f, %f, %f, %f, %f, %f, %f)",
+    ROS_WARN("from [%f, %f, %f] [%f, %f, %f, %f] to [%f, %f, %f] [%f, %f, %f, %f]",
              start_state[0], start_state[1], start_state[2],
              start_state[3], start_state[4], start_state[5], start_state[6],
              goal_state[0], goal_state[1], goal_state[2],
@@ -353,20 +338,19 @@ namespace se3
       {
         std::stringstream ss_tmp[3];
         conf_values state;
-        //hard code
-        state.state_values.resize(6);
+
+        state.state_values.resize(7 + 2 * joint_num_ + 2, 0);
 
         std::getline(ifs, str);
         ss_tmp[0].str(str);
 
         /* se3 base */
-        ss_tmp[0] >> header >> state.state_values[0] >> state.state_values[1] >> state.state_values[2] >> state.state_values[3] >>state.state_values[4] >> state.state_values[5] >> state.state_values[6];
+        ss_tmp[0] >> header;
         /* joint */
-        for(int j; j < joint_num_; j++) ss_tmp[0] >> state.state_values[7 + j];
+        for(int j = 0; j < 7 + 2 * joint_num_ + 2; j++) ss_tmp[0] >> state.state_values[j];
         /* dist */
         ss_tmp[0] >> state.dist_var >> state.max_force;
         planning_path_.push_back(state);
-
       }
   }
 
