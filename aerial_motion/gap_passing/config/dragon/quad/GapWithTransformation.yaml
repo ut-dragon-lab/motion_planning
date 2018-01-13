@@ -34,7 +34,7 @@ x_high_bound: 1.0
 y_low_bound: -1.0
 y_high_bound: 1
 z_low_bound:  0.0
-z_high_bound: 1.2
+z_high_bound: 1.4
 pitch_joint_low_bound: -1.58
 pitch_joint_high_bound: 1.58
 yaw_joint_low_bound: -1.58
@@ -42,11 +42,11 @@ yaw_joint_high_bound: 1.58
 
 # planning cost 
 baselink: link1
-length_cost_thre: 20
+length_cost_thre: 5
 
 # dist check
-var_thre: 0.21 # l: 0.22, s: 0.21; 
+var_thre: 0.22 # l: 0.22, s: 0.21; 
 # overlap check
 edf_max_tilt: 0.00 #0.18
 # statics
-f_max: 26
+f_max: 22
