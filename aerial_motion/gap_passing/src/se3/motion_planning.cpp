@@ -382,7 +382,7 @@ namespace se3
         nhp_.param("gap_y_width", gap_y_width, 1.0);
         nhp_.param("gap_height", gap_height, 0.3);
 
-        geometry_msgs::Pose pose1, pose2,pose3,pose4, pose5, pose6;
+        geometry_msgs::Pose pose1, pose2,pose3,pose4, pose5, pose6, pose7, pose8, pose9, pose10;
         pose1.position.x = gap_x_width / 2 + wall_length / 2;
         pose1.position.y = 0;
         pose1.position.z = gap_height;
@@ -413,7 +413,27 @@ namespace se3
         pose6.position.z = 0;
         pose6.orientation.w = 1.0;
 
-        shape_msgs::SolidPrimitive primitive1, primitive2, primitive3, primitive4, primitive5, primitive6;
+        pose7.position.x = x_high_bound_;
+        pose7.position.y = 0;
+        pose7.position.z = gap_height / 2;
+        pose7.orientation.w = 1.0;
+
+        pose8.position.x = x_low_bound_;
+        pose8.position.y = 0;
+        pose8.position.z = gap_height / 2;
+        pose8.orientation.w = 1.0;
+
+        pose9.position.x = 0;
+        pose9.position.y = y_high_bound_;
+        pose9.position.z = gap_height / 2;
+        pose9.orientation.w = 1.0;
+
+        pose10.position.x = 0;
+        pose10.position.y = y_low_bound_;
+        pose10.position.z = gap_height / 2;
+        pose10.orientation.w = 1.0;
+
+        shape_msgs::SolidPrimitive primitive1, primitive2, primitive3, primitive4, primitive5, primitive6, primitive7, primitive8, primitive9, primitive10;
         primitive1.type = primitive1.BOX;
         primitive1.dimensions.resize(3);
 
@@ -460,6 +480,37 @@ namespace se3
         collision_object.primitives.push_back(primitive6);
         collision_object.primitive_poses.push_back(pose6);
 
+        primitive7.type = primitive2.BOX;
+        primitive7.dimensions.resize(3);
+        primitive7.dimensions[0] = 0.05;
+        primitive7.dimensions[1] = y_high_bound_ - y_low_bound_;
+        primitive7.dimensions[2] = gap_height;
+        collision_object.primitives.push_back(primitive7);
+        collision_object.primitive_poses.push_back(pose7);
+
+        primitive8.type = primitive2.BOX;
+        primitive8.dimensions.resize(3);
+        primitive8.dimensions[0] = 0.05;
+        primitive8.dimensions[1] = y_high_bound_ - y_low_bound_;
+        primitive8.dimensions[2] = gap_height;
+        collision_object.primitives.push_back(primitive8);
+        collision_object.primitive_poses.push_back(pose8);
+
+        primitive9.type = primitive2.BOX;
+        primitive9.dimensions.resize(3);
+        primitive9.dimensions[0] = x_high_bound_ - x_low_bound_;
+        primitive9.dimensions[1] = 0.05;
+        primitive9.dimensions[2] = gap_height;
+        collision_object.primitives.push_back(primitive9);
+        collision_object.primitive_poses.push_back(pose9);
+
+        primitive10.type = primitive2.BOX;
+        primitive10.dimensions.resize(3);
+        primitive10.dimensions[0] = x_high_bound_ - x_low_bound_;
+        primitive10.dimensions[1] = 0.05;
+        primitive10.dimensions[2] = gap_height;
+        collision_object.primitives.push_back(primitive10);
+        collision_object.primitive_poses.push_back(pose10);
       }
 
     collision_object.operation = collision_object.ADD;
