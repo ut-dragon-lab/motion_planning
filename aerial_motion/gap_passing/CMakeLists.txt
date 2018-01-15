@@ -29,7 +29,7 @@ SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 
 catkin_package(
   INCLUDE_DIRS include
-  LIBRARIES se2_motion_data_replay se2_motion_planning se2_motion_control
+  LIBRARIES se2_motion_planning se3_motion_planning
   CATKIN_DEPENDS roscpp  geometry_msgs sensor_msgs tf  moveit_msgs  moveit_core  moveit_ros_planning_interface  pluginlib  hydrus aerial_robot_base message_runtime
 )
 
