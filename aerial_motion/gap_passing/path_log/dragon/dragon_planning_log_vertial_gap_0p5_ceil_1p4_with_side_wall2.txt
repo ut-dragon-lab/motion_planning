@@ -2,13 +2,10 @@ start_state: 0 -0.25 0.2 0 0 0 1 0 1.57 0 1.57 0 1.57 -0 0 -0 0 -0 0 -0 0
 goal_state: 0 0 0.9 0 0 0 1 0 1.57 0 1.57 0 1.57 0 0 0 0 0 0 0 0
 states: 475
 planning_mode: 2
-locomotion_mode: 1
 planning_time: 36000
 motion_cost: 8.61299
 minimum_var: 0.233327
 minimum_var_state_entry: 173
-maximum_force : 21.7058
-maximum_force_state_entry: 56
 state0: 0 -0.25 0.2 0 0 0 1 0 1.57 0 1.57 0 1.57 -0 0 -0 0 -0 0 -0 0 0.5 20.5815
 state1: 0 -0.25 0.2 0 0 0 1 0 1.57 0 1.57 0 1.57 -0 0 -0 0 -0 0 -0 0 0.5 20.5815
 state2: 0 -0.25 0.2 0 0 0 1 0 1.57 0 1.57 0 1.57 -0 0 -0 0 -0 0 -0 0 0.5 20.5815
