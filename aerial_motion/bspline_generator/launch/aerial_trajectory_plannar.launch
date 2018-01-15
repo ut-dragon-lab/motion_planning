@@ -1,6 +1,7 @@
 <launch>
   <arg name="real_machine" default="false" />
   <arg name="auto_takeoff" default="false" />
+  <arg name="joint_control_topic_name" />
 
   <node pkg="bspline_generator" type="aerial_plannar_node" name="aerial_plannar" output="screen">
     <param name="debug_output" value="false" />
@@ -19,11 +20,9 @@
     <param name="start_yaw" value="-1.57" />
 
     <!-- trajectory tracking relate -->
-    <param name="nav_p_gain" value="0.3" />
-    <param name="yaw_p_gain" value="0.4" />
-    <param name="joint_p_gain" value="0.0" />
     <param name="joint_upperbound" value="1.58" />
     <param name="joint_lowerbound" value="-1.58" />
+    <param name="joint_control_topic_name" value="$(arg joint_control_topic_name)" />
 
   </node>
 </launch>
