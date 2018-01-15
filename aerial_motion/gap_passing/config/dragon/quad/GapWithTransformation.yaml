@@ -41,7 +41,6 @@ yaw_joint_low_bound: -1.58
 yaw_joint_high_bound: 1.58
 
 # planning cost 
-baselink: link1
 length_cost_thre: 5
 
 # dist check
