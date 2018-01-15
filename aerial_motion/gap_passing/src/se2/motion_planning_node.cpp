@@ -43,6 +43,7 @@ int main(int argc, char **argv)
   ros::NodeHandle nhp("~");
 
   se2::MotionPlanning *motion_planning = new se2::MotionPlanning(nh,nhp);
+  motion_planning->baseInit();
   ros::spin();
 
   ros::shutdown();

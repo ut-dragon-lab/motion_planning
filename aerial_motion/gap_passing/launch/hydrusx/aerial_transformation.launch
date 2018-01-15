@@ -14,11 +14,12 @@
         args="-d $(find gap_passing)/config/planning.rviz" respawn="true" />
 
   ########## Planning for aerial transformation ###########
-  <node name="motion_planning_node" pkg="gap_passing" type="se2_motion_planning_node" respawn="false" output="screen">
-    <param name="planning_plugin" value="ompl_interface/OMPLPlanner"/>
+  <param name="/robot_description_semantic" textfile="$(find gap_passing)/config/hydrusx/$(arg type)/moveit.srdf" />
 
-    <param name="debug_log" type="bool" value="false"/>
-    <param name="log_flag" type="bool" value="false" />
+  <node name="motion_planning_node" pkg="gap_passing" type="se2_motion_planning_node" respawn="false" output="screen">
+    <param name="play_path_flag" type="bool" value="true"/>
+    <param name="save_path_flag" type="bool" value="false" />
+    <param name="load_path_flag" type="bool" value="false" />
 
     <param name="coefficient_rate" value="0.05"/>
     <param name="planning_mode" value="0"/>
@@ -30,24 +31,12 @@
 
     <param name="solving_time_limit" type="double" value="3600"/>
 
-    <param name="semi_stable_cost" type="double" value="0.5"/>
-    <param name="full_stable_cost" type="double" value="0.5"/>
-
-    <param name="length_opt_weight" type="double" value="1.0"/>
-    <param name="stability_opt_weight" type="double" value="0"/>
-
-    <param name="stability_cost_thre" type="double" value="1.2" />
-
     <!-- for specific param -->
     <rosparam file="$(find hydrus)/config/hydrusx/$(arg type)/Hydrus.yaml" command="load" />
     <rosparam file="$(find gap_passing)/config/hydrusx/$(arg type)/Transformation.yaml" command="load" />
 
     <!-- for motion control -->
-    <param name="play_log_path" type="bool" value="false"/>
     <param name="file_name" value="$(find gap_passing)/path_log/planning_log.txt" />
-
-    <remap from="/hydrus/joints_ctrl" to="/hydrusx/joint_states" />
-
   </node>
 
 </launch>
