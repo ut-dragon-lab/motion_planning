@@ -649,13 +649,15 @@ namespace se3
         if (fabs(state.joint_states.at(joint_num_ + 2 * i)) > max_roll_tilt )
           {
             max_roll_tilt = fabs(state.joint_states.at(joint_num_ + 2 * i));
-            //ROS_WARN("max roll tilt is %f", max_roll_tilt);
+            if (play_path_flag_)
+              ROS_WARN("index: %d, max roll tilt is %f", path_.size(), max_roll_tilt);
           }
 
         if (fabs(state.joint_states.at(joint_num_ + 2 * i + 1)) > max_pitch_tilt )
           {
             max_pitch_tilt = fabs(state.joint_states.at(joint_num_ + 2 * i + 1));
-            //ROS_WARN("max pitch tilt is %f", max_pitch_tilt);
+            if (play_path_flag_)
+              ROS_WARN("index: %d, max pitch tilt is %f", path_.size(), max_pitch_tilt);
           }
       }
     return state;
