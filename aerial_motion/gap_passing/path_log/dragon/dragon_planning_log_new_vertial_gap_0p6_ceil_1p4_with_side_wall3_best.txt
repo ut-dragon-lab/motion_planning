@@ -1,6 +1,6 @@
 start_state_:  0 -0.25 0.2 0 0 0 1 0 1.57 0 1.57 0 1.57 -0 0 -0 0 -0 0 -0 0
 goal_state_:  0 0 0.9 0 0 0 1 0 1.57 0 1.57 0 1.57 0 0 0 0 0 0 0 0
-states: 256
+states: 190 #256
 planning_mode: 2
 planning_time: 1651.03
 motion_cost: 6.21764
