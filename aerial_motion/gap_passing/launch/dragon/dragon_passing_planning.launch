@@ -45,7 +45,7 @@
     <param name="gap_type" value="0" if="$(arg horizontal_gap)"/>
     <param name="gap_type" value="1" unless="$(arg horizontal_gap)"/>
 
-    <param name="solving_time_limit" type="double" value="18000"/>
+    <param name="solving_time_limit" type="double" value="36000"/>
     <param name="motion_sequence_rate" value="10"/>
 
     <param name="coefficient_rate" value="0.05"/>
