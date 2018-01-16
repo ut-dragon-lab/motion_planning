@@ -9,8 +9,10 @@
   <arg name="load_path_flag" default="true" />
   <arg name="save_path_flag" default="true" />
   <arg name="play_path_flag" default="false" />
-  <arg name="realtime_path_flag" default="false" />
+  <arg name="replay_flag" default="false" />
   <arg name="path_file_name" default="dragon_planning_log.txt" />
+
+  <arg name="path_tf_debug" default= "false" />
 
   ###########  Robot Model  ###########
   <group if="$(arg play_path_flag)">
@@ -18,13 +20,11 @@
       <arg name="type" value="$(arg type)" />
       <arg name="headless" value="true" />
       <arg name="need_joint_state" value="false"/>
+      <arg name="node_suffix" value="planning"/>
     </include >
 
     <node name="rviz" pkg="rviz" type="rviz"
-          args="-d $(find gap_passing)/config/data_replay.rviz" respawn="true" if="$(arg realtime_path_flag)"/>
-
-    <node name="rviz" pkg="rviz" type="rviz"
-          args="-d $(find gap_passing)/config/planning.rviz" respawn="true" unless="$(arg realtime_path_flag)"/>
+          args="-d $(find gap_passing)/config/planning.rviz" respawn="true" />
   </group>
 
   ########## Planning for gap passing ###########
@@ -34,14 +34,13 @@
     <param name="play_path_flag" type="bool" value="$(arg play_path_flag)"/>
     <param name="save_path_flag" type="bool" value="$(arg save_path_flag)" />
     <param name="load_path_flag" type="bool" value="$(arg load_path_flag)" />
-    <param name="realtime_path_flag" type="bool" value="$(arg realtime_path_flag)" />
 
     <param name="file_name" value="$(find gap_passing)/path_log/dragon/$(arg path_file_name)" />
 
     <param name="planning_mode" value="1" unless="$(arg transformation)"/>
     <param name="planning_mode" value="2" if="$(arg transformation)"/>
-    <param name="locomotion_mode" value="0" if="$(arg se2)"/>
-    <param name="locomotion_mode" value="1" unless="$(arg se2)"/> <!-- se3 -->
+    <param name="motion_mode" value="0" if="$(arg se2)"/>
+    <param name="motion_mode" value="1" unless="$(arg se2)"/> <!-- se3 -->
     <param name="gap_type" value="0" if="$(arg horizontal_gap)"/>
     <param name="gap_type" value="1" unless="$(arg horizontal_gap)"/>
 
@@ -56,6 +55,8 @@
     <param name="file_state_offset_x" type="double" value="0.0" />
     <param name="file_state_offset_y" type="double" value="0.0" />
     <param name="file_state_offset_z" type="double" value="0.0" />
+    <param name="joint_state_topic_name" value="dragon/joint_states" />
+    <param name="path_tf_debug" value="$(arg path_tf_debug)" />
 
     <!-- for specific param -->
     <rosparam file="$(find dragon)/config/$(arg type)/AttitudeControl.yaml" command="load" />
@@ -64,4 +65,24 @@
     <rosparam file="$(find gap_passing)/config/gap/HorizontalGapNoOverlap.yaml" command="load" if="$(arg horizontal_gap)"/>
     <rosparam file="$(find gap_passing)/config/gap/VerticalGap.yaml" command="load" unless="$(arg horizontal_gap)"/>
   </node>
+
+  ###########  Aerial trajectory  ###########
+  <group unless="$(arg replay_flag)">
+    <include file="$(find bspline_generator)/launch/aerial_trajectory_plannar.launch" >
+      <arg name="joint_control_topic_name" value = "/dragon/joints_ctrl" />
+    </include>
+  </group>
+
+  ######### Debug ##################
+  <group if="$(arg path_tf_debug)" >
+    <node pkg="dragon" type="dragon_transform_control_node" name="dragon_transformcontrol"  output="screen" respawn="true" >
+      <rosparam file="$(find dragon)/config/$(arg type)/AttitudeControl.yaml" command="load" />
+      <param name="kinematic_verbose" value="false" />
+      <param name="control_verbose" value="false" />
+      <param name="debug_verbose" value="false" />
+      <param name="real_machine" value="false" />
+      <param name="gimbal_control" value="false" />
+      <param name="gimbal_control_topic_name" value="/dragon/gimbals_ctrl" />
+    </node>
+  </group>
 </launch>
