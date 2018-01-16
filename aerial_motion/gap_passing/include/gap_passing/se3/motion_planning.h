@@ -52,6 +52,7 @@ namespace se3
     static const uint8_t HORIZONTAL_GAP = 0;
     static const uint8_t VERTICAL_GAP = 1;
 
+    State cog2root(const std::vector<double> &keypose); // transfer cog link keypose to rootlink
     State root2cog(const std::vector<double> &keypose); // transfer root link keypose to cog link
 
   private:

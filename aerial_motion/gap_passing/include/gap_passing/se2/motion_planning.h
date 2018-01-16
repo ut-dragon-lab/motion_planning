@@ -161,6 +161,11 @@ namespace se2
     ros::NodeHandle nhp_;
     ros::Publisher planning_scene_diff_pub_;
     ros::ServiceServer keyposes_server_;
+    ros::Subscriber continous_path_sub_;
+    ros::Subscriber robot_cog_odom_sub_;
+    ros::Subscriber robot_joint_states_sub_;
+    ros::Subscriber baselink_desired_attitude_sub_;
+    nav_msgs::Odometry robot_cog_odom_;
 
     ros::Timer motion_sequence_timer_;
     double  motion_sequence_rate_;
@@ -169,7 +174,8 @@ namespace se2
     bool save_path_flag_;
     bool load_path_flag_;
     bool play_path_flag_;
-    bool endposes_from_rosserice_flag_;
+    bool path_tf_debug_;
+    int motion_type_;
 
     /* moveit */
     //boost::shared_ptr<robot_model_loader::RobotModelLoader> robot_model_loader_;
@@ -215,6 +221,7 @@ namespace se2
     double joint_high_bound_;
 
     bool solved_;
+    bool real_odom_flag_;
     double state_validity_check_res_;
     int valid_segment_count_factor_;
     double solving_time_limit_;
@@ -250,18 +257,10 @@ namespace se2
     virtual void robotInit();
     virtual void gapEnvInit();
     virtual void addState(ompl::base::State *ompl_state);
-    virtual robot_state::RobotState setRobotState2Moveit(State state, boost::shared_ptr<planning_scene::PlanningScene> planning_scene);
+    virtual robot_state::RobotState setRobotState2Moveit(State state);
 
-    /* replay mode */
-    bool realtime_path_flag_;
-    ros::Subscriber continous_path_sub_;
-    boost::shared_ptr<planning_scene::PlanningScene> real_state_scene_;
-    moveit_msgs::PlanningScene real_state_scene_msg_;
-    ros::Publisher real_state_scene_diff_pub_;
-    ros::Subscriber robot_cog_odom_sub_;
-    ros::Subscriber robot_joint_states_sub_;
-    ros::Subscriber baselink_desired_attitude_sub_;
-    nav_msgs::Odometry robot_cog_odom_;
+    /* debug */
+    ros::Publisher joint_state_pub_;
 
     void robotOdomCallback(const nav_msgs::OdometryConstPtr& msg);
     void robotJointStatesCallback(const sensor_msgs::JointStateConstPtr& joint_msg);

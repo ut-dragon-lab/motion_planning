@@ -35,16 +35,33 @@
 
 #include <gap_passing/se2/motion_planning.h>
 
+namespace
+{
+  bool first_flag = true;
+  int state_index = 0;
+
+  bool odom_flag = false;
+}
+
 namespace se2
 {
   MotionPlanning::MotionPlanning(ros::NodeHandle nh, ros::NodeHandle nhp):
-    nh_(nh), nhp_(nhp), solved_(false),
+    nh_(nh), nhp_(nhp), solved_(false), real_odom_flag_(false),
     path_(0), calculation_time_(0), best_cost_(-1), min_var_(1e6),
-    planning_mode_(gap_passing::PlanningMode::ONLY_JOINTS_MODE)
+    planning_mode_(gap_passing::PlanningMode::ONLY_JOINTS_MODE),
+    motion_type_(gap_passing::PlanningMode::SE2)
   {
     /* ros pub/sub and service */
     planning_scene_diff_pub_ = nh_.advertise<moveit_msgs::PlanningScene>("planning_scene", 1);
     keyposes_server_ = nh_.advertiseService("keyposes_server", &MotionPlanning::getKeyposes, this);
+
+    robot_cog_odom_sub_ = nh_.subscribe("/uav/cog/odom", 1, &MotionPlanning::robotOdomCallback, this);
+    std::string topic_name;
+    nhp_.param("joint_state_topic_name", topic_name, std::string("joint_states"));
+    robot_joint_states_sub_ = nh_.subscribe(topic_name, 1, &MotionPlanning::robotJointStatesCallback, this);
+    continous_path_sub_ = nh_.subscribe("/desired_state", 1, &MotionPlanning::continousPathCallback, this);
+    baselink_desired_att_.setRPY(0, 0, 0);
+    baselink_desired_attitude_sub_ = nh_.subscribe("/desire_coordinate", 1, &MotionPlanning::desireCoordinateCallback, this);
   }
 
   void MotionPlanning::baseInit()
@@ -55,38 +72,18 @@ namespace se2
 
     if(load_path_flag_) loadPath();
 
+    if(path_tf_debug_)
+      {
+        std::string topic_name;
+        nhp_.param("joint_state_topic_name", topic_name, std::string("joint_states"));
+        joint_state_pub_ = nh_.advertise<sensor_msgs::JointState>(topic_name, 1);
+      }
 
     if(play_path_flag_)
       {
         sceneInit();
 
         if(!load_path_flag_) plan();
-
-        if(realtime_path_flag_)
-          {
-            continous_path_sub_ = nh_.subscribe("/desired_state", 1, &MotionPlanning::continousPathCallback, this);
-            real_state_scene_diff_pub_ = nh_.advertise<moveit_msgs::PlanningScene>("real_state_scene", 1);
-            robot_cog_odom_sub_ = nh_.subscribe("/uav/cog/odom", 1, &MotionPlanning::robotOdomCallback, this);
-            std::string topic_name;
-            nhp_.param("joint_state_topic_name", topic_name, std::string("joint_states"));
-            robot_joint_states_sub_ = nh_.subscribe(topic_name, 1, &MotionPlanning::robotJointStatesCallback, this);
-
-            baselink_desired_att_.setRPY(0, 0, 0);
-            baselink_desired_attitude_sub_ = nh_.subscribe("/desire_coordinate", 1, &MotionPlanning::desireCoordinateCallback, this);
-
-            while(real_state_scene_diff_pub_.getNumSubscribers() < 1)
-              {
-                ros::WallDuration sleep_t(0.5);
-                sleep_t.sleep();
-              }
-            ros::Duration sleep_time(1.0);
-            sleep_time.sleep();
-
-            robot_model_loader::RobotModelLoader robot_model_loader("robot_description");
-            real_state_scene_ = boost::shared_ptr<planning_scene::PlanningScene>(new planning_scene::PlanningScene(robot_model_loader.getModel()));
-
-            solved_ = false;
-          }
 
         motion_sequence_timer_ = nhp_.createTimer(ros::Duration(1.0 / motion_sequence_rate_), &MotionPlanning::motionSequenceFunc, this);
       }
@@ -111,10 +108,8 @@ namespace se2
 
   void MotionPlanning::motionSequenceFunc(const ros::TimerEvent &e)
   {
-    static bool first_flag = true;
-    static int state_index = 0;
-
     robot_state::RobotState& robot_state = planning_scene_->getCurrentStateNonConst();
+    if(real_odom_flag_) return;
 
     if(solved_ && ros::ok())
       {
@@ -130,7 +125,26 @@ namespace se2
             first_flag = false;
           }
 
-        robot_state::RobotState robot_state = setRobotState2Moveit(getState(state_index), planning_scene_);
+        /* visualize debug */
+        /* cog to world */
+        if(path_tf_debug_)
+          {
+            tf::TransformBroadcaster br;
+            tf::Transform cog_world(tf::Quaternion(getState(state_index).cog_state[3], getState(state_index).cog_state[4], getState(state_index).cog_state[5], getState(state_index).cog_state[6]),
+                                    tf::Vector3(getState(state_index).cog_state[0], getState(state_index).cog_state[1], getState(state_index).cog_state[2]));
+            br.sendTransform(tf::StampedTransform(cog_world.inverse(), ros::Time::now(), "cog", "world"));
+            double r, p, y; cog_world.getBasis().getRPY(r, p, y);
+
+            /* joint state */
+            sensor_msgs::JointState joint_state_msg;
+            joint_state_msg.header.stamp = ros::Time::now();
+            joint_state_msg.name = start_state_.joint_names;
+            joint_state_msg.position = getState(state_index).joint_states;
+            joint_state_pub_.publish(joint_state_msg);
+          }
+
+        /* moveit */
+        robot_state::RobotState robot_state = setRobotState2Moveit(getState(state_index));
         planning_scene_->getPlanningSceneMsg(planning_scene_msg_);
         planning_scene_msg_.is_diff = true;
         planning_scene_diff_pub_.publish(planning_scene_msg_);
@@ -145,7 +159,7 @@ namespace se2
     if (solved_ && ros::ok() && keyposes_num){
       res.available_flag = true;
       res.states_cnt = keyposes_num;
-      res.motion_type = gap_passing::Keyposes::Response::SE2;
+      res.motion_type = motion_type_;
       res.dim = 6 + joint_num_;
       res.data.layout.dim.push_back(std_msgs::MultiArrayDimension());
       res.data.layout.dim.push_back(std_msgs::MultiArrayDimension());
@@ -176,6 +190,7 @@ namespace se2
         for (int j = 0; j < joint_num_; ++j)
           res.data.data.push_back(path_.at(i).joint_states.at(j));
       }
+      solved_ = false;
     }
     else{
       res.available_flag = false;
@@ -235,7 +250,7 @@ namespace se2
     collision_detection::CollisionRequest collision_request;
     collision_detection::CollisionResult collision_result;
 
-    robot_state::RobotState robot_state = setRobotState2Moveit(current_state, planning_scene_);
+    robot_state::RobotState robot_state = setRobotState2Moveit(current_state);
     planning_scene_->checkCollision(collision_request, collision_result, robot_state, acm_);
 
     if(collision_result.collision) return false;
@@ -261,7 +276,7 @@ namespace se2
 
     //ROS_WARN("moveit robot state number: %d",  (int)planning_scene_->getCurrentStateNonConst().getVariableCount());
 
-    robot_state::RobotState robot_state = setRobotState2Moveit(start_state_, planning_scene_);
+    robot_state::RobotState robot_state = setRobotState2Moveit(start_state_);
 
     planning_scene_->getPlanningSceneMsg(planning_scene_msg_);
     planning_scene_msg_.is_diff = true;
@@ -494,7 +509,6 @@ namespace se2
     nhp_.param("save_path_flag", save_path_flag_, true);
     nhp_.param("load_path_flag", load_path_flag_, false);
     nhp_.param("play_path_flag", play_path_flag_, false);
-    nhp_.param("realtime_path_flag", realtime_path_flag_, false);
     nhp_.param("file_name", file_name_, std::string("planning_log.txt"));
 
     nhp_.param("gap_left_x", gap_left_x_, 1.0);
@@ -516,6 +530,7 @@ namespace se2
     nhp_.param("motion_sequence_rate", motion_sequence_rate_, 10.0);
 
     nhp_.param("baselink", base_link_, std::string("link1"));
+    nhp_.param("motion_type", motion_type_, 1); //SE2
     ROS_ERROR("motion planning: %s", base_link_.c_str());
 
     nhp_.param("start_state_x", start_state_.root_state.at(0), 0.0);
@@ -546,6 +561,8 @@ namespace se2
 
     nhp_.param("solving_time_limit", solving_time_limit_, 3600.0);
     nhp_.param("length_cost_thre", length_cost_thre_, 0.0);
+
+    nhp_.param("path_tf_debug", path_tf_debug_, false);
   }
 
   ompl::base::Cost MotionPlanning::onlyJointPathLimit()
@@ -742,33 +759,35 @@ namespace se2
   {
     State state = start_state_;
 
+    /* root */
+    tf::Transform root_world(tf::Quaternion(keypose[3], keypose[4], keypose[5], keypose[6]),
+                             tf::Vector3(keypose[0], keypose[1], keypose[2]));
+    for(int i = 0; i < 7; i++) state.root_state.at(i) = keypose.at(i);
+
+    /* joint state */
     sensor_msgs::JointState joint_state;
     joint_state.name = start_state_.joint_names;
     for(int i = 0; i < joint_state.name.size(); i++)
       state.joint_states.at(i) = (keypose.at(7 + i));
     joint_state.position = state.joint_states;
 
+    /* cog */
+    tf::Quaternion baselink_q = root_world * transform_controller_->getRoot2Link(base_link_, joint_state).getRotation();
+    tf::Quaternion tmp1 = transform_controller_->getRoot2Link(base_link_, joint_state).getRotation();
+    state.cog_state.at(3) = baselink_q.x();
+    state.cog_state.at(4) = baselink_q.y();
+    state.cog_state.at(5) = baselink_q.z();
+    state.cog_state.at(6) = baselink_q.w();
+
+    KDL::Rotation kdl_q;
+    tf::quaternionTFToKDL(baselink_q, kdl_q);
     transform_controller_->kinematics(joint_state);
-    tf::Transform cog_root = transform_controller_->getCog();
-    tf::Transform root_world;
-
-    for(int i = 0; i < 7; i++)
-        state.root_state.at(i) = keypose.at(i);
-
-    root_world.setOrigin(tf::Vector3(keypose[0], keypose[1], keypose[2]));
-    root_world.setRotation(tf::Quaternion(keypose[3], keypose[4], keypose[5], keypose[6]));
-    tf::Transform cog_world = root_world * cog_root;
+    tf::Vector3 cog_world_pos = root_world * transform_controller_->getCog().getOrigin();
 
     std::vector<double> keypose_cog;
-    state.cog_state.at(0) = root_world.getOrigin().getX();
-    state.cog_state.at(1) = root_world.getOrigin().getY();
-    state.cog_state.at(2) = root_world.getOrigin().getZ();
-
-    tf::Quaternion q = cog_world.getRotation();
-    state.cog_state.at(3) = q.x();
-    state.cog_state.at(4) = q.y();
-    state.cog_state.at(5) = q.z();
-    state.cog_state.at(6) = q.w();
+    state.cog_state.at(0) = cog_world_pos.getX();
+    state.cog_state.at(1) = cog_world_pos.getY();
+    state.cog_state.at(2) = cog_world_pos.getZ();
 
     return state;
   }
@@ -811,9 +830,9 @@ namespace se2
     return state;
   }
 
-  robot_state::RobotState MotionPlanning::setRobotState2Moveit(State state, boost::shared_ptr<planning_scene::PlanningScene> planning_scene)
+  robot_state::RobotState MotionPlanning::setRobotState2Moveit(State state)
   {
-    robot_state::RobotState& robot_state = planning_scene->getCurrentStateNonConst();
+    robot_state::RobotState& robot_state = planning_scene_->getCurrentStateNonConst();
     robot_state.setVariablePosition(std::string("base/trans_x"), state.root_state.at(0));
     robot_state.setVariablePosition(std::string("base/trans_y"), state.root_state.at(1));
     robot_state.setVariablePosition(std::string("base/trans_z"), state.root_state.at(2));
@@ -831,10 +850,13 @@ namespace se2
   void MotionPlanning::robotOdomCallback(const nav_msgs::OdometryConstPtr& msg)
   {
     robot_cog_odom_ = *msg;
+    real_odom_flag_ = true;
   }
 
   void MotionPlanning::robotJointStatesCallback(const sensor_msgs::JointStateConstPtr& joints_msg)
   {
+    if(!real_odom_flag_) return;
+
     std::vector<double> real_robot_state(7 + start_state_.joint_names.size(), 0);
 
     /* cog, pos, attitude */
@@ -863,13 +885,9 @@ namespace se2
           }
 
         size_t index = std::distance( start_state_.joint_names.begin(), itr );
-        real_robot_state.push_back(joints_msg->position[i]);
+        real_robot_state.at(7 + index) = joints_msg->position[i];
       }
-
-    robot_state::RobotState robot_state = setRobotState2Moveit(cog2root(real_robot_state), real_state_scene_);
-    real_state_scene_->getPlanningSceneMsg(real_state_scene_msg_);
-    real_state_scene_msg_.is_diff = true;
-    real_state_scene_diff_pub_.publish(real_state_scene_msg_);
+    robot_state::RobotState robot_state = setRobotState2Moveit(cog2root(real_robot_state));
 
     /* check collision */
     collision_detection::CollisionRequest collision_request;
@@ -885,9 +903,10 @@ namespace se2
 
     std::vector<double> state_vec(7 + start_state_.joint_names.size(), 0);
 
-    /* convert from euler to quaternion */
+    /* pos and att */
     for(int i = 0; i < 3; i++) state_vec.at(i) = msg->data.at(i);
-    tf::Quaternion q; q.setRPY(msg->data.at(3), msg->data.at(4), msg->data.at(5));
+    /* special: only get yaw angle */
+    tf::Quaternion q; q.setRPY(0, 0, msg->data.at(5));
     state_vec.at(3) = q.x();
     state_vec.at(4) = q.y();
     state_vec.at(5) = q.z();
@@ -895,7 +914,29 @@ namespace se2
     /* joint state: correct order */
     for(int i = 0; i < joint_num_; i++) state_vec.at(7 + i) = msg->data.at(6 + i);
 
-    setRobotState2Moveit(cog2root(state_vec), planning_scene_);
+    if(path_tf_debug_)
+      {
+        /* visualize debug */
+        State new_state = cog2root(state_vec);
+        /* cog to world */
+        tf::TransformBroadcaster br;
+        tf::Transform cog_world(tf::Quaternion(new_state.cog_state.at(3),
+                                               new_state.cog_state.at(4),
+                                               new_state.cog_state.at(5),
+                                               new_state.cog_state.at(6)),
+                                tf::Vector3(new_state.cog_state.at(0),
+                                            new_state.cog_state.at(1),
+                                            new_state.cog_state.at(2)));
+        br.sendTransform(tf::StampedTransform(cog_world.inverse(), ros::Time::now(), "cog", "world"));
+        /* joint state */
+        sensor_msgs::JointState joint_state_msg;
+        joint_state_msg.header.stamp = ros::Time::now();
+        joint_state_msg.name = new_state.joint_names;
+        joint_state_msg.position = new_state.joint_states;
+        joint_state_pub_.publish(joint_state_msg);
+      }
+
+    robot_state::RobotState robot_state = setRobotState2Moveit(cog2root(state_vec));
     planning_scene_->getPlanningSceneMsg(planning_scene_msg_);
     planning_scene_msg_.is_diff = true;
     planning_scene_diff_pub_.publish(planning_scene_msg_);
