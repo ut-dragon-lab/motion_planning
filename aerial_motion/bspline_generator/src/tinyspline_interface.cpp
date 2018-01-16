@@ -57,12 +57,12 @@ void TinysplineInterface::bsplineParamInput(bspline_generator::ControlPoints* ms
   is_uniform_ = msg->is_uniform;
   deg_ = msg->degree;
   dim_ = msg->dim;
+
   if (dim_ < 3)
     ROS_WARN("[TinysplineInterface] Input data dimension is less than 3, display function is infeasible.");
 
   controlpts_num_ = msg->num;
   knots_num_ = controlpts_num_ + deg_ + 1;
-
   if (controlpts_num_ <= deg_){
     ROS_WARN("Control points is LESS than degree!");
     return;
@@ -89,7 +89,7 @@ void TinysplineInterface::bsplineParamInput(bspline_generator::ControlPoints* ms
   /* Set control points value */
   controlpts_ = spline_ptr_->ctrlp();
   for (int i = 0; i < controlpts_num_ * dim_; ++i)
-    controlpts_[i] = msg->control_pts.data[i];
+    controlpts_.at(i) = msg->control_pts.data.at(i);
   spline_ptr_->setCtrlp(controlpts_);
 
   if (debug_){

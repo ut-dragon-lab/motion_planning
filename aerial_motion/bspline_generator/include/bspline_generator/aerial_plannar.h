@@ -40,6 +40,7 @@
 #include <ros/ros.h>
 #include <gap_passing/Endposes.h>
 #include <gap_passing/Keyposes.h>
+#include <gap_passing/PlanningMode.h>
 #include <std_msgs/Float64MultiArray.h>
 #include <std_msgs/MultiArrayDimension.h>
 #include <std_msgs/Empty.h>

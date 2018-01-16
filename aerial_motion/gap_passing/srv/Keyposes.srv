@@ -1,6 +1,4 @@
 ---
-uint8 SE2 = 0
-uint8 SE3 = 1
 bool available_flag
 uint8 motion_type
 uint8 dim

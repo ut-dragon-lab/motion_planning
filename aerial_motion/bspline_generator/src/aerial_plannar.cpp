@@ -34,11 +34,12 @@
  *********************************************************************/
 
 #include <bspline_generator/aerial_plannar.h>
+#include <tf/transform_broadcaster.h>
 
 AerialPlannar::AerialPlannar(ros::NodeHandle nh, ros::NodeHandle nhp):
   nh_(nh), nhp_(nhp),
   move_start_flag_(false),
-  motion_type_(gap_passing::Keyposes::Response::SE2)
+  motion_type_(gap_passing::PlanningMode::SE2)
 {
   bspline_ptr_ = boost::shared_ptr<TinysplineInterface>(new TinysplineInterface(nh_, nhp_));
   control_pts_ptr_ = new bspline_generator::ControlPoints();
@@ -46,7 +47,6 @@ AerialPlannar::AerialPlannar(ros::NodeHandle nh, ros::NodeHandle nhp):
   control_pts_ptr_->control_pts.layout.dim.push_back(std_msgs::MultiArrayDimension());
   control_pts_ptr_->control_pts.layout.dim[0].label = "height";
   control_pts_ptr_->control_pts.layout.dim[1].label = "width";
-
   nhp_.param("control_frequency", controller_freq_, 40.0);
   nhp_.param("trajectory_period", trajectory_period_, 100.0);
   nhp_.param("bspline_degree", bspline_degree_, 5);
@@ -96,11 +96,11 @@ void AerialPlannar::adjustInitalStateCallback(const std_msgs::Empty msg)
   nav_msg.target_pos_y = initial_state[1];
 
   /* z */
-  if(motion_type_ == gap_passing::Keyposes::Response::SE2)
+  if(motion_type_ == gap_passing::PlanningMode::SE2)
     {
       nav_msg.pos_z_nav_mode = nav_msg.NO_NAVIGATION;
     }
-  else if(motion_type_ == gap_passing::Keyposes::Response::SE3)
+  else if(motion_type_ == gap_passing::PlanningMode::SE3)
     {
       nav_msg.pos_z_nav_mode = nav_msg.POS_MODE;
       nav_msg.target_pos_z = initial_state[2];
@@ -141,7 +141,6 @@ void AerialPlannar::navigate(const ros::TimerEvent& event)
 
   /* send the desired continous path for display (visualize) */
   std_msgs::Float64MultiArray desired_state;
-  //for (int i = 0; i < 6 + joint_num_; ++i) desired_state.data.push_back(des_pos[i]);
   desired_state.data = des_pos;
   desired_state_pub_.publish(desired_state);
 
@@ -158,11 +157,11 @@ void AerialPlannar::navigate(const ros::TimerEvent& event)
   nav_msg.target_vel_x = des_vel[0];
   nav_msg.target_vel_y = des_vel[1];
   /* z axis */
-  if(motion_type_ == gap_passing::Keyposes::Response::SE2)
+  if(motion_type_ == gap_passing::PlanningMode::SE2)
     {
       nav_msg.pos_z_nav_mode = nav_msg.NO_NAVIGATION;
     }
-  else if(motion_type_ == gap_passing::Keyposes::Response::SE3)
+  else if(motion_type_ == gap_passing::PlanningMode::SE3)
     {
       nav_msg.pos_z_nav_mode = nav_msg.POS_VEL_MODE;
       nav_msg.target_pos_z = des_pos[2];
@@ -191,7 +190,7 @@ void AerialPlannar::navigate(const ros::TimerEvent& event)
   /* se3: roll & pitch */
   aerial_robot_base::DesireCoord att_msg;
   att_msg.roll = des_pos[3];
-  att_msg.pitch = des_vel[4];
+  att_msg.pitch = des_pos[4];
   se3_roll_pitch_nav_pub_.publish(att_msg);
 }
 
@@ -201,7 +200,7 @@ void AerialPlannar::waitForKeyposes()
 
   gap_passing::Keyposes keyposes_srv;
   while (!sampling_plannar_client.call(keyposes_srv)){
-    // waiting for keyposes
+    ROS_INFO_THROTTLE(1.0, "waiting for the discrete key poses");
   }
   if (!keyposes_srv.response.available_flag){
     ROS_WARN("keyposes is not available, try again");
@@ -220,7 +219,6 @@ void AerialPlannar::waitForKeyposes()
     control_pts_ptr_->is_uniform = true; // TODO: shi
     control_pts_ptr_->start_time = 0.0;
     control_pts_ptr_->end_time = trajectory_period_;
-
     control_pts_ptr_->control_pts.layout.dim[0].size = control_pts_ptr_->num;
     control_pts_ptr_->control_pts.layout.dim[1].size = control_pts_ptr_->dim;
     control_pts_ptr_->control_pts.layout.dim[0].stride = control_pts_ptr_->num * control_pts_ptr_->dim;
@@ -228,25 +226,25 @@ void AerialPlannar::waitForKeyposes()
     control_pts_ptr_->control_pts.layout.data_offset = 0;
 
     control_pts_ptr_->control_pts.data.resize(0);
+    for (int i = -1; i < (int)keyposes_srv.response.states_cnt + 1; i++)
+      {
+        // add one more start & end keypose to guarantee speed 0
+        int id = i;
+        if (id < 0)
+          id = 0;
+        else if (id >= keyposes_srv.response.states_cnt)
+          id = keyposes_srv.response.states_cnt - 1;
+        int index_s = id * keyposes_srv.response.dim;
 
-    for (int i = -1; i < keyposes_srv.response.states_cnt + 1; ++i){
-      // add one more start & end keypose to guarantee speed 0
-      int id = i;
-      if (id < 0)
-        id = 0;
-      else if (id >= keyposes_srv.response.states_cnt)
-        id = keyposes_srv.response.states_cnt - 1;
-      int index_s = id * keyposes_srv.response.dim;
-
-      /* general state: pos_x, pos_y, pos_z, roll, pitch, yaw, joints */
-      for (int j = 0; j < 5; ++j)
-        control_pts_ptr_->control_pts.data.push_back(keyposes_srv.response.data.data[index_s + j]);
-      /* keep yaw euler angle continous */
-      control_pts_ptr_->control_pts.data.push_back(generateContinousEulerAngle(keyposes_srv.response.data.data[index_s + 5], id));
-      for (int j = 6; j < keyposes_srv.response.dim; ++j)
-        control_pts_ptr_->control_pts.data.push_back(keyposes_srv.response.data.data[index_s + j]);
+        /* general state: pos_x, pos_y, pos_z, roll, pitch, yaw, joints */
+        for (int j = 0; j < 5; ++j)
+          control_pts_ptr_->control_pts.data.push_back(keyposes_srv.response.data.data[index_s + j]);
+        //ROS_INFO("roll: %f, pitch: %f", keyposes_srv.response.data.data[index_s + 3], keyposes_srv.response.data.data[index_s + 4]);
+        /* keep yaw euler angle continous */
+        control_pts_ptr_->control_pts.data.push_back(generateContinousEulerAngle(keyposes_srv.response.data.data[index_s + 5], id));
+        for (int j = 6; j < keyposes_srv.response.dim; ++j)
+          control_pts_ptr_->control_pts.data.push_back(keyposes_srv.response.data.data[index_s + j]);
     }
-
 
     bspline_ptr_->bsplineParamInput(control_pts_ptr_);
     bspline_ptr_->getDerive();
