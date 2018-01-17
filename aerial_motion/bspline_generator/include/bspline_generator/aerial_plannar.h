@@ -47,6 +47,7 @@
 #include <sensor_msgs/JointState.h>
 #include <aerial_robot_base/FlightNav.h>
 #include <aerial_robot_base/DesireCoord.h>
+#include <aerial_robot_base/FlightConfigCmd.h>
 
 /* continous path generator */
 #include <bspline_generator/tinyspline_interface.h>
@@ -72,6 +73,7 @@ private:
   ros::Subscriber inquiry_robot_state_sub_;
   ros::Subscriber move_start_flag_sub_;
   ros::Subscriber adjust_initial_state_sub_;
+  ros::Subscriber flight_config_sub_;
   ros::Publisher desired_state_pub_;
   ros::Publisher joints_ctrl_pub_;
   ros::Publisher flight_nav_pub_;
@@ -101,6 +103,7 @@ private:
 
   void moveStartCallback(const std_msgs::Empty msg);
   void adjustInitalStateCallback(const std_msgs::Empty msg);
+  void flightConfigCallback(const aerial_robot_base::FlightConfigCmdConstPtr msg);
 
   double generateContinousEulerAngle(double ang, int id)
   {

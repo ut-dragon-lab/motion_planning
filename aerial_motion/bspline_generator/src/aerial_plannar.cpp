@@ -57,6 +57,7 @@ AerialPlannar::AerialPlannar(ros::NodeHandle nh, ros::NodeHandle nhp):
 
   move_start_flag_sub_ = nh_.subscribe("/move_start", 1, &AerialPlannar::moveStartCallback, this);
   adjust_initial_state_sub_ = nh_.subscribe("/adjust_robot_initial_state", 1, &AerialPlannar::adjustInitalStateCallback, this);
+  flight_config_sub_ = nh_.subscribe("/flight_config_cmd", 1,  &AerialPlannar::flightConfigCallback, this);
   desired_state_pub_ = nh_.advertise<std_msgs::Float64MultiArray>("/desired_state", 1);
   std::string topic_name;
   nhp_.param("joint_control_topic_name", topic_name, std::string("joints_ctrl"));
@@ -131,6 +132,15 @@ void AerialPlannar::moveStartCallback(const std_msgs::Empty msg)
   ROS_INFO("[AerialPlannar] Receive move start topic.");
 }
 
+void AerialPlannar::flightConfigCallback(const aerial_robot_base::FlightConfigCmdConstPtr msg)
+{
+  if(msg->cmd == aerial_robot_base::FlightConfigCmd::FORCE_LANDING_CMD)
+    {
+      ROS_INFO("[AerialPlannar] Receive force landing command, stop navigation.");
+      move_start_flag_ = false;
+    }
+}
+
 void AerialPlannar::navigate(const ros::TimerEvent& event)
 {
   if (!move_start_flag_) return;
@@ -192,6 +202,16 @@ void AerialPlannar::navigate(const ros::TimerEvent& event)
   att_msg.roll = des_pos[3];
   att_msg.pitch = des_pos[4];
   se3_roll_pitch_nav_pub_.publish(att_msg);
+
+
+  /* check the end of navigation */
+  if(cur_time > trajectory_period_ + 1.0) // margin: 1.0 [sec]
+    {
+      ROS_INFO("[AerialPlannar] Finish Navigation");
+      move_start_flag_ = false;
+    }
+
+
 }
 
 void AerialPlannar::waitForKeyposes()
