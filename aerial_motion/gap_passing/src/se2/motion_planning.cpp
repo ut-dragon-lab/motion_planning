@@ -55,13 +55,6 @@ namespace se2
     planning_scene_diff_pub_ = nh_.advertise<moveit_msgs::PlanningScene>("planning_scene", 1);
     keyposes_server_ = nh_.advertiseService("keyposes_server", &MotionPlanning::getKeyposes, this);
 
-    robot_cog_odom_sub_ = nh_.subscribe("/uav/cog/odom", 1, &MotionPlanning::robotOdomCallback, this);
-    std::string topic_name;
-    nhp_.param("joint_state_topic_name", topic_name, std::string("joint_states"));
-    robot_joint_states_sub_ = nh_.subscribe(topic_name, 1, &MotionPlanning::robotJointStatesCallback, this);
-    continous_path_sub_ = nh_.subscribe("/desired_state", 1, &MotionPlanning::continousPathCallback, this);
-    baselink_desired_att_.setRPY(0, 0, 0);
-    baselink_desired_attitude_sub_ = nh_.subscribe("/desire_coordinate", 1, &MotionPlanning::desireCoordinateCallback, this);
   }
 
   void MotionPlanning::baseInit()
@@ -81,6 +74,14 @@ namespace se2
 
     if(play_path_flag_)
       {
+        robot_cog_odom_sub_ = nh_.subscribe("/uav/cog/odom", 1, &MotionPlanning::robotOdomCallback, this);
+        std::string topic_name;
+        nhp_.param("joint_state_topic_name", topic_name, std::string("joint_states"));
+        robot_joint_states_sub_ = nh_.subscribe(topic_name, 1, &MotionPlanning::robotJointStatesCallback, this);
+        continous_path_sub_ = nh_.subscribe("/desired_state", 1, &MotionPlanning::continousPathCallback, this);
+        baselink_desired_att_.setRPY(0, 0, 0);
+        baselink_desired_attitude_sub_ = nh_.subscribe("/desire_coordinate", 1, &MotionPlanning::desireCoordinateCallback, this);
+
         sceneInit();
 
         if(!load_path_flag_) plan();
