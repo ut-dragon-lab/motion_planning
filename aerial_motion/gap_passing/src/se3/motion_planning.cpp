@@ -171,7 +171,6 @@ namespace se3
     planning_scene_->checkCollision(collision_request, collision_result, robot_state, acm_);
 
     if(collision_result.collision) return false;
-
     return true;
   }
 
@@ -262,48 +261,52 @@ namespace se3
         collision_object.primitives.push_back(wall_primitive);
         collision_object.primitive_poses.push_back(wall_pose);
 
-        /* ceil */
-        wall_pose.position.x = 0;
-        wall_pose.position.y = 0;
-        wall_pose.position.z = z_high_bound_;
-        wall_primitive.dimensions[0] = wall_length;
-        wall_primitive.dimensions[1] = wall_length;
-        wall_primitive.dimensions[2] = 0.05;
-        collision_object.primitives.push_back(wall_primitive);
-        collision_object.primitive_poses.push_back(wall_pose);
+        if(!load_path_flag_)
+          {
+            /* planning mode */
+            /* ceil */
+            wall_pose.position.x = 0;
+            wall_pose.position.y = 0;
+            wall_pose.position.z = z_high_bound_;
+            wall_primitive.dimensions[0] = wall_length;
+            wall_primitive.dimensions[1] = wall_length;
+            wall_primitive.dimensions[2] = 0.05;
+            collision_object.primitives.push_back(wall_primitive);
+            collision_object.primitive_poses.push_back(wall_pose);
 
-        /* ground */
-        wall_pose.position.z = 0;
-        collision_object.primitives.push_back(wall_primitive);
-        collision_object.primitive_poses.push_back(wall_pose);
+            /* ground */
+            wall_pose.position.z = 0;
+            collision_object.primitives.push_back(wall_primitive);
+            collision_object.primitive_poses.push_back(wall_pose);
 
-        /* side wall */
-        wall_pose.position.x = x_high_bound_;
-        wall_pose.position.y = 0;
-        //wall_pose.position.z = gap_height;
-        wall_pose.position.z = gap_height/ 2;
-        wall_primitive.dimensions[0] = 0.05;
-        wall_primitive.dimensions[1] = y_high_bound_ - y_low_bound_;
-        //wall_primitive.dimensions[2] = 2 * gap_height;
-        wall_primitive.dimensions[2] = gap_height;
-        collision_object.primitives.push_back(wall_primitive);
-        collision_object.primitive_poses.push_back(wall_pose);
+            /* side wall */
+            wall_pose.position.x = x_high_bound_;
+            wall_pose.position.y = 0;
+            //wall_pose.position.z = gap_height;
+            wall_pose.position.z = gap_height/ 2;
+            wall_primitive.dimensions[0] = 0.05;
+            wall_primitive.dimensions[1] = y_high_bound_ - y_low_bound_;
+            //wall_primitive.dimensions[2] = 2 * gap_height;
+            wall_primitive.dimensions[2] = gap_height;
+            collision_object.primitives.push_back(wall_primitive);
+            collision_object.primitive_poses.push_back(wall_pose);
 
-        wall_pose.position.x = x_low_bound_;
-        collision_object.primitives.push_back(wall_primitive);
-        collision_object.primitive_poses.push_back(wall_pose);
+            wall_pose.position.x = x_low_bound_;
+            collision_object.primitives.push_back(wall_primitive);
+            collision_object.primitive_poses.push_back(wall_pose);
 
-        wall_pose.position.x = 0;
-        wall_pose.position.y = y_high_bound_;
-        wall_primitive.dimensions[0] = x_high_bound_ - x_low_bound_;
-        wall_primitive.dimensions[1] = 0.05;
-        collision_object.primitives.push_back(wall_primitive);
-        collision_object.primitive_poses.push_back(wall_pose);
+            wall_pose.position.x = 0;
+            wall_pose.position.y = y_high_bound_;
+            wall_primitive.dimensions[0] = x_high_bound_ - x_low_bound_;
+            wall_primitive.dimensions[1] = 0.05;
+            collision_object.primitives.push_back(wall_primitive);
+            collision_object.primitive_poses.push_back(wall_pose);
 
-        wall_pose.position.x = 0;
-        wall_pose.position.y = y_low_bound_;
-        collision_object.primitives.push_back(wall_primitive);
-        collision_object.primitive_poses.push_back(wall_pose);
+            wall_pose.position.x = 0;
+            wall_pose.position.y = y_low_bound_;
+            collision_object.primitives.push_back(wall_primitive);
+            collision_object.primitive_poses.push_back(wall_pose);
+          }
       }
 
     collision_object.operation = collision_object.ADD;
@@ -359,6 +362,7 @@ namespace se3
         motion_bounds.high[0] = x_high_bound_;
         motion_bounds.high[1] = y_high_bound_;
         motion_bounds.high[2] = z_high_bound_;
+
         r_base->as<ompl::base::SE3StateSpace>()->setBounds(motion_bounds);
       }
 
@@ -502,6 +506,15 @@ namespace se3
     nhp_.param("goal_state_pitch", p, 0.0);
     nhp_.param("goal_state_yaw", y, 0.0);
     goal_state_.setRootRPY(r, p, y);
+
+    if(nhp_.hasParam("goal_state_qx"))
+      {
+        ROS_WARN("get quaternion goal rotation");
+        nhp_.getParam("goal_state_qx", goal_state_.root_state.at(3));
+        nhp_.getParam("goal_state_qy", goal_state_.root_state.at(4));
+        nhp_.getParam("goal_state_qz", goal_state_.root_state.at(5));
+        nhp_.getParam("goal_state_qw", goal_state_.root_state.at(6));
+      }
 
     nhp_.param("gimbal_roll_thresh", gimbal_roll_thresh_, 1.6);
     nhp_.param("gimbal_pitch_thresh", gimbal_pitch_thresh_, 1.1);
