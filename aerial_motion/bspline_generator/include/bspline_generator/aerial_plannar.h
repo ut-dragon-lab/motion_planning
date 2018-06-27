@@ -45,9 +45,9 @@
 #include <std_msgs/MultiArrayDimension.h>
 #include <std_msgs/Empty.h>
 #include <sensor_msgs/JointState.h>
-#include <aerial_robot_base/FlightNav.h>
-#include <aerial_robot_base/DesireCoord.h>
-#include <aerial_robot_base/FlightConfigCmd.h>
+#include <aerial_robot_msgs/FlightNav.h>
+#include <spinal/DesireCoord.h>
+#include <spinal/FlightConfigCmd.h>
 
 /* continous path generator */
 #include <bspline_generator/tinyspline_interface.h>
@@ -103,7 +103,7 @@ private:
 
   void moveStartCallback(const std_msgs::Empty msg);
   void adjustInitalStateCallback(const std_msgs::Empty msg);
-  void flightConfigCallback(const aerial_robot_base::FlightConfigCmdConstPtr msg);
+  void flightConfigCallback(const spinal::FlightConfigCmdConstPtr msg);
 
   double generateContinousEulerAngle(double ang, int id)
   {

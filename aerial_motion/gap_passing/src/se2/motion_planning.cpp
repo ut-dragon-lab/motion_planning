@@ -943,7 +943,7 @@ namespace se2
     planning_scene_diff_pub_.publish(planning_scene_msg_);
   }
 
-  void MotionPlanning::desireCoordinateCallback(const aerial_robot_base::DesireCoordConstPtr & msg)
+  void MotionPlanning::desireCoordinateCallback(const spinal::DesireCoordConstPtr & msg)
   {
     baselink_desired_att_.setRPY(msg->roll, msg->pitch, msg->yaw);
   }

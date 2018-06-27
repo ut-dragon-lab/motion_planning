@@ -265,7 +265,7 @@ namespace se2
     void robotOdomCallback(const nav_msgs::OdometryConstPtr& msg);
     void robotJointStatesCallback(const sensor_msgs::JointStateConstPtr& joint_msg);
     void continousPathCallback(const std_msgs::Float64MultiArrayConstPtr& msg);
-    void desireCoordinateCallback(const aerial_robot_base::DesireCoordConstPtr & msg);
+    void desireCoordinateCallback(const spinal::DesireCoordConstPtr & msg);
   };
 
 };

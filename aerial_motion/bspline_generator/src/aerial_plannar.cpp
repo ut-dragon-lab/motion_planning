@@ -62,8 +62,8 @@ AerialPlannar::AerialPlannar(ros::NodeHandle nh, ros::NodeHandle nhp):
   std::string topic_name;
   nhp_.param("joint_control_topic_name", topic_name, std::string("joints_ctrl"));
   joints_ctrl_pub_ = nh_.advertise<sensor_msgs::JointState>(topic_name, 1);
-  flight_nav_pub_ = nh_.advertise<aerial_robot_base::FlightNav>("/uav/nav", 1);
-  se3_roll_pitch_nav_pub_ = nh_.advertise<aerial_robot_base::DesireCoord>("/desire_coordinate", 1);
+  flight_nav_pub_ = nh_.advertise<aerial_robot_msgs::FlightNav>("/uav/nav", 1);
+  se3_roll_pitch_nav_pub_ = nh_.advertise<spinal::DesireCoord>("/desire_coordinate", 1);
   spline_init_thread_ = boost::thread(boost::bind(&AerialPlannar::splineInitThread, this));
   navigate_timer_ = nh_.createTimer(ros::Duration(1.0 / controller_freq_), &AerialPlannar::navigate, this);
 }
@@ -85,7 +85,7 @@ void AerialPlannar::adjustInitalStateCallback(const std_msgs::Empty msg)
   std::vector<double> initial_state = getKeypose(0);
 
   /* publish uav nav */
-  aerial_robot_base::FlightNav nav_msg;
+  aerial_robot_msgs::FlightNav nav_msg;
   nav_msg.header.frame_id = std::string("/world");
   nav_msg.header.stamp = ros::Time::now();
 
@@ -119,7 +119,7 @@ void AerialPlannar::adjustInitalStateCallback(const std_msgs::Empty msg)
   joints_ctrl_pub_.publish(joints_msg);
 
   /* se3: roll & pitch */
-  aerial_robot_base::DesireCoord att_msg;
+  spinal::DesireCoord att_msg;
   att_msg.roll = initial_state[3];
   att_msg.pitch = initial_state[4];
   se3_roll_pitch_nav_pub_.publish(att_msg);
@@ -132,9 +132,9 @@ void AerialPlannar::moveStartCallback(const std_msgs::Empty msg)
   ROS_INFO("[AerialPlannar] Receive move start topic.");
 }
 
-void AerialPlannar::flightConfigCallback(const aerial_robot_base::FlightConfigCmdConstPtr msg)
+void AerialPlannar::flightConfigCallback(const spinal::FlightConfigCmdConstPtr msg)
 {
-  if(msg->cmd == aerial_robot_base::FlightConfigCmd::FORCE_LANDING_CMD)
+  if(msg->cmd == spinal::FlightConfigCmd::FORCE_LANDING_CMD)
     {
       ROS_INFO("[AerialPlannar] Receive force landing command, stop navigation.");
       move_start_flag_ = false;
@@ -155,7 +155,7 @@ void AerialPlannar::navigate(const ros::TimerEvent& event)
   desired_state_pub_.publish(desired_state);
 
   /* send general flight navigation command (pos + yaw) */
-  aerial_robot_base::FlightNav nav_msg;
+  aerial_robot_msgs::FlightNav nav_msg;
   nav_msg.header.frame_id = std::string("/world");
   nav_msg.header.stamp = ros::Time::now();
   /* x & y */
@@ -198,7 +198,7 @@ void AerialPlannar::navigate(const ros::TimerEvent& event)
     }
 
   /* se3: roll & pitch */
-  aerial_robot_base::DesireCoord att_msg;
+  spinal::DesireCoord att_msg;
   att_msg.roll = des_pos[3];
   att_msg.pitch = des_pos[4];
   se3_roll_pitch_nav_pub_.publish(att_msg);
