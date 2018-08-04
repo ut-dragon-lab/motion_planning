@@ -6,7 +6,8 @@ import rospy
 
 import math
 from sensor_msgs.msg import JointState
-from aerial_robot_base.msg import FlightNav, DesireCoord
+from aerial_robot_msgs.msg import FlightNav
+from spinal.msg import DesireCoord
 
 if __name__=="__main__":
     rospy.init_node("return")
