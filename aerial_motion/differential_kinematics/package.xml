@@ -1,0 +1,31 @@
+<?xml version="1.0"?>
+<package >
+  <name>differential_kinematics</name>
+  <version>1.0.0</version>
+  <description>The differential_kinematics package</description>
+
+  <maintainer email="chou@jsk.imi.i.u-tokyo.ac.jp">chou</maintainer>
+
+  <license>BSD</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <build_depend>roscpp</build_depend>
+  <build_depend>hydrus</build_depend>
+  <build_depend>dragon</build_depend>
+  <build_depend>pluginlib</build_depend>
+  <build_depend>libccd-dev</build_depend>
+
+  <run_depend>roscpp</run_depend>
+  <run_depend>hydrus</run_depend>
+  <run_depend>dragon</run_depend>
+  <run_depend>pluginlib</run_depend>
+  <run_depend>libccd-dev</run_depend>
+
+  <export>
+    <differential_kinematics plugin="${prefix}/differential_kinematics_cost.xml" />
+    <differential_kinematics plugin="${prefix}/differential_kinematics_constraint.xml" />
+    <differential_kinematics plugin="${prefix}/differential_kinematics_se3_constraint.xml" />
+  </export>
+
+</package>
