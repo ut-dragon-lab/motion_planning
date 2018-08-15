@@ -14,7 +14,7 @@ set(PACKAGE_DEPENDENCIES
   nav_msgs
   sensor_msgs
   tf
-  gap_passing
+  sampling_based_method
   aerial_robot_base
   message_generation
 )

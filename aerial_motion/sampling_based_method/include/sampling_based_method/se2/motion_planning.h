@@ -38,9 +38,9 @@
 
 /* ros */
 #include <ros/ros.h>
-#include <gap_passing/Keyposes.h>
-#include <gap_passing/Endposes.h>
-#include <gap_passing/PlanningMode.h>
+#include <sampling_based_method/Keyposes.h>
+#include <sampling_based_method/Endposes.h>
+#include <sampling_based_method/PlanningMode.h>
 #include <nav_msgs/Odometry.h>
 #include <sensor_msgs/JointState.h>
 #include <std_msgs/Float64MultiArray.h>
@@ -245,7 +245,7 @@ namespace se2
       return ompl::base::ValidStateSamplerPtr(new ompl::base::ObstacleBasedValidStateSampler(si));
     }
 
-    bool getKeyposes(gap_passing::Keyposes::Request &req, gap_passing::Keyposes::Response &res);
+    bool getKeyposes(sampling_based_method::Keyposes::Request &req, sampling_based_method::Keyposes::Response &res);
     void addState(State state) { path_.push_back(state); }
 
     virtual void planInit();

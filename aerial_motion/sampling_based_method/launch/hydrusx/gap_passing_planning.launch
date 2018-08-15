@@ -22,18 +22,18 @@
     </include >
 
     <node name="rviz" pkg="rviz" type="rviz"
-          args="-d $(find gap_passing)/config/planning.rviz" respawn="true" />
+          args="-d $(find sampling_based_method)/config/planning.rviz" respawn="true" />
   </group>
 
   ########## Planning for gap passing ###########
-  <param name="/robot_description_semantic" textfile="$(find gap_passing)/config/hydrusx/$(arg type)/moveit.srdf" />
+  <param name="/robot_description_semantic" textfile="$(find sampling_based_method)/config/hydrusx/$(arg type)/moveit.srdf" />
 
-  <node name="motion_planning_node" pkg="gap_passing" type="se2_motion_planning_node" respawn="false" output="screen">
+  <node name="motion_planning_node" pkg="sampling_based_method" type="se2_motion_planning_node" respawn="false" output="screen">
     <param name="play_path_flag" type="bool" value="$(arg play_path_flag)"/>
     <param name="save_path_flag" type="bool" value="$(arg save_path_flag)" />
     <param name="load_path_flag" type="bool" value="$(arg load_path_flag)" />
 
-    <param name="file_name" value="$(find gap_passing)/path_log/hydrus/$(arg path_file_name)" />
+    <param name="file_name" value="$(find sampling_based_method)/path_log/hydrus/$(arg path_file_name)" />
 
     <param name="coefficient_rate" value="0.05"/>
     <param name="planning_mode" value="1" unless="$(arg transformation)"/>
@@ -53,9 +53,9 @@
 
     <!-- for specific param -->
     <rosparam file="$(find hydrus)/config/hydrusx/$(arg type)/Hydrus.yaml" command="load" />
-    <rosparam file="$(find gap_passing)/config/hydrusx/$(arg type)/GapWithTransformation.yaml" command="load" if="$(arg transformation)"/>
-    <rosparam file="$(find gap_passing)/config/hydrusx/$(arg type)/GapWithoutTransformation.yaml" command="load" unless="$(arg transformation)"/>
-    <rosparam file="$(find gap_passing)/config/gap/HorizontalGapNoOverlap.yaml" command="load" />
+    <rosparam file="$(find sampling_based_method)/config/hydrusx/$(arg type)/GapWithTransformation.yaml" command="load" if="$(arg transformation)"/>
+    <rosparam file="$(find sampling_based_method)/config/hydrusx/$(arg type)/GapWithoutTransformation.yaml" command="load" unless="$(arg transformation)"/>
+    <rosparam file="$(find sampling_based_method)/config/gap/HorizontalGapNoOverlap.yaml" command="load" />
   </node>
 
   ###########  Aerial trajectory  ###########

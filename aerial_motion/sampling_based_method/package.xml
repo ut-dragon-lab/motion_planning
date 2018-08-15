@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <package>
-  <name>gap_passing</name>
+  <name>sampling_based_method</name>
   <version>0.1.0</version>
-  <description>gap_passing </description>
+  <description>sampling_based_method </description>
 
   <maintainer email="chou@jsk.imi.i.u-tokyo.ac.jp">Bakui Chou</maintainer> 
   <license>BSD</license>

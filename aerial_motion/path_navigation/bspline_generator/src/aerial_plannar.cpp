@@ -39,7 +39,7 @@
 AerialPlannar::AerialPlannar(ros::NodeHandle nh, ros::NodeHandle nhp):
   nh_(nh), nhp_(nhp),
   move_start_flag_(false),
-  motion_type_(gap_passing::PlanningMode::SE2)
+  motion_type_(sampling_based_method::PlanningMode::SE2)
 {
   bspline_ptr_ = boost::shared_ptr<TinysplineInterface>(new TinysplineInterface(nh_, nhp_));
   control_pts_ptr_ = new bspline_generator::ControlPoints();
@@ -97,11 +97,11 @@ void AerialPlannar::adjustInitalStateCallback(const std_msgs::Empty msg)
   nav_msg.target_pos_y = initial_state[1];
 
   /* z */
-  if(motion_type_ == gap_passing::PlanningMode::SE2)
+  if(motion_type_ == sampling_based_method::PlanningMode::SE2)
     {
       nav_msg.pos_z_nav_mode = nav_msg.NO_NAVIGATION;
     }
-  else if(motion_type_ == gap_passing::PlanningMode::SE3)
+  else if(motion_type_ == sampling_based_method::PlanningMode::SE3)
     {
       nav_msg.pos_z_nav_mode = nav_msg.POS_MODE;
       nav_msg.target_pos_z = initial_state[2];
@@ -167,11 +167,11 @@ void AerialPlannar::navigate(const ros::TimerEvent& event)
   nav_msg.target_vel_x = des_vel[0];
   nav_msg.target_vel_y = des_vel[1];
   /* z axis */
-  if(motion_type_ == gap_passing::PlanningMode::SE2)
+  if(motion_type_ == sampling_based_method::PlanningMode::SE2)
     {
       nav_msg.pos_z_nav_mode = nav_msg.NO_NAVIGATION;
     }
-  else if(motion_type_ == gap_passing::PlanningMode::SE3)
+  else if(motion_type_ == sampling_based_method::PlanningMode::SE3)
     {
       nav_msg.pos_z_nav_mode = nav_msg.POS_VEL_MODE;
       nav_msg.target_pos_z = des_pos[2];
@@ -216,9 +216,9 @@ void AerialPlannar::navigate(const ros::TimerEvent& event)
 
 void AerialPlannar::waitForKeyposes()
 {
-  ros::ServiceClient sampling_plannar_client = nh_.serviceClient<gap_passing::Keyposes>("keyposes_server");
+  ros::ServiceClient sampling_plannar_client = nh_.serviceClient<sampling_based_method::Keyposes>("keyposes_server");
 
-  gap_passing::Keyposes keyposes_srv;
+  sampling_based_method::Keyposes keyposes_srv;
   while (!sampling_plannar_client.call(keyposes_srv)){
     ROS_INFO_THROTTLE(1.0, "waiting for the discrete key poses");
   }

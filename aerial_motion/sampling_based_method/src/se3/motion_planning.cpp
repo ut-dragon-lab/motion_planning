@@ -37,7 +37,7 @@
 /* may be not need: the desire tilt angle of cog(baselink) can be validated in the state validation method */
 
 
-#include <gap_passing/se3/motion_planning.h>
+#include <sampling_based_method/se3/motion_planning.h>
 
 /* the StabilityObjective does not work!!!!! */
 namespace se3
@@ -77,14 +77,14 @@ namespace se3
   {
     State current_state = start_state_;
 
-    if(planning_mode_ == gap_passing::PlanningMode::ONLY_JOINTS_MODE)
+    if(planning_mode_ == sampling_based_method::PlanningMode::ONLY_JOINTS_MODE)
       {
         for(int i = 0; i < joint_num_; i++)
           current_state.joint_states.at(i) = state->as<ompl::base::RealVectorStateSpace::StateType>()->values[i];
       }
-    else if(planning_mode_ == gap_passing::PlanningMode::ONLY_BASE_MODE)
+    else if(planning_mode_ == sampling_based_method::PlanningMode::ONLY_BASE_MODE)
       {
-        if(motion_type_ == gap_passing::PlanningMode::SE2)
+        if(motion_type_ == sampling_based_method::PlanningMode::SE2)
           {
             current_state.root_state.at(0) = state->as<ompl::base::SE2StateSpace::StateType>()->getX();
             current_state.root_state.at(1) = state->as<ompl::base::SE2StateSpace::StateType>()->getY();
@@ -95,7 +95,7 @@ namespace se3
             current_state.root_state.at(6) = q.w();
           }
 
-        if(motion_type_ == gap_passing::PlanningMode::SE3)
+        if(motion_type_ == sampling_based_method::PlanningMode::SE3)
           {
             current_state.root_state.at(0) = state->as<ompl::base::SE3StateSpace::StateType>()->getX();
             current_state.root_state.at(1) = state->as<ompl::base::SE3StateSpace::StateType>()->getY();
@@ -106,10 +106,10 @@ namespace se3
             current_state.root_state.at(6) = state->as<ompl::base::SE3StateSpace::StateType>()->rotation().w;
           }
       }
-    else if(planning_mode_ == gap_passing::PlanningMode::JOINTS_AND_BASE_MODE)
+    else if(planning_mode_ == sampling_based_method::PlanningMode::JOINTS_AND_BASE_MODE)
       {
         const ompl::base::CompoundState* state_tmp = dynamic_cast<const ompl::base::CompoundState*>(state);
-        if(motion_type_ == gap_passing::PlanningMode::SE2)
+        if(motion_type_ == sampling_based_method::PlanningMode::SE2)
           {
             current_state.root_state.at(0) = state_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->getX();
             current_state.root_state.at(1) = state_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->getY();
@@ -119,7 +119,7 @@ namespace se3
             current_state.root_state.at(5) = q.z();
             current_state.root_state.at(6) = q.w();
           }
-        if(motion_type_ == gap_passing::PlanningMode::SE3)
+        if(motion_type_ == sampling_based_method::PlanningMode::SE3)
           {
             current_state.root_state.at(0) = state_tmp->as<ompl::base::SE3StateSpace::StateType>(0)->getX();
             current_state.root_state.at(1) = state_tmp->as<ompl::base::SE3StateSpace::StateType>(0)->getY();
@@ -337,7 +337,7 @@ namespace se3
     //planning
     //x, y
     ompl::base::StateSpacePtr r_base;
-    if(motion_type_ == gap_passing::PlanningMode::SE2)
+    if(motion_type_ == sampling_based_method::PlanningMode::SE2)
       {
         r_base = std::shared_ptr<ompl::base::SE2StateSpace>(new ompl::base::SE2StateSpace());
 
@@ -349,7 +349,7 @@ namespace se3
         r_base->as<ompl::base::SE2StateSpace>()->setBounds(motion_bounds);
       }
 
-    if(motion_type_ == gap_passing::PlanningMode::SE3)
+    if(motion_type_ == sampling_based_method::PlanningMode::SE3)
       {
         r_base = std::shared_ptr<ompl::base::SE3StateSpace>(new ompl::base::SE3StateSpace());
 
@@ -377,7 +377,7 @@ namespace se3
       }
     r_joints->as<ompl::base::RealVectorStateSpace>()->setBounds(joint_bounds);
 
-    if(planning_mode_ == gap_passing::PlanningMode::ONLY_JOINTS_MODE)
+    if(planning_mode_ == sampling_based_method::PlanningMode::ONLY_JOINTS_MODE)
       {
         config_space_ = r_joints;
         config_space_->as<ompl::base::RealVectorStateSpace>()->setValidSegmentCountFactor(valid_segment_count_factor_);
@@ -389,7 +389,7 @@ namespace se3
         space_information_->setup();
 
       }
-    else if(planning_mode_ == gap_passing::PlanningMode::ONLY_BASE_MODE)
+    else if(planning_mode_ == sampling_based_method::PlanningMode::ONLY_BASE_MODE)
       {
         config_space_ = r_base;
         config_space_->as<ompl::base::SE3StateSpace>()->setValidSegmentCountFactor(valid_segment_count_factor_);
@@ -400,7 +400,7 @@ namespace se3
         space_information_->setMotionValidator(ompl::base::MotionValidatorPtr(new ompl::base::DiscreteMotionValidator(space_information_)));
         space_information_->setup();
       }
-    else if(planning_mode_ == gap_passing::PlanningMode::JOINTS_AND_BASE_MODE)
+    else if(planning_mode_ == sampling_based_method::PlanningMode::JOINTS_AND_BASE_MODE)
       {
         config_space_ = r_base + r_joints;
         config_space_->as<ompl::base::CompoundStateSpace>()->setSubspaceWeight(1, 0.001);
@@ -411,7 +411,7 @@ namespace se3
     /* init state */
     ompl::base::ScopedState<> start(config_space_);
     ompl::base::ScopedState<> goal(config_space_);
-    if(planning_mode_ == gap_passing::PlanningMode::ONLY_JOINTS_MODE)
+    if(planning_mode_ == sampling_based_method::PlanningMode::ONLY_JOINTS_MODE)
       {
         for(int i = 0; i < joint_num_; i ++)
           {
@@ -419,16 +419,16 @@ namespace se3
             goal->as<ompl::base::RealVectorStateSpace::StateType>()->values[i] = goal_state_.joint_states.at(i);
           }
       }
-    else if(planning_mode_ == gap_passing::PlanningMode::ONLY_BASE_MODE)
+    else if(planning_mode_ == sampling_based_method::PlanningMode::ONLY_BASE_MODE)
       {
-        if(motion_type_ == gap_passing::PlanningMode::SE2)
+        if(motion_type_ == sampling_based_method::PlanningMode::SE2)
           {
             start->as<ompl::base::SE2StateSpace::StateType>()->setXY(start_state_.root_state.at(0), start_state_.root_state.at(1));
             start->as<ompl::base::SE2StateSpace::StateType>()->setYaw(tf::getYaw(tf::Quaternion(start_state_.root_state.at(3), start_state_.root_state.at(4), start_state_.root_state.at(5), start_state_.root_state.at(6))));
             goal->as<ompl::base::SE2StateSpace::StateType>()->setXY(goal_state_.root_state.at(0), goal_state_.root_state.at(1));
             goal->as<ompl::base::SE2StateSpace::StateType>()->setYaw(tf::getYaw(tf::Quaternion(goal_state_.root_state.at(3), goal_state_.root_state.at(4), goal_state_.root_state.at(5), goal_state_.root_state.at(6))));
           }
-        if(motion_type_ == gap_passing::PlanningMode::SE3)
+        if(motion_type_ == sampling_based_method::PlanningMode::SE3)
           {
             start->as<ompl::base::SE3StateSpace::StateType>()->setXYZ(start_state_.root_state.at(0), start_state_.root_state.at(1), start_state_.root_state.at(2));
             start->as<ompl::base::SE3StateSpace::StateType>()->rotation().x = start_state_.root_state.at(3);
@@ -442,19 +442,19 @@ namespace se3
             goal->as<ompl::base::SE3StateSpace::StateType>()->rotation().w = goal_state_.root_state.at(6);
           }
       }
-    else if(planning_mode_ == gap_passing::PlanningMode::JOINTS_AND_BASE_MODE)
+    else if(planning_mode_ == sampling_based_method::PlanningMode::JOINTS_AND_BASE_MODE)
       {
         ompl::base::CompoundState* start_tmp = dynamic_cast<ompl::base::CompoundState*> (start.get());
         ompl::base::CompoundState* goal_tmp = dynamic_cast<ompl::base::CompoundState*> (goal.get());
 
-        if(motion_type_ == gap_passing::PlanningMode::SE2)
+        if(motion_type_ == sampling_based_method::PlanningMode::SE2)
           {
             start_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->setXY(start_state_.root_state.at(0), start_state_.root_state.at(1));
             start_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->setYaw(tf::getYaw(tf::Quaternion(start_state_.root_state.at(3), start_state_.root_state.at(4), start_state_.root_state.at(5), start_state_.root_state.at(6))));
             goal_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->setXY(goal_state_.root_state.at(0), goal_state_.root_state.at(1));
             goal_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->setYaw(tf::getYaw(tf::Quaternion(goal_state_.root_state.at(3), goal_state_.root_state.at(4), goal_state_.root_state.at(5), goal_state_.root_state.at(6))));
           }
-        if(motion_type_ == gap_passing::PlanningMode::SE3)
+        if(motion_type_ == sampling_based_method::PlanningMode::SE3)
           {
             start_tmp->as<ompl::base::SE3StateSpace::StateType>(0)->setXYZ(start_state_.root_state.at(0), start_state_.root_state.at(1), start_state_.root_state.at(2));
             start_tmp->as<ompl::base::SE3StateSpace::StateType>(0)->rotation().x = start_state_.root_state.at(3);
@@ -522,9 +522,9 @@ namespace se3
   {
     State new_state = start_state_;
 
-    if(planning_mode_ == gap_passing::PlanningMode::ONLY_BASE_MODE)
+    if(planning_mode_ == sampling_based_method::PlanningMode::ONLY_BASE_MODE)
       {
-        if(motion_type_ == gap_passing::PlanningMode::SE2)
+        if(motion_type_ == sampling_based_method::PlanningMode::SE2)
           {
             new_state.root_state.at(0) = ompl_state->as<ompl::base::SE2StateSpace::StateType>()->getX();
             new_state.root_state.at(1) = ompl_state->as<ompl::base::SE2StateSpace::StateType>()->getY();
@@ -534,7 +534,7 @@ namespace se3
             new_state.root_state.at(5) = q.z();
             new_state.root_state.at(6) = q.w();
           }
-        if(motion_type_ == gap_passing::PlanningMode::SE3)
+        if(motion_type_ == sampling_based_method::PlanningMode::SE3)
           {
             new_state.root_state.at(0) = ompl_state->as<ompl::base::SE3StateSpace::StateType>()->getX();
             new_state.root_state.at(1) = ompl_state->as<ompl::base::SE3StateSpace::StateType>()->getY();
@@ -545,12 +545,12 @@ namespace se3
             new_state.root_state.at(6) = ompl_state->as<ompl::base::SE3StateSpace::StateType>()->rotation().w;
           }
       }
-    else if(planning_mode_ == gap_passing::PlanningMode::JOINTS_AND_BASE_MODE)
+    else if(planning_mode_ == sampling_based_method::PlanningMode::JOINTS_AND_BASE_MODE)
       {
         const ompl::base::CompoundState* state_tmp = dynamic_cast<const ompl::base::CompoundState*>(ompl_state);
 
         /* SE2 */
-        if(motion_type_ == gap_passing::PlanningMode::SE2)
+        if(motion_type_ == sampling_based_method::PlanningMode::SE2)
           {
             new_state.root_state.at(0) = state_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->getX();
             new_state.root_state.at(1) = state_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->getY();
@@ -562,7 +562,7 @@ namespace se3
           }
 
         /* SE3 */
-        if(motion_type_ == gap_passing::PlanningMode::SE3)
+        if(motion_type_ == sampling_based_method::PlanningMode::SE3)
           {
             new_state.root_state.at(0) = state_tmp->as<ompl::base::SE3StateSpace::StateType>(0)->getX();
             new_state.root_state.at(1) = state_tmp->as<ompl::base::SE3StateSpace::StateType>(0)->getY();

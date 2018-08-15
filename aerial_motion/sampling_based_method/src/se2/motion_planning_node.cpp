@@ -33,54 +33,22 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *********************************************************************/
 
-#ifndef SE3_MOTION_PLANNING_H_
-#define SE3_MOTION_PLANNING_H_
+#include <sampling_based_method/se2/motion_planning.h>
 
-#include <gap_passing/se2/motion_planning.h>
-#include <dragon/transform_control.h>
-#include <ompl/base/spaces/SE3StateSpace.h>
-
-namespace se3
+int main(int argc, char **argv)
 {
-  class MotionPlanning :public se2::MotionPlanning
-  {
+  ros::init (argc, argv, "hydrus_motion_planning");
 
-  public:
-    MotionPlanning(ros::NodeHandle nh, ros::NodeHandle nhp);
-    ~MotionPlanning(){};
+  ros::NodeHandle nh;
+  ros::NodeHandle nhp("~");
 
-    static const uint8_t HORIZONTAL_GAP = 0;
-    static const uint8_t VERTICAL_GAP = 1;
+  se2::MotionPlanning *motion_planning = new se2::MotionPlanning(nh,nhp);
+  motion_planning->baseInit();
+  ros::spin();
 
-    State cog2root(const std::vector<double> &keypose); // transfer cog link keypose to rootlink
-    State root2cog(const std::vector<double> &keypose); // transfer root link keypose to cog link
+  ros::shutdown();
+  delete motion_planning;
 
-  private:
-    boost::shared_ptr<DragonTransformController> transform_controller_; /* override */
 
-    /* gap env */
-    int gap_type_;
-    int locomotion_mode_;
-    double max_force_;
-    int max_force_state_;
-    double z_low_bound_;
-    double z_high_bound_;
-    double pitch_joint_low_bound_;
-    double pitch_joint_high_bound_;
-    double yaw_joint_low_bound_;
-    double yaw_joint_high_bound_;
-
-    double gimbal_roll_thresh_;
-    double gimbal_pitch_thresh_;
-
-    void planInit();
-    bool isStateValid(const ompl::base::State *state);
-
-    void rosParamInit();
-    void robotInit();
-    void gapEnvInit();
-    void addState(ompl::base::State *ompl_state);
-  };
-
-};
-#endif
+ return 0;
+}

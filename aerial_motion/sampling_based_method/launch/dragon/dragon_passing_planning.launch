@@ -24,18 +24,18 @@
     </include >
 
     <node name="rviz" pkg="rviz" type="rviz"
-          args="-d $(find gap_passing)/config/planning.rviz" respawn="true" />
+          args="-d $(find sampling_based_method)/config/planning.rviz" respawn="true" />
   </group>
 
   ########## Planning for gap passing ###########
-  <param name="/robot_description_semantic" textfile="$(find gap_passing)/config/dragon/$(arg type)/moveit.srdf" />
+  <param name="/robot_description_semantic" textfile="$(find sampling_based_method)/config/dragon/$(arg type)/moveit.srdf" />
 
-  <node name="motion_planning_node" pkg="gap_passing" type="se3_motion_planning_node" respawn="false" output="screen">
+  <node name="motion_planning_node" pkg="sampling_based_method" type="se3_motion_planning_node" respawn="false" output="screen">
     <param name="play_path_flag" type="bool" value="$(arg play_path_flag)"/>
     <param name="save_path_flag" type="bool" value="$(arg save_path_flag)" />
     <param name="load_path_flag" type="bool" value="$(arg load_path_flag)" />
 
-    <param name="file_name" value="$(find gap_passing)/path_log/dragon/$(arg path_file_name)" />
+    <param name="file_name" value="$(find sampling_based_method)/path_log/dragon/$(arg path_file_name)" />
 
     <param name="planning_mode" value="1" unless="$(arg transformation)"/>
     <param name="planning_mode" value="2" if="$(arg transformation)"/>
@@ -60,10 +60,10 @@
 
     <!-- for specific param -->
     <rosparam file="$(find dragon)/config/$(arg type)/AttitudeControl.yaml" command="load" />
-    <rosparam file="$(find gap_passing)/config/dragon/$(arg type)/GapWithTransformation.yaml" command="load" if="$(arg transformation)"/>
-    <rosparam file="$(find gap_passing)/config/dragon/$(arg type)/GapWithoutTransformation.yaml" command="load" unless="$(arg transformation)"/>
-    <rosparam file="$(find gap_passing)/config/gap/HorizontalGapNoOverlap.yaml" command="load" if="$(arg horizontal_gap)"/>
-    <rosparam file="$(find gap_passing)/config/gap/VerticalGap.yaml" command="load" unless="$(arg horizontal_gap)"/>
+    <rosparam file="$(find sampling_based_method)/config/dragon/$(arg type)/GapWithTransformation.yaml" command="load" if="$(arg transformation)"/>
+    <rosparam file="$(find sampling_based_method)/config/dragon/$(arg type)/GapWithoutTransformation.yaml" command="load" unless="$(arg transformation)"/>
+    <rosparam file="$(find sampling_based_method)/config/gap/HorizontalGapNoOverlap.yaml" command="load" if="$(arg horizontal_gap)"/>
+    <rosparam file="$(find sampling_based_method)/config/gap/VerticalGap.yaml" command="load" unless="$(arg horizontal_gap)"/>
   </node>
 
   ###########  Aerial trajectory  ###########

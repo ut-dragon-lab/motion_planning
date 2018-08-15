@@ -33,7 +33,7 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *********************************************************************/
 
-#include <gap_passing/se2/motion_planning.h>
+#include <sampling_based_method/se3/motion_planning.h>
 
 int main(int argc, char **argv)
 {
@@ -42,11 +42,10 @@ int main(int argc, char **argv)
   ros::NodeHandle nh;
   ros::NodeHandle nhp("~");
 
-  se2::MotionPlanning *motion_planning = new se2::MotionPlanning(nh,nhp);
+  se3::MotionPlanning *motion_planning = new se3::MotionPlanning(nh,nhp);
   motion_planning->baseInit();
   ros::spin();
 
-  ros::shutdown();
   delete motion_planning;
 
 
