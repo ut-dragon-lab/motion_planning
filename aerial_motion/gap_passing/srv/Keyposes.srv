@@ -1,6 +1,6 @@
-bool inquiry
 ---
 bool available_flag
-int8 dim
-int64 states_cnt
+uint8 motion_type
+uint8 dim
+uint32 states_cnt
 std_msgs/Float64MultiArray data

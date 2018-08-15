@@ -3,92 +3,75 @@
 
   <arg name="type" default="quad" />
   <arg name="transformation" default="true" />
-  <arg name="simulator" default="true" />
-  <arg name="record_log" default="false" />
-  <arg name="play_log" default="false" />
-  <arg name="replay_experiment_data" default="false" />
+  <arg name="load_path_flag" default="true" />
+  <arg name="save_path_flag" default="true" />
+  <arg name="play_path_flag" default="false" />
+  <arg name="replay_flag" default="false" />
+  <arg name="path_file_name" default="hydrus_planning_log.txt" />
+
+  <arg name="path_tf_debug" default= "false" />
 
   ###########  Robot Model  ###########
-  <group if="$(arg simulator)">
+  <group if="$(arg play_path_flag)">
     <include file="$(find hydrus)/launch/robot_model.launch" >
       <arg name="model" value="hydrusx"/>
       <arg name="type" value="$(arg type)" />
       <arg name="headless" value="true" />
       <arg name="need_joint_state" value="false"/>
+      <arg name="node_suffix" value="planning"/>
     </include >
 
     <node name="rviz" pkg="rviz" type="rviz"
-          args="-d $(find gap_passing)/config/data_replay.rviz" respawn="true" if="$(arg replay_experiment_data)"/>
-
-    <node name="rviz" pkg="rviz" type="rviz"
-          args="-d $(find gap_passing)/config/planning.rviz" respawn="true" unless="$(arg replay_experiment_data)"/>
-
+          args="-d $(find gap_passing)/config/planning.rviz" respawn="true" />
   </group>
 
-  ########## Planning for gap passing without transformation ###########
+  ########## Planning for gap passing ###########
   <param name="/robot_description_semantic" textfile="$(find gap_passing)/config/hydrusx/$(arg type)/moveit.srdf" />
 
   <node name="motion_planning_node" pkg="gap_passing" type="se2_motion_planning_node" respawn="false" output="screen">
-    <param name="debug_log" type="bool" value="false"/>
-    <param name="log_flag" type="bool" value="$(arg record_log)" />
+    <param name="play_path_flag" type="bool" value="$(arg play_path_flag)"/>
+    <param name="save_path_flag" type="bool" value="$(arg save_path_flag)" />
+    <param name="load_path_flag" type="bool" value="$(arg load_path_flag)" />
 
-    <param name="simulator" type="bool" value="$(arg simulator)" />
+    <param name="file_name" value="$(find gap_passing)/path_log/hydrus/$(arg path_file_name)" />
 
     <param name="coefficient_rate" value="0.05"/>
     <param name="planning_mode" value="1" unless="$(arg transformation)"/>
     <param name="planning_mode" value="2" if="$(arg transformation)"/>
-    <param name="motion_sequence_rate" value="50"/>
+    <param name="motion_sequence_rate" value="10"/>
     <param name="ompl_mode" value="0"/> <!-- RRT START:0 -->
-
-    <param name="start_state_x" value="-1.5"/>
-    <param name="start_state_y" value="1"/>
-    <param name="start_state_theta" value="-1.57"/>
-
-    <param name="goal_state_x" value="3"/>
-    <param name="goal_state_y" value="1"/>
-    <param name="goal_state_theta" value="-1.57"/>
 
     <param name="state_validity_check_res" value="0.005"/>
     <param name="valid_segment_count_factor" value="20"/> <!--20-->
 
     <param name="solving_time_limit" type="double" value="3600"/>
 
-    <param name="semi_stable_cost" type="double" value="0.5"/>
-    <param name="full_stable_cost" type="double" value="0.5"/>
-
-    <param name="length_opt_weight" type="double" value="1.0"/>
-    <param name="stability_opt_weight" type="double" value="0"/>
-
-    <param name="stability_cost_thre" type="double" value="1.2" />
-
     <param name="file_state_offset_x" type="double" value="0.0" />
     <param name="file_state_offset_y" type="double" value="0.0" />
+    <param name="joint_state_topic_name" value="hydrusx/joint_states" />
+    <param name="path_tf_debug" value="$(arg path_tf_debug)" />
 
     <!-- for specific param -->
     <rosparam file="$(find hydrus)/config/hydrusx/$(arg type)/Hydrus.yaml" command="load" />
     <rosparam file="$(find gap_passing)/config/hydrusx/$(arg type)/GapWithTransformation.yaml" command="load" if="$(arg transformation)"/>
     <rosparam file="$(find gap_passing)/config/hydrusx/$(arg type)/GapWithoutTransformation.yaml" command="load" unless="$(arg transformation)"/>
     <rosparam file="$(find gap_passing)/config/gap/HorizontalGapNoOverlap.yaml" command="load" />
-
-    <!-- for motion control -->
-    <param name="play_log_path" type="bool" value="$(arg play_log)"/>
-    <param name="file_name" value="$(find gap_passing)/path_log/planning_log.txt" />
-
-    <remap from="/hydrus/joints_ctrl" to="/hydrusx/joints_ctrl" />
-
   </node>
 
-  ###########  Replay experiment data  ###########
-  <group if="$(arg replay_experiment_data)">
-    <node name="motion_data_replay_node" pkg="gap_passing" type="se2_motion_data_replay_node" respawn="false" output="screen">
-      <rosparam file="$(find hydrus)/config/hydrusx/$(arg type)/Hydrus.yaml" command="load" />
-    </node>
-  </group>
-
   ###########  Aerial trajectory  ###########
-  <group unless="$(arg replay_experiment_data)">
+  <group unless="$(arg replay_flag)">
     <include file="$(find bspline_generator)/launch/aerial_trajectory_plannar.launch" >
+      <arg name="joint_control_topic_name" value = "/hydrusx/joints_ctrl" />
     </include>
   </group>
 
+  ######### Debug ##################
+  <group if="$(arg path_tf_debug)" >
+    <node pkg="hydrus" type="transform_control_node" name="hydrusx"  output="screen" respawn="true">
+      <rosparam file="$(find hydrus)/config/hydrusx/$(arg type)/Hydrus.yaml" command="load" />
+      <param name="kinematic_verbose" value="false" />
+      <param name="control_verbose" value="false" />
+      <param name="debug_verbose" value="false" />
+    </node>
+  </group>
 </launch>

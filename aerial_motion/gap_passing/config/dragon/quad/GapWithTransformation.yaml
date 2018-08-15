@@ -41,12 +41,13 @@ yaw_joint_low_bound: -1.58
 yaw_joint_high_bound: 1.58
 
 # planning cost 
-baselink: link1
-length_cost_thre: 5
+length_cost_thre: 6
 
 # dist check
-var_thre: 0.22 # l: 0.22, s: 0.21; 
+gimbal_roll_thresh: 1.5
+gimbal_pitch_thresh: 1.0
+var_thre: 0.3 # l: 0.22, s: 0.21; 
 # overlap check
-edf_max_tilt: 0.00 #0.18
+edf_max_tilt: 0.1 #0.18
 # statics
-f_max: 22
+f_max: 22.5

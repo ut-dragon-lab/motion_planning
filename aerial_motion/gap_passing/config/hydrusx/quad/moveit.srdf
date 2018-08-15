@@ -1,7 +1,7 @@
 <?xml version="1.0" ?>
 
 <robot name="hydrusx">
-  <virtual_joint name="base" type="planar" parent_frame="world" child_link="root" />
+  <virtual_joint name="base" type="floating" parent_frame="world" child_link="root" />
 
   <disable_collisions link1="link1" link2="link2" reason="Adjacent" />
   <disable_collisions link1="link1" link2="link3" reason="Never" />

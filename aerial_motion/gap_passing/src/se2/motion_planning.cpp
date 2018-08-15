@@ -33,214 +33,165 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *********************************************************************/
 
-#include <gap_passing/se2/motion_control.h>
 #include <gap_passing/se2/motion_planning.h>
 
-/* the StabilityObjective does not work!!!!! */
+namespace
+{
+  bool first_flag = true;
+  int state_index = 0;
+
+  bool odom_flag = false;
+}
+
 namespace se2
 {
-  MotionPlanning::MotionPlanning(ros::NodeHandle nh, ros::NodeHandle nhp) :nh_(nh), nhp_(nhp)
+  MotionPlanning::MotionPlanning(ros::NodeHandle nh, ros::NodeHandle nhp):
+    nh_(nh), nhp_(nhp), solved_(false), real_odom_flag_(false),
+    path_(0), calculation_time_(0), best_cost_(-1), min_var_(1e6),
+    planning_mode_(gap_passing::PlanningMode::ONLY_JOINTS_MODE),
+    motion_type_(gap_passing::PlanningMode::SE2)
   {
-    transform_controller_ = boost::shared_ptr<TransformController>(new TransformController(nh_, nhp_, false));
-    joint_num_ = transform_controller_->getRotorNum() - 1;
-    move_start_flag_ = false;
-
-    rosParamInit();
-
-    motion_control_ = new MotionControl(nh, nhp, transform_controller_);
-
+    /* ros pub/sub and service */
     planning_scene_diff_pub_ = nh_.advertise<moveit_msgs::PlanningScene>("planning_scene", 1);
-
     keyposes_server_ = nh_.advertiseService("keyposes_server", &MotionPlanning::getKeyposes, this);
-    endposes_client_ = nh_.serviceClient<gap_passing::Endposes>("endposes_server");
-    robot_move_start_sub_ = nh_.subscribe<std_msgs::Empty>("/move_start", 1, &MotionPlanning::moveStartCallback, this);
-    desired_state_sub_ = nh_.subscribe<std_msgs::Float64MultiArray>("/desired_state", 1, &MotionPlanning::desiredStateCallback, this);
-
-    // if play log path, start/goal state is already read when initalizing motion_control_
-    if (play_log_path_){
-      start_state_ = motion_control_->start_state_;
-      goal_state_ = motion_control_->goal_state_;
-    }
-    // if plan path online, start/goal state is requested from ros service
-    else{
-      gap_passing::Endposes endposes_srv;
-      endposes_srv.request.inquiry = true;
-      ROS_INFO("Waiting for endposes from service.");
-      while (!endposes_client_.call(endposes_srv)){
-        // wait for endposes
-      }
-      ROS_INFO("Get endposes from serivce.");
-      std::cout << "Start state: ";
-      for (int i = 0; i < 3 + joint_num_; ++i)
-        std::cout << endposes_srv.response.start_pose.data[i] << ", ";
-      std::cout << "\nEnd state: ";
-      for (int i = 0; i < 3 + joint_num_; ++i)
-        std::cout << endposes_srv.response.end_pose.data[i] << ", ";
-      std::cout << "\n";
-      start_state_ = cog2root(endposes_srv.response.start_pose.data);
-      goal_state_ = cog2root(endposes_srv.response.end_pose.data);
-    }
-
-    // initalization desired state variable, since desired state is not received until robot is really moving (later than receive move start topic)
-    for (int i = 0; i < 3 + joint_num_; ++i)
-      deisred_state_.push_back(start_state_[i]);
-
-    if(simulator_ && planning_mode_ != gap_passing::PlanningMode::ONLY_JOINTS_MODE)
-      {
-        while(planning_scene_diff_pub_.getNumSubscribers() < 1)
-          {
-            ros::WallDuration sleep_t(0.5);
-            sleep_t.sleep();
-          }
-        ros::Duration sleep_time(1.0);
-        sleep_time.sleep();
-
-        robot_model_loader_ = new robot_model_loader::RobotModelLoader("robot_description");
-        kinematic_model_ = robot_model_loader_->getModel();
-        planning_scene_ = new planning_scene::PlanningScene(kinematic_model_);
-        tolerance_ = 0.01;
-        acm_ = planning_scene_->getAllowedCollisionMatrix();
-        gapEnvInit();
-      }
-
-    calculation_time_ = 0;
-    best_cost_ = -1;
-
-    if(!play_log_path_) Planning();
-    motion_sequence_timer_ = nhp_.createTimer(ros::Duration(1.0 / motion_sequence_rate_), &MotionPlanning::motionSequenceFunc, this);
 
   }
 
-  MotionPlanning::~MotionPlanning()
+  void MotionPlanning::baseInit()
   {
-    if(planning_mode_ != gap_passing::PlanningMode::ONLY_JOINTS_MODE)
+    robotInit();
+
+    rosParamInit();
+
+    if(load_path_flag_) loadPath();
+
+    if(path_tf_debug_)
       {
-        delete robot_model_loader_;
-        delete planning_scene_;
+        std::string topic_name;
+        nhp_.param("joint_state_topic_name", topic_name, std::string("joint_states"));
+        joint_state_pub_ = nh_.advertise<sensor_msgs::JointState>(topic_name, 1);
       }
 
-    delete plan_states_;
-    delete rrt_start_planner_;
-    delete path_length_opt_objective_;
+    if(play_path_flag_)
+      {
+        robot_cog_odom_sub_ = nh_.subscribe("/uav/cog/odom", 1, &MotionPlanning::robotOdomCallback, this);
+        std::string topic_name;
+        nhp_.param("joint_state_topic_name", topic_name, std::string("joint_states"));
+        robot_joint_states_sub_ = nh_.subscribe(topic_name, 1, &MotionPlanning::robotJointStatesCallback, this);
+        continous_path_sub_ = nh_.subscribe("/desired_state", 1, &MotionPlanning::continousPathCallback, this);
+        baselink_desired_att_.setRPY(0, 0, 0);
+        baselink_desired_attitude_sub_ = nh_.subscribe("/desire_coordinate", 1, &MotionPlanning::desireCoordinateCallback, this);
 
-    delete motion_control_;
+        sceneInit();
+
+        if(!load_path_flag_) plan();
+
+        motion_sequence_timer_ = nhp_.createTimer(ros::Duration(1.0 / motion_sequence_rate_), &MotionPlanning::motionSequenceFunc, this);
+      }
+  }
+
+  void MotionPlanning::robotInit()
+  {
+    root_motion_dof_ = 3;
+    transform_controller_ = boost::shared_ptr<TransformController>(new TransformController(nh_, nhp_, false));
+    joint_num_ = transform_controller_->getRotorNum() - 1;
+
+    start_state_.joint_states.resize(joint_num_);
+    goal_state_.joint_states.resize(joint_num_);
+
+    for(int i = 0; i < joint_num_; i++)
+      {
+        std::stringstream ss;
+        ss << i + 1;
+        start_state_.joint_names.push_back(std::string("joint") + ss.str());
+      }
   }
 
   void MotionPlanning::motionSequenceFunc(const ros::TimerEvent &e)
   {
-    static bool first_flag = true;
-
-    static int state_index = 0;
-    static std::vector<conf_values> planning_path;
-    sensor_msgs::JointState joint_state;
+    robot_state::RobotState& robot_state = planning_scene_->getCurrentStateNonConst();
+    if(real_odom_flag_) return;
 
     if(solved_ && ros::ok())
       {
         if(first_flag)
           {
-            ROS_WARN("plan size is %d, planning time is %f, motion cost is %f", motion_control_->getPathSize(), motion_control_->getPlanningTime(), motion_control_->getMotionCost());
-            float min_var = motion_control_->getMinVar();
-            std::cout << "min_var is: "<< min_var;
-            int min_var_state_index = motion_control_->getMinVarStateIndex();
+            ROS_WARN("plan size is %d, planning time is %f, motion cost is %f, min var is %f, min var state index: %d", getPathSize(), getPlanningTime(), getMotionCost(), getMinVar(), getMinVarStateIndex());
+
+            int min_var_state_index = getMinVarStateIndex();
             for(int i = 0; i < joint_num_; i++)
-              std::cout << " joint" << i+1 << ":" << (motion_control_->getState(min_var_state_index)).state_values[3 + i];
+              std::cout << start_state_.joint_names.at(i) << ": " << getState(min_var_state_index).joint_states.at(i) << " ";
             std::cout << std::endl;
-
-            ROS_WARN("semi stable states %d, ratio: %f", motion_control_->getSemiStableStates(),
-                     (float)motion_control_->getSemiStableStates() / motion_control_->getPathSize());
-
-            planning_path.resize(0);
-            motion_control_->getPlanningPath(planning_path);
-
-            if(planning_mode_ == gap_passing::PlanningMode::JOINTS_AND_BASE_MODE){
-              keyposes_cog_vec_.resize(0);
-              for (int i = 0; i < motion_control_->getPathSize(); ++i){
-                std::vector<double> keypose_root; // keypose in root frame
-                for (int j = 0; j < 3 + joint_num_; ++j)
-                  keypose_root.push_back((motion_control_->getState(i)).state_values[j]);
-                std::vector<double> keypose_cog = root2cog(keypose_root);
-                keyposes_cog_vec_.push_back(keypose_cog);
-              }
-            }
 
             first_flag = false;
           }
-        else if(simulator_)
+
+        /* visualize debug */
+        /* cog to world */
+        if(path_tf_debug_)
           {
-            if(planning_mode_ == gap_passing::PlanningMode::ONLY_JOINTS_MODE)
-              {
-                sensor_msgs::JointState joint_state_msg;
-                joint_state_msg.header.stamp = ros::Time::now();
-                if(planning_path[state_index].state_values.size() != 3 + joint_num_)
-                  ROS_ERROR("wrong size of planning joint state and this state");
-                joint_state_msg.position.resize(0);
-                joint_state_msg.name.resize(0);
-                for(int i = 0; i < joint_num_; i ++)
-                  {
-                    std::stringstream joint_no2;
-                    joint_no2 << i + 1;
-                    joint_state_msg.name.push_back(std::string("joint") + joint_no2.str());
-                    joint_state_msg.position.push_back(planning_path[state_index].state_values[3 + i]);
-                  }
-                motion_control_->joint_cmd_pub_.publish(joint_state_msg);
-              }
-            else
-              {
-                robot_state::RobotState& robot_state = planning_scene_->getCurrentStateNonConst();
+            tf::TransformBroadcaster br;
+            tf::Transform cog_world(tf::Quaternion(getState(state_index).cog_state[3], getState(state_index).cog_state[4], getState(state_index).cog_state[5], getState(state_index).cog_state[6]),
+                                    tf::Vector3(getState(state_index).cog_state[0], getState(state_index).cog_state[1], getState(state_index).cog_state[2]));
+            br.sendTransform(tf::StampedTransform(cog_world.inverse(), ros::Time::now(), "cog", "world"));
+            double r, p, y; cog_world.getBasis().getRPY(r, p, y);
 
-                std::vector<double> ex_curr_state(3 + joint_num_ + 7); //se(2) + joint_num + 7
-                if (move_start_flag_){
-                  std::vector<double> ex_root_state = cog2root(deisred_state_);
-                  for (int i = 0; i < 3 + joint_num_; ++i)
-                    ex_curr_state[i] = ex_root_state[i];
-                  robot_state.setVariablePositions(ex_curr_state);
-                }
-                else{
-                  ex_curr_state[0] = (motion_control_->getState(state_index)).state_values[0]; //x
-                  ex_curr_state[1] = (motion_control_->getState(state_index)).state_values[1]; //y
-                  ex_curr_state[2] = (motion_control_->getState(state_index)).state_values[2]; //yaw
-                  for(int index = 0 ; index < joint_num_; index++)
-                    ex_curr_state[index + 3] = (motion_control_->getState(state_index)).state_values[index + 3];
-                  robot_state.setVariablePositions(ex_curr_state);
-                }
-
-                planning_scene_->getPlanningSceneMsg(planning_scene_msg_);
-                planning_scene_msg_.is_diff = true;
-                planning_scene_diff_pub_.publish(planning_scene_msg_);
-              }
-
-            state_index ++;
-            if(state_index ==  motion_control_->getPathSize()) state_index = 0;
+            /* joint state */
+            sensor_msgs::JointState joint_state_msg;
+            joint_state_msg.header.stamp = ros::Time::now();
+            joint_state_msg.name = start_state_.joint_names;
+            joint_state_msg.position = getState(state_index).joint_states;
+            joint_state_pub_.publish(joint_state_msg);
           }
 
+        /* moveit */
+        robot_state::RobotState robot_state = setRobotState2Moveit(getState(state_index));
+        planning_scene_->getPlanningSceneMsg(planning_scene_msg_);
+        planning_scene_msg_.is_diff = true;
+        planning_scene_diff_pub_.publish(planning_scene_msg_);
+        state_index ++;
+        if(state_index ==  path_.size()) state_index = 0;
       }
   }
 
   bool MotionPlanning::getKeyposes(gap_passing::Keyposes::Request &req, gap_passing::Keyposes::Response &res)
   {
-    int keyposes_num = keyposes_cog_vec_.size();
+    int keyposes_num = path_.size();
     if (solved_ && ros::ok() && keyposes_num){
       res.available_flag = true;
       res.states_cnt = keyposes_num;
-      res.dim = 4 + joint_num_;
+      res.motion_type = motion_type_;
+      res.dim = 6 + joint_num_;
       res.data.layout.dim.push_back(std_msgs::MultiArrayDimension());
       res.data.layout.dim.push_back(std_msgs::MultiArrayDimension());
       res.data.layout.dim[0].label = "height";
       res.data.layout.dim[1].label = "width";
       res.data.layout.dim[0].size = keyposes_num;
-      res.data.layout.dim[1].size = 4 + joint_num_;
-      res.data.layout.dim[0].stride = keyposes_num * (4 + joint_num_);
-      res.data.layout.dim[1].stride = 4 + joint_num_;
+      res.data.layout.dim[1].size = 6 + joint_num_;
+      res.data.layout.dim[0].stride = keyposes_num * (6 + joint_num_);
+      res.data.layout.dim[1].stride = 6 + joint_num_;
       res.data.layout.data_offset = 0;
 
       for (int i = 0; i < keyposes_num; ++i){
-        for (int j = 0; j < 2; ++j)
-          res.data.data.push_back(keyposes_cog_vec_[i][j]);
-        /* z axis value is set to 0.0 in se2 planning */
-        res.data.data.push_back(0.0);
-        for (int j = 2; j < 3 + joint_num_; ++j)
-          res.data.data.push_back(keyposes_cog_vec_[i][j]);
+        /* cog position */
+        for (int j = 0; j < 3; ++j)
+          res.data.data.push_back(path_.at(i).cog_state.at(j));
+
+        /* convert to euler enagles */
+        tf::Matrix3x3 att(tf::Quaternion(path_.at(i).cog_state.at(3),
+                                         path_.at(i).cog_state.at(4),
+                                         path_.at(i).cog_state.at(5),
+                                         path_.at(i).cog_state.at(6)));
+        double r, p, y; path_.at(i).getCogRPY(r, p, y);
+        res.data.data.push_back(r);
+        res.data.data.push_back(p);
+        res.data.data.push_back(y);
+
+        /* set joint state */
+        for (int j = 0; j < joint_num_; ++j)
+          res.data.data.push_back(path_.at(i).joint_states.at(j));
       }
+      solved_ = false;
     }
     else{
       res.available_flag = false;
@@ -251,72 +202,55 @@ namespace se2
 
   bool  MotionPlanning::isStateValid(const ompl::base::State *state)
   {
+    State current_state = start_state_;
 
-    std::vector<double> current_state(3 + joint_num_, 0);
-
+    double yaw = 0;
     if(planning_mode_ == gap_passing::PlanningMode::ONLY_JOINTS_MODE)
       {
         for(int i = 0; i < joint_num_; i++)
-          current_state[3 + i] = state->as<ompl::base::RealVectorStateSpace::StateType>()->values[i];
+          current_state.joint_states.at(i) = state->as<ompl::base::RealVectorStateSpace::StateType>()->values[i];
       }
-    else if(planning_mode_ == gap_passing::PlanningMode::ONLY_BASE_MODE || planning_mode_ == gap_passing::PlanningMode::ONLY_BASE_MODE + gap_passing::PlanningMode::ORIGINAL_MODE)
+    else if(planning_mode_ == gap_passing::PlanningMode::ONLY_BASE_MODE)
       {
-        current_state[0] = state->as<ompl::base::SE2StateSpace::StateType>()->getX();
-        current_state[1] = state->as<ompl::base::SE2StateSpace::StateType>()->getY();
-        current_state[2] = state->as<ompl::base::SE2StateSpace::StateType>()->getYaw();
-
-        for(int i = 0; i < joint_num_; i++)
-          current_state[i + 3] = start_state_[3 + i];
-
+        current_state.root_state.at(0) = state->as<ompl::base::SE2StateSpace::StateType>()->getX();
+        current_state.root_state.at(1) = state->as<ompl::base::SE2StateSpace::StateType>()->getY();
+        yaw = state->as<ompl::base::SE2StateSpace::StateType>()->getYaw();
       }
     else if(planning_mode_ == gap_passing::PlanningMode::JOINTS_AND_BASE_MODE)
       {
         const ompl::base::CompoundState* state_tmp = dynamic_cast<const ompl::base::CompoundState*>(state);
-
-        current_state[0] = state_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->getX();
-        current_state[1] = state_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->getY();
-        current_state[2] = state_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->getYaw();
+        current_state.root_state.at(0) = state_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->getX();
+        current_state.root_state.at(1) = state_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->getY();
+        yaw = state_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->getYaw();
         for(int i = 0; i < joint_num_; i++)
-          current_state[i + 3] = state_tmp->as<ompl::base::RealVectorStateSpace::StateType>(1)->values[i];
+          current_state.joint_states.at(i) = state_tmp->as<ompl::base::RealVectorStateSpace::StateType>(1)->values[i];
       }
+
+    tf::Quaternion q = tf::createQuaternionFromYaw(yaw);
+    current_state.root_state.at(3) = q.x();
+    current_state.root_state.at(4) = q.y();
+    current_state.root_state.at(5) = q.z();
+    current_state.root_state.at(6) = q.w();
 
     //check distance thresold
     if(planning_mode_ == gap_passing::PlanningMode::JOINTS_AND_BASE_MODE || planning_mode_ == gap_passing::PlanningMode::ONLY_JOINTS_MODE)
       {
-        if(stability_opt_weight_ == 0)
-          {//only path length opt, we have to judge the form whethe valid or not
-            sensor_msgs::JointState joint_state;
-            for(int i = 0; i < joint_num_; i++)
-              {
-                std::stringstream ss;
-                ss << i + 1;
-                joint_state.name.push_back(std::string("joint") + ss.str());
-                joint_state.position.push_back(current_state[i + 3]);
-              }
-            transform_controller_->kinematics(joint_state);
-            double dist_thre_check = transform_controller_->distThreCheck();
+        sensor_msgs::JointState joint_state;
+        joint_state.name = start_state_.joint_names;
+        joint_state.position = current_state.joint_states;
+        transform_controller_->forwardKinematics(joint_state);
 
-            if(dist_thre_check == 0) return false;
-            if(!transform_controller_->modelling()) return false;
-          }
+        if(!transform_controller_->stabilityMarginCheck()) return false;
+        if(!transform_controller_->modelling()) return false;
 
         if(planning_mode_ == gap_passing::PlanningMode::ONLY_JOINTS_MODE) return true;
       }
-
-    robot_state::RobotState& robot_state = planning_scene_->getCurrentStateNonConst();
 
     //check collision
     collision_detection::CollisionRequest collision_request;
     collision_detection::CollisionResult collision_result;
 
-    std::vector<double> ex_curr_state(3 + joint_num_ + 7); //se(2) + joint_num + 7(?)
-    ex_curr_state[0] = current_state[0]; //x
-    ex_curr_state[1] = current_state[1]; //y
-    ex_curr_state[2] = current_state[2]; //yaw
-    for(int index = 0 ; index < joint_num_; index++)
-      ex_curr_state[index + 3] = current_state[index + 3];
-
-    robot_state.setVariablePositions(ex_curr_state);
+    robot_state::RobotState robot_state = setRobotState2Moveit(current_state);
     planning_scene_->checkCollision(collision_request, collision_result, robot_state, acm_);
 
     if(collision_result.collision) return false;
@@ -324,193 +258,192 @@ namespace se2
     return true;
   }
 
-  std::vector<double> MotionPlanning::cog2root(std::vector<double> &keypose)
+  void MotionPlanning::sceneInit()
   {
-    sensor_msgs::JointState joint_state;
-    for(int i = 0; i < joint_num_; i++)
+    while(planning_scene_diff_pub_.getNumSubscribers() < 1)
       {
-        std::stringstream ss;
-        ss << i + 1;
-        joint_state.name.push_back(std::string("joint") + ss.str());
+        ros::WallDuration sleep_t(0.5);
+        sleep_t.sleep();
       }
-    joint_state.position.resize(0);
-    for (int j = 0; j < joint_num_; ++j)
-      joint_state.position.push_back(keypose[3 + j]);
-    transform_controller_->kinematics(joint_state);
-    tf::Transform cog_root = transform_controller_->getCog(); // cog in root frame
-    tf::Transform root_cog = cog_root.inverse();
-    tf::Transform cog_world;
-    cog_world.setOrigin(tf::Vector3(keypose[0],
-                                    keypose[1],
-                                    0.0));
-    tf::Quaternion q;
-    q.setRPY(0.0, 0.0, keypose[2]);
-    cog_world.setRotation(q);
-    tf::Transform root_world = cog_world * root_cog;
+    ros::Duration sleep_time(1.0);
+    sleep_time.sleep();
 
-    std::vector<double> keypose_root;
-    keypose_root.push_back(root_world.getOrigin().getX());
-    keypose_root.push_back(root_world.getOrigin().getY());
-    q = root_world.getRotation();
-    tf::Matrix3x3  rot_mat(q);
-    tfScalar e_r, e_p, e_y;
-    rot_mat.getRPY(e_r, e_p, e_y);
-    keypose_root.push_back(e_y);
-    for (int i = 0; i < joint_num_; i++)
-      keypose_root.push_back(keypose[3 + i]);
-    return keypose_root;
-  }
+    robot_model_loader::RobotModelLoader robot_model_loader("robot_description");
+    planning_scene_ = boost::shared_ptr<planning_scene::PlanningScene>(new planning_scene::PlanningScene(robot_model_loader.getModel()));
+    acm_ = planning_scene_->getAllowedCollisionMatrix();
 
-  std::vector<double> MotionPlanning::root2cog(std::vector<double> &keypose)
-  {
-    sensor_msgs::JointState joint_state;
-    for(int i = 0; i < joint_num_; i++)
-      {
-        std::stringstream ss;
-        ss << i + 1;
-        joint_state.name.push_back(std::string("joint") + ss.str());
-      }
-    joint_state.position.resize(0);
-    for (int j = 0; j < joint_num_; ++j)
-      joint_state.position.push_back(keypose[3 + j]);
-    transform_controller_->kinematics(joint_state);
-    tf::Transform cog_root = transform_controller_->getCog();
-    tf::Transform root_world;
-    root_world.setOrigin(tf::Vector3(keypose[0],
-                                     keypose[1],
-                                     0.0));
-    tf::Quaternion q;
-    q.setRPY(0.0, 0.0, keypose[2]);
-    root_world.setRotation(q);
-    tf::Transform cog_world = root_world * cog_root;
+    gapEnvInit();
 
-    std::vector<double> keypose_root;
-    keypose_root.push_back(cog_world.getOrigin().getX());
-    keypose_root.push_back(cog_world.getOrigin().getY());
-    q = cog_world.getRotation();
-    tf::Matrix3x3  rot_mat(q);
-    tfScalar e_r, e_p, e_y;
-    rot_mat.getRPY(e_r, e_p, e_y);
-    keypose_root.push_back(e_y);
-    for (int i = 0; i < joint_num_; i++)
-      keypose_root.push_back(keypose[3 + i]);
-    return keypose_root;
-  }
+    //ROS_WARN("moveit robot state number: %d",  (int)planning_scene_->getCurrentStateNonConst().getVariableCount());
 
-  void MotionPlanning::gapEnvInit()
-  {//pub the collision object => gap env
-    left_half_corner = tf::Vector3(gap_left_x_, gap_left_y_ , gap_left_width_);
-    right_half_corner = tf::Vector3(gap_left_x_ + gap_x_offset_, gap_left_y_ + gap_x_offset_ , gap_right_width_);
-
-    collision_object_.header.frame_id = "world";
-    collision_object_.id = "box";
-    geometry_msgs::Pose pose1, pose2,pose3,pose4;
-    pose1.position.x = left_half_corner.getX() + gap_left_width_ /2;
-    pose1.position.y =  (2.5 + gap_y_offset_/2) /2;
-    pose1.position.z = 0.0;
-    pose1.orientation.w = 1.0;
-    pose2.position.x = right_half_corner.getX() + gap_right_width_ /2;
-    pose2.position.y = - (2.5 + gap_y_offset_/2) /2;
-    pose2.position.z = 0.0;
-    pose2.orientation.w = 1.0;
-
-    pose3.position.x = 1.0;
-    pose3.position.y = 2.5;
-    pose3.position.z = 0.0;
-    pose3.orientation.w = 1.0;
-    pose4.position.x = 1.0;
-    pose4.position.y = -2.5;
-    pose4.position.z = 0.0;
-    pose4.orientation.w = 1.0;
-
-
-    shape_msgs::SolidPrimitive primitive1, primitive2, primitive3, primitive4;
-    primitive1.type = primitive1.BOX;
-    primitive1.dimensions.resize(3);
-
-    primitive1.dimensions[0] = gap_left_width_;
-    primitive1.dimensions[1] = 2.5 - gap_y_offset_ / 2;
-    primitive1.dimensions[2] = 1;
-    collision_object_.primitives.push_back(primitive1);
-    collision_object_.primitive_poses.push_back(pose1);
-    primitive2.type = primitive2.BOX;
-    primitive2.dimensions.resize(3);
-    primitive2.dimensions[0] = gap_right_width_;
-    primitive2.dimensions[1] = 2.5 - gap_y_offset_ / 2;
-    primitive2.dimensions[2] = 1;
-    collision_object_.primitives.push_back(primitive2);
-    collision_object_.primitive_poses.push_back(pose2);
-    primitive3.type = primitive2.BOX;
-    primitive3.dimensions.resize(3);
-    primitive3.dimensions[0] = 8;
-    primitive3.dimensions[1] = 0.6;
-    primitive3.dimensions[2] = 1;
-    collision_object_.primitives.push_back(primitive3);
-    collision_object_.primitive_poses.push_back(pose3);
-    primitive4.type = primitive2.BOX;
-    primitive4.dimensions.resize(3);
-    primitive4.dimensions[0] = 8;
-    primitive4.dimensions[1] = 0.6;
-    primitive4.dimensions[2] = 1;
-
-    collision_object_.primitives.push_back(primitive4);
-    collision_object_.primitive_poses.push_back(pose4);
-
-    collision_object_.operation = collision_object_.ADD;
-    planning_scene_->processCollisionObjectMsg(collision_object_);
-
-    //temporarily
-    robot_state::RobotState& init_state = planning_scene_->getCurrentStateNonConst();
-    ROS_WARN("moveit robot state number: %d, motion control state numb: %d",  init_state.getVariableCount(),  start_state_.size());
-    /* temp */
-    std::vector<double> start_state(3 + joint_num_ + 7); //se(2) + joint_num + 7(?)
-    start_state[0] = start_state_[0]; //x
-    start_state[1] = start_state_[1]; //y
-    start_state[2] = start_state_[2]; //yaw
-    for(int index = 0 ; index < joint_num_; index++)
-      start_state[index + 3] = start_state_[index + 3];
-    init_state.setVariablePositions(start_state);
+    robot_state::RobotState robot_state = setRobotState2Moveit(start_state_);
 
     planning_scene_->getPlanningSceneMsg(planning_scene_msg_);
     planning_scene_msg_.is_diff = true;
     planning_scene_diff_pub_.publish(planning_scene_msg_);
 
-    robot_state::RobotState& robot_state = planning_scene_->getCurrentStateNonConst();
     //check collision
     collision_detection::CollisionRequest collision_request;
     collision_detection::CollisionResult collision_result;
-    robot_state.setVariablePositions(start_state);
     planning_scene_->checkCollision(collision_request, collision_result, robot_state, acm_);
 
-    //if(collision_result.collision) ROS_WARN("collsion OKOKOKOKOKOKOO");
+    if(collision_result.collision) ROS_ERROR("collsion with init state");
   }
 
-  void MotionPlanning::Planning()
+  void MotionPlanning::gapEnvInit()
+  {
+    if(planning_mode_ == gap_passing::PlanningMode::ONLY_JOINTS_MODE) return;
+
+    //pub the collision object => gap env
+    left_half_corner = tf::Vector3(gap_left_x_, gap_left_y_ , gap_left_width_);
+    right_half_corner = tf::Vector3(gap_left_x_ + gap_x_offset_, gap_left_y_ + gap_x_offset_ , gap_right_width_);
+
+    moveit_msgs::CollisionObject collision_object;
+    collision_object.header.frame_id = "world";
+    collision_object.id = "box";
+    geometry_msgs::Pose wall_pose;
+    wall_pose.orientation.w = 1.0;
+    shape_msgs::SolidPrimitive wall_primitive;
+    wall_primitive.type = wall_primitive.BOX;
+    wall_primitive.dimensions.resize(3);
+
+    wall_pose.position.x = left_half_corner.getX() + gap_left_width_ /2;
+    wall_pose.position.y =  (2.5 + gap_y_offset_/2) /2;
+    wall_primitive.dimensions[0] = gap_left_width_;
+    wall_primitive.dimensions[1] = 2.5 - gap_y_offset_ / 2;
+    wall_primitive.dimensions[2] = 1;
+    collision_object.primitives.push_back(wall_primitive);
+    collision_object.primitive_poses.push_back(wall_pose);
+
+    wall_pose.position.x = right_half_corner.getX() + gap_right_width_ /2;
+    wall_pose.position.y = - (2.5 + gap_y_offset_/2) /2;
+    wall_pose.orientation.w = 1.0;
+    wall_primitive.dimensions[0] = gap_right_width_;
+    wall_primitive.dimensions[1] = 2.5 - gap_y_offset_ / 2;
+    wall_primitive.dimensions[2] = 1;
+    collision_object.primitives.push_back(wall_primitive);
+    collision_object.primitive_poses.push_back(wall_pose);
+
+    wall_pose.position.x = 1.0;
+    wall_pose.position.y = 2.5;
+    wall_pose.orientation.w = 1.0;
+    wall_primitive.dimensions[0] = 8;
+    wall_primitive.dimensions[1] = 0.6;
+    wall_primitive.dimensions[2] = 1;
+    collision_object.primitives.push_back(wall_primitive);
+    collision_object.primitive_poses.push_back(wall_pose);
+
+    wall_pose.position.x = 1.0;
+    wall_pose.position.y = -2.5;
+    wall_pose.orientation.w = 1.0;
+    wall_primitive.dimensions[0] = 8;
+    wall_primitive.dimensions[1] = 0.6;
+    wall_primitive.dimensions[2] = 1;
+    collision_object.primitives.push_back(wall_primitive);
+    collision_object.primitive_poses.push_back(wall_pose);
+
+    collision_object.operation = collision_object.ADD;
+    planning_scene_->processCollisionObjectMsg(collision_object);
+  }
+
+  void MotionPlanning::plan()
+  {
+    planInit();
+
+    //sampler
+    space_information_->setValidStateSamplerAllocator(boost::bind(&MotionPlanning::allocValidStateSampler, this, _1));
+
+    //optimation objective
+    ompl::base::OptimizationObjectivePtr length_obj(new ompl::base::PathLengthOptimizationObjective(space_information_));
+    length_obj->setCostThreshold(onlyJointPathLimit());
+    std::cout << "path length opt cost thre is "<<  length_obj->getCostThreshold() << std::endl;
+
+    ompl::base::PlannerPtr planner;
+    if(ompl_mode_ == RRT_START_MODE)
+      {
+        pdef_->setOptimizationObjective(length_obj);
+        planner = ompl::base::PlannerPtr(new ompl::geometric::RRTstar(space_information_));
+      }
+
+    planner->setProblemDefinition(pdef_);
+    planner->setup();
+    space_information_->printSettings(std::cout);
+
+    ros::Time start_time = ros::Time::now();
+
+    if (planner->solve(solving_time_limit_))
+      {
+        calculation_time_ = ros::Time::now().toSec() - start_time.toSec();
+        ompl::base::PathPtr ompl_result = pdef_->getSolutionPath();
+        std::cout << "Found solution:" << std::endl;
+        ompl_result->print(std::cout);
+
+        if(ompl_mode_ == RRT_START_MODE)
+          {
+            std::cout << "iteration is "<< std::static_pointer_cast<ompl::geometric::RRTstar>(planner)->numIterations() << "best cost is " << std::static_pointer_cast<ompl::geometric::RRTstar>(planner)->bestCost()  << std::endl;
+            std::stringstream ss;
+            ss << std::static_pointer_cast<ompl::geometric::RRTstar>(planner)->bestCost();
+            ss >> best_cost_;
+          }
+
+        ROS_ERROR("state count: %d", (int)(std::static_pointer_cast<ompl::geometric::PathGeometric>(ompl_result)->getStateCount()));
+        for(int i = 1; i < (int)(std::static_pointer_cast<ompl::geometric::PathGeometric>(ompl_result)->getStateCount()); i++)
+          {
+            ompl::base::State *state1;
+            ompl::base::State *state2;
+
+            state1 = std::static_pointer_cast<ompl::geometric::PathGeometric>(ompl_result)->getState(i - 1);
+
+            state2 = std::static_pointer_cast<ompl::geometric::PathGeometric>(ompl_result)->getState(i);
+
+            addState(state1);
+            int nd = config_space_->validSegmentCount(state1, state2);
+            if (nd > 1)
+              {
+                ompl::base::State *interpolated_state = space_information_->allocState();
+                for (int j = 1 ; j < nd ; ++j)
+                  {
+                    config_space_->interpolate(state1, state2, (double)j / (double)nd, interpolated_state);
+                    addState(interpolated_state);
+
+                  }
+              }
+            addState(state2);
+          }
+
+        if(save_path_flag_) savePath();
+        solved_ = true;
+      }
+    else
+      std::cout << "No solution found" << std::endl;
+  }
+
+  void MotionPlanning::planInit()
   {
     //planning
     //x, y
     ompl::base::StateSpacePtr se2(new ompl::base::SE2StateSpace());
     ompl::base::RealVectorBounds motion_bounds(2);
-    motion_bounds.low[0] = -2;
-    motion_bounds.low[1] = -2.2;
-    motion_bounds.high[0] = 5;
-    motion_bounds.high[1] = 2.2;
+    motion_bounds.low[0] = x_low_bound_;
+    motion_bounds.low[1] = y_low_bound_;
+    motion_bounds.high[0] = x_high_bound_;
+    motion_bounds.high[1] = y_high_bound_;
     se2->as<ompl::base::SE2StateSpace>()->setBounds(motion_bounds);
     //joints
     ompl::base::StateSpacePtr r_joints(new ompl::base::RealVectorStateSpace(joint_num_));
     ompl::base::RealVectorBounds joint_bounds(joint_num_);
-    joint_bounds.setLow(-1.58);
-    joint_bounds.setHigh(1.58);
+    joint_bounds.setLow(joint_low_bound_);
+    joint_bounds.setHigh(joint_high_bound_);
     r_joints->as<ompl::base::RealVectorStateSpace>()->setBounds(joint_bounds);
 
     if(planning_mode_ == gap_passing::PlanningMode::ONLY_JOINTS_MODE)
       {
         config_space_ = r_joints;
-        config_space_->as<ompl::base::RealVectorStateSpace>()->setValidSegmentCountFactor(valid_segment_count_factor_); 
+        config_space_->as<ompl::base::RealVectorStateSpace>()->setValidSegmentCountFactor(valid_segment_count_factor_);
         space_information_  = ompl::base::SpaceInformationPtr(new ompl::base::SpaceInformation(config_space_));
         space_information_->setup();
         space_information_->setStateValidityChecker(boost::bind(&MotionPlanning::isStateValid, this, _1));
-        space_information_->setStateValidityCheckingResolution(state_validity_check_res_); 
+        space_information_->setStateValidityCheckingResolution(state_validity_check_res_);
         space_information_->setMotionValidator(ompl::base::MotionValidatorPtr(new ompl::base::DiscreteMotionValidator(space_information_)));
         space_information_->setup();
 
@@ -529,6 +462,7 @@ namespace se2
     else if(planning_mode_ == gap_passing::PlanningMode::JOINTS_AND_BASE_MODE)
       {
         config_space_ = se2 + r_joints;
+        config_space_->as<ompl::base::CompoundStateSpace>()->setSubspaceWeight(1, 0.001);
         space_information_  = ompl::base::SpaceInformationPtr(new ompl::base::SpaceInformation(config_space_));
         space_information_->setStateValidityChecker(boost::bind(&MotionPlanning::isStateValid, this, _1));
       }
@@ -540,124 +474,42 @@ namespace se2
       {
         for(int i = 0; i < joint_num_; i ++)
           {
-            start->as<ompl::base::RealVectorStateSpace::StateType>()->values[i] = start_state_[3 + i];
-            goal->as<ompl::base::RealVectorStateSpace::StateType>()->values[i] = goal_state_[3 + i];
+            start->as<ompl::base::RealVectorStateSpace::StateType>()->values[i] = start_state_.joint_states.at(i);
+            goal->as<ompl::base::RealVectorStateSpace::StateType>()->values[i] = goal_state_.joint_states.at(i);
           }
       }
     else if(planning_mode_ == gap_passing::PlanningMode::ONLY_BASE_MODE)
       {
-        start->as<ompl::base::SE2StateSpace::StateType>()->setXY(start_state_[0], start_state_[1]);
-        start->as<ompl::base::SE2StateSpace::StateType>()->setYaw(start_state_[2]);
-        goal->as<ompl::base::SE2StateSpace::StateType>()->setXY(goal_state_[0], goal_state_[1]);
-        goal->as<ompl::base::SE2StateSpace::StateType>()->setYaw(goal_state_[2]);
+        start->as<ompl::base::SE2StateSpace::StateType>()->setXY(start_state_.root_state.at(0), start_state_.root_state.at(1));
+        start->as<ompl::base::SE2StateSpace::StateType>()->setYaw(tf::getYaw(tf::Quaternion(start_state_.root_state.at(3), start_state_.root_state.at(4), start_state_.root_state.at(5), start_state_.root_state.at(6))));
+        goal->as<ompl::base::SE2StateSpace::StateType>()->setXY(goal_state_.root_state.at(0), goal_state_.root_state.at(1));
+        goal->as<ompl::base::SE2StateSpace::StateType>()->setYaw(tf::getYaw(tf::Quaternion(goal_state_.root_state.at(3), goal_state_.root_state.at(4), goal_state_.root_state.at(5), goal_state_.root_state.at(6))));
       }
-
     else if(planning_mode_ == gap_passing::PlanningMode::JOINTS_AND_BASE_MODE)
       {
         ompl::base::CompoundState* start_tmp = dynamic_cast<ompl::base::CompoundState*> (start.get());
-        start_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->setXY(start_state_[0], start_state_[1]);
-        start_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->setYaw(start_state_[2]);
-
+        start_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->setXY(start_state_.root_state.at(0), start_state_.root_state.at(1));
+        start_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->setYaw(tf::getYaw(tf::Quaternion(start_state_.root_state.at(3), start_state_.root_state.at(4), start_state_.root_state.at(5), start_state_.root_state.at(6))));
         ompl::base::CompoundState* goal_tmp = dynamic_cast<ompl::base::CompoundState*> (goal.get());
-        goal_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->setXY(goal_state_[0], goal_state_[1]);
-        goal_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->setYaw(goal_state_[2]);
-
+        goal_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->setXY(goal_state_.root_state.at(0), goal_state_.root_state.at(1));
+        goal_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->setYaw(tf::getYaw(tf::Quaternion(goal_state_.root_state.at(3), goal_state_.root_state.at(4), goal_state_.root_state.at(5), goal_state_.root_state.at(6))));
         for(int i = 0; i < joint_num_; i ++)
           {
-            start_tmp->as<ompl::base::RealVectorStateSpace::StateType>(1)->values[i] = start_state_[3 + i];
-            goal_tmp->as<ompl::base::RealVectorStateSpace::StateType>(1)->values[i] = goal_state_[3 + i];
+            start_tmp->as<ompl::base::RealVectorStateSpace::StateType>(1)->values[i] = start_state_.joint_states.at(i);
+            goal_tmp->as<ompl::base::RealVectorStateSpace::StateType>(1)->values[i] = goal_state_.joint_states.at(i);
           }
-
       }
 
-    ompl::base::ProblemDefinitionPtr pdef(new ompl::base::ProblemDefinition(space_information_));
-    pdef->setStartAndGoalStates(start, goal);
-
-    //sampler
-    space_information_->setValidStateSamplerAllocator(boost::bind(&MotionPlanning::allocValidStateSampler, this, _1));
-
-    //optimation objective
-    path_length_opt_objective_ = new ompl::base::PathLengthOptimizationObjective(space_information_);
-    path_length_opt_objective_->setCostThreshold(onlyJointPathLimit());
-    std::cout << "path length opt cost thre is "<<  path_length_opt_objective_->getCostThreshold() << std::endl;
-    ompl::base::OptimizationObjectivePtr lengthObj(path_length_opt_objective_);
-
-    ompl::base::PlannerPtr planner;
-    if(ompl_mode_ == RRT_START_MODE)
-      {
-        pdef->setOptimizationObjective(lengthObj);
-        rrt_start_planner_ = new ompl::geometric::RRTstar(space_information_);
-        planner = ompl::base::PlannerPtr(rrt_start_planner_);
-      }
-
-    planner->setProblemDefinition(pdef);
-    planner->setup();
-    space_information_->printSettings(std::cout);
-
-    solved_ = false;
-    ros::Time start_time = ros::Time::now();
-
-    ompl::base::PlannerStatus solved = planner->solve(solving_time_limit_);
-
-    if (solved)
-      {
-        calculation_time_ = ros::Time::now().toSec() - start_time.toSec();
-        path_ = pdef->getSolutionPath();
-        std::cout << "Found solution:" << std::endl;
-        path_->print(std::cout);
-
-        if(ompl_mode_ == RRT_START_MODE)
-          {
-            std::cout << "iteration is "<< rrt_start_planner_->numIterations() << "best cost is " << rrt_start_planner_->bestCost()  << std::endl;
-            std::stringstream ss;
-            ss << rrt_start_planner_->bestCost();
-            ss >> best_cost_;
-          }
-
-        //visualztion
-        plan_states_ = new ompl::base::StateStorage(config_space_);
-        int index = (int)(std::static_pointer_cast<ompl::geometric::PathGeometric>(path_)->getStateCount());
-        ROS_ERROR("index: %d", index);
-        for(int i = 0; i < index; i++)
-          {
-            ompl::base::State *state1;
-            ompl::base::State *state2;
-
-            if(i == 0)
-              state1 = start.get();
-            else
-              state1 = std::static_pointer_cast<ompl::geometric::PathGeometric>(path_)->getState(i - 1);
-
-            state2 = std::static_pointer_cast<ompl::geometric::PathGeometric>(path_)->getState(i);
-
-
-            plan_states_->addState(state1);
-            int nd = config_space_->validSegmentCount(state1, state2);
-            if (nd > 1)
-              {
-                ompl::base::State *interpolated_state = space_information_->allocState();
-                for (int j = 1 ; j < nd ; ++j)
-                  {
-                    config_space_->interpolate(state1, state2, (double)j / (double)nd, interpolated_state);
-                    plan_states_->addState(interpolated_state);
-
-                  }
-              }
-            plan_states_->addState(state2);
-          }
-
-        motion_control_->planStoring(plan_states_, planning_mode_, start_state_, goal_state_, best_cost_, calculation_time_);
-
-        solved_ = true;
-      }
-    else
-      std::cout << "No solution found" << std::endl;
-
+    pdef_ = ompl::base::ProblemDefinitionPtr(new ompl::base::ProblemDefinition(space_information_));
+    pdef_->setStartAndGoalStates(start, goal);
   }
 
   void MotionPlanning::rosParamInit()
   {
-    nhp_.param("simulator", simulator_, true);
+    nhp_.param("save_path_flag", save_path_flag_, true);
+    nhp_.param("load_path_flag", load_path_flag_, false);
+    nhp_.param("play_path_flag", play_path_flag_, false);
+    nhp_.param("file_name", file_name_, std::string("planning_log.txt"));
 
     nhp_.param("gap_left_x", gap_left_x_, 1.0);
     nhp_.param("gap_left_y", gap_left_y_, 0.3);
@@ -666,44 +518,51 @@ namespace se2
     nhp_.param("gap_left_width", gap_left_width_, 0.3); //minus: bandwidth
     nhp_.param("gap_right_width", gap_right_width_, 0.3); //minus: bandwidth
 
-    //nhp_.param("coefficient_rate", coefficient_rate_, 0.035);
+    nhp_.param("x_low_bound", x_low_bound_, -2.0);
+    nhp_.param("x_high_bound", x_high_bound_, 5.0);
+    nhp_.param("y_low_bound", y_low_bound_, -2.2);
+    nhp_.param("y_high_bound", y_high_bound_, 2.2);
+    nhp_.param("joint_low_bound", joint_low_bound_, -1.58);
+    nhp_.param("joint_high_bound", joint_high_bound_, 1.58);
+
     nhp_.param("ompl_mode", ompl_mode_, 0); //RRT_START_MODE
     nhp_.param("planning_mode", planning_mode_, 0); //ONLY_JOINTS_MODE
     nhp_.param("motion_sequence_rate", motion_sequence_rate_, 10.0);
 
-    start_state_.resize(3 + joint_num_);
-    nhp_.param("start_state_x", start_state_[0], 0.0);
-    nhp_.param("start_state_y", start_state_[1], 0.5);
-    nhp_.param("start_state_theta", start_state_[2], 0.785);
-    goal_state_.resize(3 + joint_num_);
-    nhp_.param("goal_state_x", goal_state_[0], 3.0);
-    nhp_.param("goal_state_y", goal_state_[1], 0.5);
-    nhp_.param("goal_state_theta", goal_state_[2], 0.785);
+    nhp_.param("baselink", base_link_, std::string("link1"));
+    nhp_.param("motion_type", motion_type_, 1); //SE2
+    ROS_ERROR("motion planning: %s", base_link_.c_str());
+
+    nhp_.param("start_state_x", start_state_.root_state.at(0), 0.0);
+    nhp_.param("start_state_y", start_state_.root_state.at(1), 0.5);
+    double yaw;
+    nhp_.param("start_state_theta", yaw, 0.785);
+    start_state_.setRootRPY(0, 0, yaw);
+
+    nhp_.param("goal_state_x", goal_state_.root_state.at(0), 0.0);
+    nhp_.param("goal_state_y", goal_state_.root_state.at(1), 0.5);
+    nhp_.param("goal_state_theta", yaw, 0.785);
+    goal_state_.setRootRPY(0, 0, yaw);
 
     for(int i = 0; i < joint_num_; i++)
       {
         std::stringstream joint_no;
         joint_no << i + 1;
 
-        nhp_.param(std::string("start_state_joint") + joint_no.str(), start_state_[3 + i], 0.0);
-        nhp_.param(std::string("goal_state_joint") + joint_no.str(), goal_state_[3 + i], 0.0);
+        nhp_.param(std::string("start_state_joint") + joint_no.str(), start_state_.joint_states.at(i), 0.0);
+        nhp_.param(std::string("goal_state_joint") + joint_no.str(), goal_state_.joint_states.at(i), 0.0);
       }
-
-    nhp_.param("real_robot_move_base", real_robot_move_base_, false);
+    nhp_.param("file_state_offset_x", file_state_offset_x_, 0.0);
+    nhp_.param("file_state_offset_y", file_state_offset_y_, 0.0);
+    nhp_.param("file_state_offset_z", file_state_offset_z_, 0.0);
 
     nhp_.param("state_validity_check_res", state_validity_check_res_, 0.03);
     nhp_.param("valid_segment_count_factor", valid_segment_count_factor_,20);
 
     nhp_.param("solving_time_limit", solving_time_limit_, 3600.0);
-
-    nhp_.param("length_opt_weight", length_opt_weight_, 1.0);
-    nhp_.param("stability_opt_weight", stability_opt_weight_, 0.0);
-
-    nhp_.param("stability_cost_thre", stability_cost_thre_, 100000000.0);
     nhp_.param("length_cost_thre", length_cost_thre_, 0.0);
 
-    nhp_.param("play_log_path", play_log_path_, false);
-    if(play_log_path_) solved_ = true;
+    nhp_.param("path_tf_debug", path_tf_debug_, false);
   }
 
   ompl::base::Cost MotionPlanning::onlyJointPathLimit()
@@ -713,17 +572,379 @@ namespace se2
       {
         if(planning_mode_ == gap_passing::PlanningMode::ONLY_JOINTS_MODE) length_cost_thre_ = 0.1;
         for(int i = 0; i < joint_num_; i ++)
-          length_cost_thre_ += fabs(start_state_[3 + i] - goal_state_[3 + i]);
+          length_cost_thre_ += fabs(start_state_.joint_states.at(i) - goal_state_.joint_states.at(i));
       }
     return ompl::base::Cost(length_cost_thre_);
   }
 
-  void MotionPlanning::moveStartCallback(const std_msgs::Empty msg){
-    move_start_flag_ = true;
+  void MotionPlanning::addState(ompl::base::State *ompl_state)
+  {
+    State new_state = start_state_;
+
+    if(planning_mode_ == gap_passing::PlanningMode::ONLY_JOINTS_MODE || planning_mode_ == gap_passing::PlanningMode::JOINTS_AND_BASE_MODE)
+      {
+        if(planning_mode_ == gap_passing::PlanningMode::ONLY_JOINTS_MODE)
+          {
+            for(int j = 0; j < joint_num_; j++)
+              new_state.joint_states.at(j) = ompl_state->as<ompl::base::RealVectorStateSpace::StateType>()->values[j];
+          }
+        else if(planning_mode_ == gap_passing::PlanningMode::JOINTS_AND_BASE_MODE)
+          {
+            const ompl::base::CompoundState* state_tmp = dynamic_cast<const ompl::base::CompoundState*>(ompl_state);
+            new_state.root_state.at(0) = state_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->getX();
+            new_state.root_state.at(1) = state_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->getY();
+            tf::Quaternion q = tf::createQuaternionFromYaw(state_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->getYaw());
+            new_state.root_state.at(3) = q.x();
+            new_state.root_state.at(4) = q.y();
+            new_state.root_state.at(5) = q.z();
+            new_state.root_state.at(6) = q.w();
+            for(int j = 0; j < joint_num_; j++)
+              new_state.joint_states.at(j) = state_tmp->as<ompl::base::RealVectorStateSpace::StateType>(1)->values[j];
+          }
+
+        // dist thre
+        sensor_msgs::JointState joint_state;
+        for(int j = 0; j < joint_num_; j++)
+          {
+            std::stringstream ss;
+            ss << j + 1;
+            joint_state.name.push_back(std::string("joint") + ss.str());
+            joint_state.position.push_back(new_state.joint_states.at(j));
+          }
+
+        transform_controller_->forwardKinematics(joint_state);
+        transform_controller_->stabilityMarginCheck();
+
+        if(transform_controller_->getStabilityMargin() < min_var_)
+          {
+            min_var_ = transform_controller_->getStabilityMargin() ;
+            min_var_state_ = path_.size();
+          }
+      }
+    else if(planning_mode_ == gap_passing::PlanningMode::ONLY_BASE_MODE)
+      {
+        new_state.root_state.at(0) = ompl_state->as<ompl::base::SE2StateSpace::StateType>()->getX();
+        new_state.root_state.at(1) = ompl_state->as<ompl::base::SE2StateSpace::StateType>()->getY();
+        tf::Quaternion q = tf::createQuaternionFromYaw(ompl_state->as<ompl::base::SE2StateSpace::StateType>()->getYaw());
+        new_state.root_state.at(3) = q.x();
+        new_state.root_state.at(4) = q.y();
+        new_state.root_state.at(5) = q.z();
+        new_state.root_state.at(6) = q.w();
+      }
+
+    addState(new_state);
   }
 
-  void MotionPlanning::desiredStateCallback(const std_msgs::Float64MultiArrayConstPtr& msg){
-    for (int i = 0; i < 3 + joint_num_; ++i)
-      deisred_state_[i] = msg->data[i];
+  void MotionPlanning::savePath()
+  {
+    std::ofstream ofs;
+    ofs.open(file_name_);
+    ofs << "start_state_: ";
+    for (auto it = start_state_.root_state.begin(); it != start_state_.root_state.end(); it++)
+      ofs << " " << *it;
+    for (auto it = start_state_.joint_states.begin(); it != start_state_.joint_states.end(); it++)
+      ofs << " " << *it;
+    ofs << std::endl;
+    ofs << "goal_state_: ";
+    for (auto it = goal_state_.root_state.begin(); it != goal_state_.root_state.end(); it++)
+      ofs << " " << *it;
+    for (auto it = goal_state_.joint_states.begin(); it != goal_state_.joint_states.end(); it++)
+      ofs << " " << *it;
+    ofs << std::endl;
+
+    ofs << "states: " << path_.size()  << std::endl;
+    ofs << "planning_mode: " << planning_mode_ << std::endl;
+    ofs << "planning_time: " << calculation_time_ << std::endl;
+    ofs << "motion_cost: " << best_cost_ << std::endl;
+    ofs << "minimum_var: " << min_var_ << std::endl;
+    ofs << "minimum_var_state_entry: " << min_var_state_  << std::endl;
+
+    for(int k = 0; k < (int)path_.size();  k++)
+      {
+        ofs << "state" << k << ": ";
+        for (auto it = path_.at(k).root_state.begin(); it != path_.at(k).root_state.end(); it++)
+          ofs << " " << *it;
+        for (auto it = path_.at(k).joint_states.begin(); it != path_.at(k).joint_states.end(); it++)
+          ofs << " " << *it;
+        ofs << std::endl;
+      }
+    ofs << "end"  << std::endl;
+    ofs.close();
   }
+
+  void MotionPlanning::loadPath()
+  {
+    std::ifstream ifs(file_name_.c_str());
+
+    if(ifs.fail())
+      {
+        ROS_ERROR("File do not exist");
+        return;
+      }
+
+    int state_list;
+    std::stringstream ss[11];
+    std::string str;
+    std::string header;
+    //1 start and goal state
+    std::getline(ifs, str);
+    ss[0].str(str);
+    ss[0] >> header;
+    for (int i = 0; i < 7; i ++)
+      ss[0] >> start_state_.root_state.at(i);
+    for (int i = 0; i < start_state_.joint_states.size(); i++)
+      ss[0] >> start_state_.joint_states.at(i);
+
+    start_state_.root_state.at(0) += file_state_offset_x_;
+    start_state_.root_state.at(1) += file_state_offset_y_;
+    start_state_.root_state.at(2) += file_state_offset_z_;
+
+    std::getline(ifs, str);
+    ss[1].str(str);
+    ss[1] >> header;
+    for (int i = 0; i < 7; i ++)
+      ss[1] >> goal_state_.root_state.at(i);
+    for (int i = 0; i < goal_state_.joint_states.size(); i++)
+      ss[1] >> goal_state_.joint_states.at(i);
+
+    goal_state_.root_state.at(0) += file_state_offset_x_;
+    goal_state_.root_state.at(1) += file_state_offset_y_;
+    goal_state_.root_state.at(2) += file_state_offset_z_;
+
+    std::getline(ifs, str);
+    ss[2].str(str);
+    ss[2] >> header >> state_list;
+    std::cout << header << state_list <<std::endl;
+    std::getline(ifs, str);
+    ss[3].str(str);
+    ss[3] >> header >> planning_mode_;
+    std::cout << header << planning_mode_ <<std::endl;
+    std::getline(ifs, str);
+    ss[4].str(str);
+    ss[4] >> header >> calculation_time_;
+    std::cout << header << calculation_time_ <<std::endl;
+    std::getline(ifs, str);
+    ss[5].str(str);
+    ss[5] >> header >> best_cost_;
+    std::cout << header << best_cost_ <<std::endl;
+    std::getline(ifs, str);
+    ss[6].str(str);
+    ss[6] >> header >> min_var_;
+    std::cout << header << min_var_ << std::endl;
+    std::getline(ifs, str);
+    ss[7].str(str);
+    ss[7] >> header >> min_var_state_;
+    std::cout << header << min_var_state_  <<std::endl;
+
+    for(int k = 0; k < state_list;  k++)
+      {
+        std::stringstream ss_tmp;
+        std::vector<double> state_vec(7 + start_state_.joint_states.size());
+
+        std::getline(ifs, str);
+        ss_tmp.str(str);
+        ss_tmp >> header;
+        for (int i = 0; i < state_vec.size(); i++) ss_tmp >> state_vec.at(i);
+
+        state_vec.at(0) += file_state_offset_x_;
+        state_vec.at(1) += file_state_offset_y_;
+        state_vec.at(2) += file_state_offset_z_;
+        path_.push_back(root2cog(state_vec));
+      }
+    solved_ = true;
+  }
+
+  /* keypose size: 7 + joint_state_size */
+  State MotionPlanning::root2cog(const std::vector<double> &keypose)
+  {
+    State state = start_state_;
+
+    /* root */
+    tf::Transform root_world(tf::Quaternion(keypose[3], keypose[4], keypose[5], keypose[6]),
+                             tf::Vector3(keypose[0], keypose[1], keypose[2]));
+    for(int i = 0; i < 7; i++) state.root_state.at(i) = keypose.at(i);
+
+    /* joint state */
+    sensor_msgs::JointState joint_state;
+    joint_state.name = start_state_.joint_names;
+    for(int i = 0; i < joint_state.name.size(); i++)
+      state.joint_states.at(i) = (keypose.at(7 + i));
+    joint_state.position = state.joint_states;
+
+    /* cog */
+    tf::Quaternion baselink_q = root_world * transform_controller_->getRoot2Link(base_link_, joint_state).getRotation();
+    tf::Quaternion tmp1 = transform_controller_->getRoot2Link(base_link_, joint_state).getRotation();
+    state.cog_state.at(3) = baselink_q.x();
+    state.cog_state.at(4) = baselink_q.y();
+    state.cog_state.at(5) = baselink_q.z();
+    state.cog_state.at(6) = baselink_q.w();
+
+    KDL::Rotation kdl_q;
+    tf::quaternionTFToKDL(baselink_q, kdl_q);
+    transform_controller_->forwardKinematics(joint_state);
+    tf::Vector3 cog_world_pos = root_world * transform_controller_->getCog().getOrigin();
+
+    std::vector<double> keypose_cog;
+    state.cog_state.at(0) = cog_world_pos.getX();
+    state.cog_state.at(1) = cog_world_pos.getY();
+    state.cog_state.at(2) = cog_world_pos.getZ();
+
+    return state;
+  }
+
+  /* keypose size: 7 + joint_state_size */
+  State MotionPlanning::cog2root(const std::vector<double> &keypose)
+  {
+    State state = start_state_;
+
+    /* cog */
+    for(int i = 0; i < 7; i++) state.cog_state.at(i) = keypose.at(i);
+    tf::Transform cog_world(tf::Quaternion(keypose[3], keypose[4], keypose[5], keypose[6]),
+                            tf::Vector3(keypose[0], keypose[1], keypose[2]));
+
+    /* joint state */
+    sensor_msgs::JointState joint_state;
+    joint_state.name = start_state_.joint_names;
+    for(int i = 0; i < joint_state.name.size(); i++)
+      state.joint_states.at(i) = keypose.at(7 + i);
+    joint_state.position = state.joint_states;
+
+    KDL::Rotation kdl_q;
+    tf::quaternionTFToKDL(baselink_desired_att_, kdl_q);
+    transform_controller_->setCogDesireOrientation(kdl_q);
+    transform_controller_->forwardKinematics(joint_state);
+    tf::Transform cog_root = transform_controller_->getCog(); // cog in root frame
+
+    /* root */
+    tf::Transform root_world = cog_world * transform_controller_->getCog().inverse();
+    state.root_state.at(0) = root_world.getOrigin().getX();
+    state.root_state.at(1) = root_world.getOrigin().getY();
+    state.root_state.at(2) = root_world.getOrigin().getZ();
+
+    tf::Quaternion q = root_world.getRotation();
+    state.root_state.at(3) = q.x();
+    state.root_state.at(4) = q.y();
+    state.root_state.at(5) = q.z();
+    state.root_state.at(6) = q.w();
+
+    return state;
+  }
+
+  robot_state::RobotState MotionPlanning::setRobotState2Moveit(State state)
+  {
+    robot_state::RobotState& robot_state = planning_scene_->getCurrentStateNonConst();
+    robot_state.setVariablePosition(std::string("base/trans_x"), state.root_state.at(0));
+    robot_state.setVariablePosition(std::string("base/trans_y"), state.root_state.at(1));
+    robot_state.setVariablePosition(std::string("base/trans_z"), state.root_state.at(2));
+    robot_state.setVariablePosition(std::string("base/rot_x"),   state.root_state.at(3));
+    robot_state.setVariablePosition(std::string("base/rot_y"),   state.root_state.at(4));
+    robot_state.setVariablePosition(std::string("base/rot_z"),   state.root_state.at(5));
+    robot_state.setVariablePosition(std::string("base/rot_w"),   state.root_state.at(6));
+
+    for(int i = 0; i < start_state_.joint_names.size(); i++)
+      robot_state.setVariablePosition(state.joint_names.at(i), state.joint_states.at(i));
+
+    return robot_state;
+  }
+
+  void MotionPlanning::robotOdomCallback(const nav_msgs::OdometryConstPtr& msg)
+  {
+    robot_cog_odom_ = *msg;
+    real_odom_flag_ = true;
+  }
+
+  void MotionPlanning::robotJointStatesCallback(const sensor_msgs::JointStateConstPtr& joints_msg)
+  {
+    if(!real_odom_flag_) return;
+
+    std::vector<double> real_robot_state(7 + start_state_.joint_names.size(), 0);
+
+    /* cog, pos, attitude */
+    real_robot_state.at(0) = robot_cog_odom_.pose.pose.position.x;
+    real_robot_state.at(1) = robot_cog_odom_.pose.pose.position.y;
+    real_robot_state.at(2) = robot_cog_odom_.pose.pose.position.z;
+    real_robot_state.at(3) = robot_cog_odom_.pose.pose.orientation.x;
+    real_robot_state.at(4) = robot_cog_odom_.pose.pose.orientation.y;
+    real_robot_state.at(5) = robot_cog_odom_.pose.pose.orientation.z;
+    real_robot_state.at(6) = robot_cog_odom_.pose.pose.orientation.w;
+
+    /* joint state */
+    if(start_state_.joint_names.size() != joints_msg->name.size())
+      {
+        ROS_ERROR("size of joint is not equal: rosmsg: %d, file: %d", (int)joints_msg->name.size(), (int)start_state_.joint_names.size());
+        return;
+      }
+
+    for (int i = 0; i < joints_msg->name.size(); i++)
+      {
+        auto itr = std::find(start_state_.joint_names.begin(), start_state_.joint_names.end(), joints_msg->name.at(i));
+        if (itr == start_state_.joint_names.end())
+          {
+            ROS_ERROR("can not find the joint name: %s", joints_msg->name.at(i).c_str());
+            return;
+          }
+
+        size_t index = std::distance( start_state_.joint_names.begin(), itr );
+        real_robot_state.at(7 + index) = joints_msg->position[i];
+      }
+    robot_state::RobotState robot_state = setRobotState2Moveit(cog2root(real_robot_state));
+
+    /* check collision */
+    collision_detection::CollisionRequest collision_request;
+    collision_detection::CollisionResult collision_result;
+    planning_scene_->checkCollision(collision_request, collision_result, robot_state, acm_);
+
+    if(collision_result.collision) ROS_ERROR("Robot collision with env");
+  }
+
+  void MotionPlanning::continousPathCallback(const std_msgs::Float64MultiArrayConstPtr& msg)
+  {
+    assert(msg->data.size() == 6 + joint_num_);
+
+    std::vector<double> state_vec(7 + start_state_.joint_names.size(), 0);
+
+    /* pos and att */
+    for(int i = 0; i < 3; i++) state_vec.at(i) = msg->data.at(i);
+    /* special: only get yaw angle */
+    tf::Quaternion q; q.setRPY(0, 0, msg->data.at(5));
+    state_vec.at(3) = q.x();
+    state_vec.at(4) = q.y();
+    state_vec.at(5) = q.z();
+    state_vec.at(6) = q.w();
+    /* joint state: correct order */
+    for(int i = 0; i < joint_num_; i++) state_vec.at(7 + i) = msg->data.at(6 + i);
+
+    if(path_tf_debug_)
+      {
+        /* visualize debug */
+        State new_state = cog2root(state_vec);
+        /* cog to world */
+        tf::TransformBroadcaster br;
+        tf::Transform cog_world(tf::Quaternion(new_state.cog_state.at(3),
+                                               new_state.cog_state.at(4),
+                                               new_state.cog_state.at(5),
+                                               new_state.cog_state.at(6)),
+                                tf::Vector3(new_state.cog_state.at(0),
+                                            new_state.cog_state.at(1),
+                                            new_state.cog_state.at(2)));
+        br.sendTransform(tf::StampedTransform(cog_world.inverse(), ros::Time::now(), "cog", "world"));
+        /* joint state */
+        sensor_msgs::JointState joint_state_msg;
+        joint_state_msg.header.stamp = ros::Time::now();
+        joint_state_msg.name = new_state.joint_names;
+        joint_state_msg.position = new_state.joint_states;
+        joint_state_pub_.publish(joint_state_msg);
+      }
+
+    robot_state::RobotState robot_state = setRobotState2Moveit(cog2root(state_vec));
+    planning_scene_->getPlanningSceneMsg(planning_scene_msg_);
+    planning_scene_msg_.is_diff = true;
+    planning_scene_diff_pub_.publish(planning_scene_msg_);
+  }
+
+  void MotionPlanning::desireCoordinateCallback(const spinal::DesireCoordConstPtr & msg)
+  {
+    baselink_desired_att_.setRPY(msg->roll, msg->pitch, msg->yaw);
+  }
+
 }
