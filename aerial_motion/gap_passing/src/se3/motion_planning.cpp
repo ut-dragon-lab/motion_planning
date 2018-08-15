@@ -143,10 +143,8 @@ namespace se3
                                                                              current_state.root_state.at(5),
                                                                              current_state.root_state.at(6)));
 
-    transform_controller_->kinematics(joint_state);
-    double dist_thre_check = transform_controller_->distThreCheck();
-
-    if(dist_thre_check == 0) return false;
+    transform_controller_->forwardKinematics(joint_state);
+    if(!transform_controller_->stabilityMarginCheck()) return false;
     if(!transform_controller_->overlapCheck()) return false;
     if(!transform_controller_->modelling()) return false;
 
@@ -323,7 +321,7 @@ namespace se3
                                                                              start_state_.root_state.at(5),
                                                                              start_state_.root_state.at(6)));
 
-    transform_controller_->kinematics(joint_state);
+    transform_controller_->forwardKinematics(joint_state);
     //set the nominal gimbal angles for moveit collision check
     std::vector<double> gimbal_nominal_angles = transform_controller_->getGimbalNominalAngles();
     for(int i = 0; i < gimbal_nominal_angles.size(); i++)
@@ -590,17 +588,19 @@ namespace se3
                                                                              new_state.root_state.at(5),
                                                                              new_state.root_state.at(6)));
 
-    transform_controller_->kinematics(joint_state);
-    if(transform_controller_->distThreCheck() < min_var_)
+    transform_controller_->forwardKinematics(joint_state);
+    transform_controller_->stabilityMarginCheck();
+
+    if(transform_controller_->getStabilityMargin() < min_var_)
       {
-        min_var_ = transform_controller_->distThreCheck();
+        min_var_ = transform_controller_->getStabilityMargin();
         min_var_state_ = path_.size();
       }
 
     transform_controller_->modelling();
-    if(transform_controller_->getStableState().maxCoeff() > max_force_)
+    if(transform_controller_->getOptimalHoveringThrust().maxCoeff() > max_force_)
       {
-        max_force_ = transform_controller_->getStableState().maxCoeff();
+        max_force_ = transform_controller_->getOptimalHoveringThrust().maxCoeff();
         max_force_state_ = path_.size();
       }
 
@@ -611,7 +611,7 @@ namespace se3
 
     /* log out */
     double r, p, y; new_state.getRootRPY(r, p, y);
-    ROS_INFO("index: %d, dist_var: %f, max_force: %f, base pose: [%f, %f, %f] att: [%f, %f, %f]", (int)path_.size(), transform_controller_->distThreCheck(), transform_controller_->getStableState().maxCoeff(), new_state.root_state.at(0), new_state.root_state.at(1), new_state.root_state.at(2), r, p, y);
+    ROS_INFO("index: %d, dist_var: %f, max_force: %f, base pose: [%f, %f, %f] att: [%f, %f, %f]", (int)path_.size(), transform_controller_->getStabilityMargin(), transform_controller_->getOptimalHoveringThrust().maxCoeff(), new_state.root_state.at(0), new_state.root_state.at(1), new_state.root_state.at(2), r, p, y);
 
     se2::MotionPlanning::addState(new_state);
   }
@@ -639,7 +639,7 @@ namespace se3
     KDL::Rotation kdl_q;
     tf::quaternionTFToKDL(baselink_desired_att_, kdl_q);
     transform_controller_->setCogDesireOrientation(kdl_q);
-    transform_controller_->kinematics(joint_state);
+    transform_controller_->forwardKinematics(joint_state);
     tf::Transform cog_root = transform_controller_->getCog(); // cog in root frame
     std::vector<double> gimbal_nominal_angles = transform_controller_->getGimbalNominalAngles();
     for(int i = 0; i < gimbal_nominal_angles.size(); i++)
@@ -691,7 +691,7 @@ namespace se3
     tf::quaternionTFToKDL(baselink_q, kdl_q);
     transform_controller_->setCogDesireOrientation(kdl_q);
 
-    transform_controller_->kinematics(joint_state);
+    transform_controller_->forwardKinematics(joint_state);
     tf::Vector3 cog_world_pos = root_world * transform_controller_->getCog().getOrigin();
 
     std::vector<double> keypose_cog;

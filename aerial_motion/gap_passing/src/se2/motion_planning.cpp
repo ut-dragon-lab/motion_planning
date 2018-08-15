@@ -238,10 +238,9 @@ namespace se2
         sensor_msgs::JointState joint_state;
         joint_state.name = start_state_.joint_names;
         joint_state.position = current_state.joint_states;
-        transform_controller_->kinematics(joint_state);
-        double dist_thre_check = transform_controller_->distThreCheck();
+        transform_controller_->forwardKinematics(joint_state);
 
-        if(dist_thre_check == 0) return false;
+        if(!transform_controller_->stabilityMarginCheck()) return false;
         if(!transform_controller_->modelling()) return false;
 
         if(planning_mode_ == gap_passing::PlanningMode::ONLY_JOINTS_MODE) return true;
@@ -613,12 +612,12 @@ namespace se2
             joint_state.position.push_back(new_state.joint_states.at(j));
           }
 
-        transform_controller_->kinematics(joint_state);
-        float min_var = transform_controller_->distThreCheck();
+        transform_controller_->forwardKinematics(joint_state);
+        transform_controller_->stabilityMarginCheck();
 
-        if(min_var < min_var_)
+        if(transform_controller_->getStabilityMargin() < min_var_)
           {
-            min_var_ = min_var;
+            min_var_ = transform_controller_->getStabilityMargin() ;
             min_var_state_ = path_.size();
           }
       }
@@ -782,7 +781,7 @@ namespace se2
 
     KDL::Rotation kdl_q;
     tf::quaternionTFToKDL(baselink_q, kdl_q);
-    transform_controller_->kinematics(joint_state);
+    transform_controller_->forwardKinematics(joint_state);
     tf::Vector3 cog_world_pos = root_world * transform_controller_->getCog().getOrigin();
 
     std::vector<double> keypose_cog;
@@ -813,7 +812,7 @@ namespace se2
     KDL::Rotation kdl_q;
     tf::quaternionTFToKDL(baselink_desired_att_, kdl_q);
     transform_controller_->setCogDesireOrientation(kdl_q);
-    transform_controller_->kinematics(joint_state);
+    transform_controller_->forwardKinematics(joint_state);
     tf::Transform cog_root = transform_controller_->getCog(); // cog in root frame
 
     /* root */
