@@ -48,9 +48,6 @@ add_executable(se2_motion_planning_node src/se2/motion_planning_node.cpp)
 add_dependencies(se2_motion_planning  ${PROJECT_NAME}_gencpp)
 target_link_libraries (se2_motion_planning_node ${catkin_LIBRARIES}  ${Boost_LIBRARIES} se2_motion_planning ${OMPL_LIBRARIES})
 
-add_executable(hydrus_quad_configuration_space_validation_check src/se2/hydrus_quad_configuration_space_validation_check.cpp)
-target_link_libraries (hydrus_quad_configuration_space_validation_check ${catkin_LIBRARIES}  ${Boost_LIBRARIES} )
-
 # SE(3)
 Add_library (se3_motion_planning src/se3/motion_planning.cpp )
 add_dependencies(se3_motion_planning  ${PROJECT_NAME}_gencpp)
