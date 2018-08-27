@@ -38,12 +38,11 @@
 
 /* ros */
 #include <ros/ros.h>
-#include <sampling_based_method/Keyposes.h>
-#include <sampling_based_method/Endposes.h>
+#include <aerial_motion_planning_msgs/Keyposes.h>
+#include <aerial_motion_planning_msgs/multilink_state.h>
 #include <sampling_based_method/PlanningMode.h>
 #include <nav_msgs/Odometry.h>
 #include <sensor_msgs/JointState.h>
-#include <std_msgs/Float64MultiArray.h>
 #include <std_msgs/Empty.h>
 
 /* basic header */
@@ -78,81 +77,32 @@
 #include <sstream>
 #include <fstream>
 
-class State
-{
-public:
-  State(): cog_state(7, 0), root_state(7, 0), joint_states(0), joint_names(0) {}
-  ~State(){}
-
-  void setRootRPY(double r, double p, double y)
-  {
-    tf::Quaternion q;
-    q.setRPY(r,p,y);
-    root_state.at(3) = q.x();
-    root_state.at(4) = q.y();
-    root_state.at(5) = q.z();
-    root_state.at(6) = q.w();
-  }
-
-  void setCogRPY(double r, double p, double y)
-  {
-    tf::Quaternion q;
-    q.setRPY(r,p,y);
-    cog_state.at(3) = q.x();
-    cog_state.at(4) = q.y();
-    cog_state.at(5) = q.z();
-    cog_state.at(6) = q.w();
-  }
-
-  void getRootRPY(double& r, double& p, double& y)
-  {
-    tf::Matrix3x3 att(tf::Quaternion(root_state.at(3),
-                                     root_state.at(4),
-                                     root_state.at(5),
-                                     root_state.at(6)));
-    att.getRPY(r, p, y);
-  }
-
-  void getCogRPY(double& r, double& p, double& y)
-  {
-    tf::Matrix3x3 att(tf::Quaternion(cog_state.at(3),
-                                     cog_state.at(4),
-                                     cog_state.at(5),
-                                     cog_state.at(6)));
-    att.getRPY(r, p, y);
-  }
-
-  std::vector<double> cog_state; // x, y, z, q_x, q_y, q_z, q_w
-  std::vector<double> root_state; // x, y, z, q_x, q_y, q_z, q_w
-  std::vector<double> joint_states;
-  std::vector<std::string> joint_names;
-};
-
 namespace se2
 {
   class MotionPlanning
   {
 
   public:
-    MotionPlanning(ros::NodeHandle nh, ros::NodeHandle nhp);
+    MotionPlanning(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<TransformController> transform_controller);
     ~MotionPlanning(){}
 
     void baseInit();
 
     static const int RRT_START_MODE = 0;
 
-    const std::vector<State>& getPath() { return path_;}
-    const State& getState(int index){ return path_[index];}
+    const std::vector<MultilinkState>& getPath() { return path_;}
+    const MultilinkState& getState(int index){ return path_[index];}
 
     inline int getPathSize(){return  path_.size();}
     inline double getMotionCost(){return best_cost_;}
     inline float getPlanningTime(){return calculation_time_;}
     inline float getMinVar() {return  min_var_; }
     inline int  getMinVarStateIndex() {return min_var_state_;}
-    inline int getRootMotionDof() {return root_motion_dof_; }
 
+#if 0
     virtual State cog2root(const std::vector<double> &keypose); // transfer cog link keypose to rootlink
     virtual State root2cog(const std::vector<double> &keypose); // transfer root link keypose to cog link
+#endif
     boost::shared_ptr<TransformController> getTransformController() { return transform_controller_;}
 
   protected:
@@ -198,12 +148,17 @@ namespace se2
     boost::shared_ptr<TransformController> transform_controller_;
     int joint_num_;
     //int ex_joint_num_; //the extended joint number for moveit robot state
-    int root_motion_dof_;
 
     /* path */
+#if 0
     State start_state_;
     State goal_state_;
     std::vector<State> path_;
+#endif
+    MultilinkState start_state_;
+    MultilinkState goal_state_;
+    std::vector<MultilinkState> path_;
+
     double file_state_offset_x_;
     double file_state_offset_y_;
     double file_state_offset_z_;
@@ -245,8 +200,8 @@ namespace se2
       return ompl::base::ValidStateSamplerPtr(new ompl::base::ObstacleBasedValidStateSampler(si));
     }
 
-    bool getKeyposes(sampling_based_method::Keyposes::Request &req, sampling_based_method::Keyposes::Response &res);
-    void addState(State state) { path_.push_back(state); }
+    bool getKeyposes(aerial_motion_planning_msgs::Keyposes::Request &req, aerial_motion_planning_msgs::Keyposes::Response &res);
+    void addState(MultilinkState state) { path_.push_back(state); }
 
     virtual void planInit();
     virtual bool isStateValid(const ompl::base::State *state);
@@ -257,7 +212,7 @@ namespace se2
     virtual void robotInit();
     virtual void gapEnvInit();
     virtual void addState(ompl::base::State *ompl_state);
-    virtual robot_state::RobotState setRobotState2Moveit(State state);
+    virtual robot_state::RobotState setRobotState2Moveit(MultilinkState state);
 
     /* debug */
     ros::Publisher joint_state_pub_;

@@ -16,12 +16,12 @@ find_package(catkin REQUIRED COMPONENTS
   message_generation
   std_msgs
   nav_msgs
+  aerial_motion_planning_msgs
 )
 
 find_package(ompl)
 
 add_message_files(FILES PlanningMode.msg)
-add_service_files(FILES Keyposes.srv Endposes.srv)
 
 generate_messages(DEPENDENCIES std_msgs)
 

@@ -42,7 +42,7 @@ int main(int argc, char **argv)
   ros::NodeHandle nh;
   ros::NodeHandle nhp("~");
 
-  se3::MotionPlanning *motion_planning = new se3::MotionPlanning(nh,nhp);
+  se3::MotionPlanning *motion_planning = new se3::MotionPlanning(nh,nhp, boost::shared_ptr<DragonTransformController>(new DragonTransformController(nh, nhp, false)));
   motion_planning->baseInit();
   ros::spin();
 

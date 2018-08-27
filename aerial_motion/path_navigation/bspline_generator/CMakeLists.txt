@@ -9,13 +9,10 @@ add_compile_options(-std=c++11)
 ## is used, also find other catkin packages
 set(PACKAGE_DEPENDENCIES
   roscpp
-  rospy
   std_msgs
   nav_msgs
   sensor_msgs
   tf
-  sampling_based_method
-  aerial_robot_base
   message_generation
 )
 
@@ -26,12 +23,11 @@ generate_messages(DEPENDENCIES std_msgs)
 
 include(cmake/DownloadTinyspline.cmake)
 tinyspline_build(TINYSPLINE_LIBS TINYSPLINE_INCLUDE_DIR)
-
 add_definitions("${TINYSPLINE_DEFINITIONS}")
 
 catkin_package(
-  INCLUDE_DIRS include ${TINYSPLINE_INCLUDE_DIR}
-  LIBRARIES bspline_generator ${TINYSPLINE_LIBS}
+  INCLUDE_DIRS include   ${TINYSPLINE_INCLUDE_DIR}
+  LIBRARIES bspline_interface
   CATKIN_DEPENDS ${PACKAGE_DEPENDENCIES}
   #DEPENDS system_lib
 )
@@ -48,9 +44,7 @@ include_directories(
   ${TINYSPLINE_INCLUDE_DIR}
 )
 
-add_library(aerial_plannar src/aerial_plannar.cpp src/tinyspline_interface.cpp)
-add_dependencies(aerial_plannar ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS} )
-target_link_libraries(aerial_plannar ${catkin_LIBRARIES} ${TINYSPLINE_LIBS})
+add_library(bspline_interface src/tinyspline_interface.cpp)
+add_dependencies(bspline_interface ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS} )
+target_link_libraries(bspline_interface ${catkin_LIBRARIES} ${TINYSPLINE_LIBS})
 
-add_executable(aerial_plannar_node src/aerial_plannar_node.cpp)
-target_link_libraries(aerial_plannar_node ${catkin_LIBRARIES} aerial_plannar )

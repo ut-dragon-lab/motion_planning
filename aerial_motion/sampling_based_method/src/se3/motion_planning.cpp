@@ -42,15 +42,14 @@
 /* the StabilityObjective does not work!!!!! */
 namespace se3
 {
-  MotionPlanning::MotionPlanning(ros::NodeHandle nh, ros::NodeHandle nhp):
-    se2::MotionPlanning(nh, nhp), max_force_(0), max_force_state_(0)
+  MotionPlanning::MotionPlanning(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<TransformController> transform_controller):
+    se2::MotionPlanning(nh, nhp, transform_controller), max_force_(0), max_force_state_(0)
   {
   }
 
+#if 0
   void MotionPlanning::robotInit()
   {
-    root_motion_dof_ = 6;
-    transform_controller_ = boost::shared_ptr<DragonTransformController>(new DragonTransformController(nh_, nhp_, false));
     joint_num_ = (transform_controller_->getRotorNum() - 1) * 2 ;
 
     start_state_.joint_states.resize(2 * joint_num_ + 2, 0);
@@ -72,38 +71,36 @@ namespace se3
         start_state_.joint_names.push_back(std::string("gimbal") + ss.str() + std::string("_pitch"));
       }
   }
+#endif
 
   bool MotionPlanning::isStateValid(const ompl::base::State *state)
   {
-    State current_state = start_state_;
-
+    MultilinkState current_state = start_state_;
+    geometry_msgs::Pose root_pose;
     if(planning_mode_ == sampling_based_method::PlanningMode::ONLY_JOINTS_MODE)
       {
-        for(int i = 0; i < joint_num_; i++)
-          current_state.joint_states.at(i) = state->as<ompl::base::RealVectorStateSpace::StateType>()->values[i];
+        int index = 0;
+        for(auto itr : transform_controller_->getActuatorJointMap())
+          current_state.setActuatorState(itr, state->as<ompl::base::RealVectorStateSpace::StateType>()->values[index++]);
       }
     else if(planning_mode_ == sampling_based_method::PlanningMode::ONLY_BASE_MODE)
       {
         if(motion_type_ == sampling_based_method::PlanningMode::SE2)
           {
-            current_state.root_state.at(0) = state->as<ompl::base::SE2StateSpace::StateType>()->getX();
-            current_state.root_state.at(1) = state->as<ompl::base::SE2StateSpace::StateType>()->getY();
-            tf::Quaternion q = tf::createQuaternionFromYaw(state->as<ompl::base::SE2StateSpace::StateType>()->getYaw());
-            current_state.root_state.at(3) = q.x();
-            current_state.root_state.at(4) = q.y();
-            current_state.root_state.at(5) = q.z();
-            current_state.root_state.at(6) = q.w();
+            root_pose.position.x = state->as<ompl::base::SE2StateSpace::StateType>()->getX();
+            root_pose.position.y = state->as<ompl::base::SE2StateSpace::StateType>()->getY();
+            root_pose.orientation = tf::createQuaternionMsgFromYaw(state->as<ompl::base::SE2StateSpace::StateType>()->getYaw());
           }
 
         if(motion_type_ == sampling_based_method::PlanningMode::SE3)
           {
-            current_state.root_state.at(0) = state->as<ompl::base::SE3StateSpace::StateType>()->getX();
-            current_state.root_state.at(1) = state->as<ompl::base::SE3StateSpace::StateType>()->getY();
-            current_state.root_state.at(2) = state->as<ompl::base::SE3StateSpace::StateType>()->getZ();
-            current_state.root_state.at(3) = state->as<ompl::base::SE3StateSpace::StateType>()->rotation().x;
-            current_state.root_state.at(4) = state->as<ompl::base::SE3StateSpace::StateType>()->rotation().y;
-            current_state.root_state.at(5) = state->as<ompl::base::SE3StateSpace::StateType>()->rotation().z;
-            current_state.root_state.at(6) = state->as<ompl::base::SE3StateSpace::StateType>()->rotation().w;
+            root_pose.position.x = state->as<ompl::base::SE3StateSpace::StateType>()->getX();
+            root_pose.position.y = state->as<ompl::base::SE3StateSpace::StateType>()->getY();
+            root_pose.position.z = state->as<ompl::base::SE3StateSpace::StateType>()->getZ();
+            root_pose.orientation.x = state->as<ompl::base::SE3StateSpace::StateType>()->rotation().x;
+            root_pose.orientation.y = state->as<ompl::base::SE3StateSpace::StateType>()->rotation().y;
+            root_pose.orientation.z = state->as<ompl::base::SE3StateSpace::StateType>()->rotation().z;
+            root_pose.orientation.w = state->as<ompl::base::SE3StateSpace::StateType>()->rotation().w;
           }
       }
     else if(planning_mode_ == sampling_based_method::PlanningMode::JOINTS_AND_BASE_MODE)
@@ -111,45 +108,40 @@ namespace se3
         const ompl::base::CompoundState* state_tmp = dynamic_cast<const ompl::base::CompoundState*>(state);
         if(motion_type_ == sampling_based_method::PlanningMode::SE2)
           {
-            current_state.root_state.at(0) = state_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->getX();
-            current_state.root_state.at(1) = state_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->getY();
-            tf::Quaternion q = tf::createQuaternionFromYaw(state_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->getYaw());
-            current_state.root_state.at(3) = q.x();
-            current_state.root_state.at(4) = q.y();
-            current_state.root_state.at(5) = q.z();
-            current_state.root_state.at(6) = q.w();
+            root_pose.position.x = state_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->getX();
+            root_pose.position.y = state_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->getY();
+            root_pose.orientation = tf::createQuaternionMsgFromYaw( state_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->getYaw());
           }
         if(motion_type_ == sampling_based_method::PlanningMode::SE3)
           {
-            current_state.root_state.at(0) = state_tmp->as<ompl::base::SE3StateSpace::StateType>(0)->getX();
-            current_state.root_state.at(1) = state_tmp->as<ompl::base::SE3StateSpace::StateType>(0)->getY();
-            current_state.root_state.at(2) = state_tmp->as<ompl::base::SE3StateSpace::StateType>(0)->getZ();
-            current_state.root_state.at(3) = state_tmp->as<ompl::base::SE3StateSpace::StateType>(0)->rotation().x;
-            current_state.root_state.at(4) = state_tmp->as<ompl::base::SE3StateSpace::StateType>(0)->rotation().y;
-            current_state.root_state.at(5) = state_tmp->as<ompl::base::SE3StateSpace::StateType>(0)->rotation().z;
-            current_state.root_state.at(6) = state_tmp->as<ompl::base::SE3StateSpace::StateType>(0)->rotation().w;
+            root_pose.position.x = state_tmp->as<ompl::base::SE3StateSpace::StateType>(0)->getX();
+            root_pose.position.y = state_tmp->as<ompl::base::SE3StateSpace::StateType>(0)->getY();
+            root_pose.position.z = state_tmp->as<ompl::base::SE3StateSpace::StateType>(0)->getZ();
+            root_pose.orientation.x = state_tmp->as<ompl::base::SE3StateSpace::StateType>(0)->rotation().x;
+            root_pose.orientation.y = state_tmp->as<ompl::base::SE3StateSpace::StateType>(0)->rotation().y;
+            root_pose.orientation.z = state_tmp->as<ompl::base::SE3StateSpace::StateType>(0)->rotation().z;
+            root_pose.orientation.w = state_tmp->as<ompl::base::SE3StateSpace::StateType>(0)->rotation().w;
           }
-        for(int i = 0; i < joint_num_ ; i++)
-          current_state.joint_states.at(i) = state_tmp->as<ompl::base::RealVectorStateSpace::StateType>(1)->values[i];
+
+        int index = 0;
+        for(auto itr : transform_controller_->getActuatorJointMap())
+          current_state.setActuatorState(itr, state_tmp->as<ompl::base::RealVectorStateSpace::StateType>(1)->values[index++]);
       }
+    current_state.setRootPose(root_pose);
 
     /* special for the dragon kinematics */
-    sensor_msgs::JointState joint_state;
-    joint_state.name = current_state.joint_names;
-    joint_state.position = current_state.joint_states;
     /* consider rootlink (link1) as baselink */
-    transform_controller_->setCogDesireOrientation(KDL::Rotation::Quaternion(current_state.root_state.at(3),
-                                                                             current_state.root_state.at(4),
-                                                                             current_state.root_state.at(5),
-                                                                             current_state.root_state.at(6)));
-
-    transform_controller_->forwardKinematics(joint_state);
+    KDL::Rotation q;
+    tf::quaternionMsgToKDL(root_pose.orientation, q);
+    transform_controller_->setCogDesireOrientation(q);
+    transform_controller_->forwardKinematics(current_state.getActuatorStateNonConst());
     if(!transform_controller_->stabilityMarginCheck()) return false;
     if(!transform_controller_->overlapCheck()) return false;
     if(!transform_controller_->modelling()) return false;
 
+#if 0
     //set the nominal gimbal angles for moveit collision check
-    std::vector<double> gimbal_nominal_angles = transform_controller_->getGimbalNominalAngles();
+    std::vector<double> gimbal_nominal_angles = boost::dynamic_pointer_cast<DragonTransformController>(transform_controller_)->getGimbalNominalAngles();
     for(int i = 0; i < gimbal_nominal_angles.size(); i++)
       {
         current_state.joint_states.at(joint_num_ + i) = gimbal_nominal_angles.at(i); // roll -> pitch -> roll ->pitch
@@ -160,6 +152,7 @@ namespace se3
         /* pitch */
         if (i / 2 == 1 && fabs(gimbal_nominal_angles.at(i)) > gimbal_pitch_thresh_) return false;
       }
+#endif
 
     //check collision
     collision_detection::CollisionRequest collision_request;
@@ -309,23 +302,18 @@ namespace se3
 
     collision_object.operation = collision_object.ADD;
     planning_scene_->processCollisionObjectMsg(collision_object);
-
-    /* special for the dragon kinematics */
+    ROS_ERROR("set env init");
+    /* CAUTION: important */
+    /* special for the dragon kinematics to get start state correct joint*/
     transform_controller_->setBaselink(std::string("link1"));
-    sensor_msgs::JointState joint_state;
-    joint_state.name = start_state_.joint_names;
-    joint_state.position = start_state_.joint_states;
-    /* need to set the cog coodrinate for dragon */
-    transform_controller_->setCogDesireOrientation(KDL::Rotation::Quaternion(start_state_.root_state.at(3),
-                                                                             start_state_.root_state.at(4),
-                                                                             start_state_.root_state.at(5),
-                                                                             start_state_.root_state.at(6)));
-
-    transform_controller_->forwardKinematics(joint_state);
-    //set the nominal gimbal angles for moveit collision check
-    std::vector<double> gimbal_nominal_angles = transform_controller_->getGimbalNominalAngles();
-    for(int i = 0; i < gimbal_nominal_angles.size(); i++)
-      start_state_.joint_states.at(joint_num_ + i) = gimbal_nominal_angles.at(i); // roll -> pitch -> roll ->pitch
+    KDL::Rotation q;
+    tf::quaternionMsgToKDL(start_state_.getRootPoseConst().orientation, q);
+    transform_controller_->setCogDesireOrientation(q);
+    transform_controller_->forwardKinematics(start_state_.getActuatorStateNonConst());
+    tf::quaternionMsgToKDL(goal_state_.getRootPoseConst().orientation, q);
+    transform_controller_->setCogDesireOrientation(q);
+    transform_controller_->forwardKinematics(goal_state_.getActuatorStateNonConst());
+    /* set the correct base link ( which is not root_link = link1), to be suitable for the control system */
     transform_controller_->setBaselink(base_link_);
   }
 
@@ -415,31 +403,32 @@ namespace se3
       {
         for(int i = 0; i < joint_num_; i ++)
           {
-            start->as<ompl::base::RealVectorStateSpace::StateType>()->values[i] = start_state_.joint_states.at(i);
-            goal->as<ompl::base::RealVectorStateSpace::StateType>()->values[i] = goal_state_.joint_states.at(i);
+            start->as<ompl::base::RealVectorStateSpace::StateType>()->values[i] = start_state_.getActuatorStateConst().position.at(transform_controller_->getActuatorJointMap().at(i));
+            goal->as<ompl::base::RealVectorStateSpace::StateType>()->values[i] = goal_state_.getActuatorStateConst().position.at(transform_controller_->getActuatorJointMap().at(i));
           }
       }
     else if(planning_mode_ == sampling_based_method::PlanningMode::ONLY_BASE_MODE)
       {
         if(motion_type_ == sampling_based_method::PlanningMode::SE2)
           {
-            start->as<ompl::base::SE2StateSpace::StateType>()->setXY(start_state_.root_state.at(0), start_state_.root_state.at(1));
-            start->as<ompl::base::SE2StateSpace::StateType>()->setYaw(tf::getYaw(tf::Quaternion(start_state_.root_state.at(3), start_state_.root_state.at(4), start_state_.root_state.at(5), start_state_.root_state.at(6))));
-            goal->as<ompl::base::SE2StateSpace::StateType>()->setXY(goal_state_.root_state.at(0), goal_state_.root_state.at(1));
-            goal->as<ompl::base::SE2StateSpace::StateType>()->setYaw(tf::getYaw(tf::Quaternion(goal_state_.root_state.at(3), goal_state_.root_state.at(4), goal_state_.root_state.at(5), goal_state_.root_state.at(6))));
+            start->as<ompl::base::SE2StateSpace::StateType>()->setXY(start_state_.getRootPoseConst().position.x, start_state_.getRootPoseConst().position.y);
+            start->as<ompl::base::SE2StateSpace::StateType>()->setYaw(tf::getYaw(start_state_.getRootPoseConst().orientation));
+            goal->as<ompl::base::SE2StateSpace::StateType>()->setXY(goal_state_.getRootPoseConst().position.x, goal_state_.getRootPoseConst().position.y);
+            goal->as<ompl::base::SE2StateSpace::StateType>()->setYaw(tf::getYaw(goal_state_.getRootPoseConst().orientation));
           }
         if(motion_type_ == sampling_based_method::PlanningMode::SE3)
           {
-            start->as<ompl::base::SE3StateSpace::StateType>()->setXYZ(start_state_.root_state.at(0), start_state_.root_state.at(1), start_state_.root_state.at(2));
-            start->as<ompl::base::SE3StateSpace::StateType>()->rotation().x = start_state_.root_state.at(3);
-            start->as<ompl::base::SE3StateSpace::StateType>()->rotation().y = start_state_.root_state.at(4);
-            start->as<ompl::base::SE3StateSpace::StateType>()->rotation().z = start_state_.root_state.at(5);
-            start->as<ompl::base::SE3StateSpace::StateType>()->rotation().w = start_state_.root_state.at(6);
-            goal->as<ompl::base::SE3StateSpace::StateType>()->setXYZ(goal_state_.root_state.at(0), goal_state_.root_state.at(1), goal_state_.root_state.at(2));
-            goal->as<ompl::base::SE3StateSpace::StateType>()->rotation().x = goal_state_.root_state.at(3);
-            goal->as<ompl::base::SE3StateSpace::StateType>()->rotation().y = goal_state_.root_state.at(4);
-            goal->as<ompl::base::SE3StateSpace::StateType>()->rotation().z = goal_state_.root_state.at(5);
-            goal->as<ompl::base::SE3StateSpace::StateType>()->rotation().w = goal_state_.root_state.at(6);
+            start->as<ompl::base::SE3StateSpace::StateType>()->setXYZ(start_state_.getRootPoseConst().position.x, start_state_.getRootPoseConst().position.y,start_state_.getRootPoseConst().position.z);
+            start->as<ompl::base::SE3StateSpace::StateType>()->rotation().x = start_state_.getRootPoseConst().orientation.x;
+            start->as<ompl::base::SE3StateSpace::StateType>()->rotation().y = start_state_.getRootPoseConst().orientation.y;
+            start->as<ompl::base::SE3StateSpace::StateType>()->rotation().z = start_state_.getRootPoseConst().orientation.z;
+            start->as<ompl::base::SE3StateSpace::StateType>()->rotation().w = start_state_.getRootPoseConst().orientation.w;
+
+            goal->as<ompl::base::SE3StateSpace::StateType>()->setXYZ(goal_state_.getRootPoseConst().position.x, goal_state_.getRootPoseConst().position.y, goal_state_.getRootPoseConst().position.z);
+            goal->as<ompl::base::SE3StateSpace::StateType>()->rotation().x = goal_state_.getRootPoseConst().orientation.x;
+            goal->as<ompl::base::SE3StateSpace::StateType>()->rotation().y = goal_state_.getRootPoseConst().orientation.y;
+            goal->as<ompl::base::SE3StateSpace::StateType>()->rotation().z = goal_state_.getRootPoseConst().orientation.z;
+            goal->as<ompl::base::SE3StateSpace::StateType>()->rotation().w = goal_state_.getRootPoseConst().orientation.w;
           }
       }
     else if(planning_mode_ == sampling_based_method::PlanningMode::JOINTS_AND_BASE_MODE)
@@ -449,28 +438,30 @@ namespace se3
 
         if(motion_type_ == sampling_based_method::PlanningMode::SE2)
           {
-            start_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->setXY(start_state_.root_state.at(0), start_state_.root_state.at(1));
-            start_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->setYaw(tf::getYaw(tf::Quaternion(start_state_.root_state.at(3), start_state_.root_state.at(4), start_state_.root_state.at(5), start_state_.root_state.at(6))));
-            goal_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->setXY(goal_state_.root_state.at(0), goal_state_.root_state.at(1));
-            goal_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->setYaw(tf::getYaw(tf::Quaternion(goal_state_.root_state.at(3), goal_state_.root_state.at(4), goal_state_.root_state.at(5), goal_state_.root_state.at(6))));
+            start_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->setXY(start_state_.getRootPoseConst().position.x, start_state_.getRootPoseConst().position.y);
+            start_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->setYaw(tf::getYaw(start_state_.getRootPoseConst().orientation));
+            ompl::base::CompoundState* goal_tmp = dynamic_cast<ompl::base::CompoundState*> (goal.get());
+            goal_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->setXY(goal_state_.getRootPoseConst().position.x, goal_state_.getRootPoseConst().position.y);
+            goal_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->setYaw(tf::getYaw(goal_state_.getRootPoseConst().orientation));
           }
         if(motion_type_ == sampling_based_method::PlanningMode::SE3)
           {
-            start_tmp->as<ompl::base::SE3StateSpace::StateType>(0)->setXYZ(start_state_.root_state.at(0), start_state_.root_state.at(1), start_state_.root_state.at(2));
-            start_tmp->as<ompl::base::SE3StateSpace::StateType>(0)->rotation().x = start_state_.root_state.at(3);
-            start_tmp->as<ompl::base::SE3StateSpace::StateType>(0)->rotation().y = start_state_.root_state.at(4);
-            start_tmp->as<ompl::base::SE3StateSpace::StateType>(0)->rotation().z = start_state_.root_state.at(5);
-            start_tmp->as<ompl::base::SE3StateSpace::StateType>(0)->rotation().w = start_state_.root_state.at(6);
-            goal_tmp->as<ompl::base::SE3StateSpace::StateType>(0)->setXYZ(goal_state_.root_state.at(0), goal_state_.root_state.at(1), goal_state_.root_state.at(2));
-            goal_tmp->as<ompl::base::SE3StateSpace::StateType>(0)->rotation().x = goal_state_.root_state.at(3);
-            goal_tmp->as<ompl::base::SE3StateSpace::StateType>(0)->rotation().y = goal_state_.root_state.at(4);
-            goal_tmp->as<ompl::base::SE3StateSpace::StateType>(0)->rotation().z = goal_state_.root_state.at(5);
-            goal_tmp->as<ompl::base::SE3StateSpace::StateType>(0)->rotation().w = goal_state_.root_state.at(6);
+            start_tmp->as<ompl::base::SE3StateSpace::StateType>(0)->setXYZ(start_state_.getRootPoseConst().position.x, start_state_.getRootPoseConst().position.y, start_state_.getRootPoseConst().position.z);
+            start_tmp->as<ompl::base::SE3StateSpace::StateType>(0)->rotation().x = start_state_.getRootPoseConst().orientation.x;
+            start_tmp->as<ompl::base::SE3StateSpace::StateType>(0)->rotation().y = start_state_.getRootPoseConst().orientation.y;
+            start_tmp->as<ompl::base::SE3StateSpace::StateType>(0)->rotation().z = start_state_.getRootPoseConst().orientation.z;
+            start_tmp->as<ompl::base::SE3StateSpace::StateType>(0)->rotation().w = start_state_.getRootPoseConst().orientation.w;
+
+            goal_tmp->as<ompl::base::SE3StateSpace::StateType>(0)->setXYZ(goal_state_.getRootPoseConst().position.x, goal_state_.getRootPoseConst().position.y, goal_state_.getRootPoseConst().position.z);
+            goal_tmp->as<ompl::base::SE3StateSpace::StateType>(0)->rotation().x = goal_state_.getRootPoseConst().orientation.x;
+            goal_tmp->as<ompl::base::SE3StateSpace::StateType>(0)->rotation().y = goal_state_.getRootPoseConst().orientation.y;
+            goal_tmp->as<ompl::base::SE3StateSpace::StateType>(0)->rotation().z = goal_state_.getRootPoseConst().orientation.z;
+            goal_tmp->as<ompl::base::SE3StateSpace::StateType>(0)->rotation().w = goal_state_.getRootPoseConst().orientation.w;
           }
         for(int i = 0; i < joint_num_; i ++)
           {
-            start_tmp->as<ompl::base::RealVectorStateSpace::StateType>(1)->values[i] = start_state_.joint_states.at(i);
-            goal_tmp->as<ompl::base::RealVectorStateSpace::StateType>(1)->values[i] = goal_state_.joint_states.at(i);
+            start_tmp->as<ompl::base::RealVectorStateSpace::StateType>(1)->values[i] = start_state_.getActuatorStateConst().position.at(transform_controller_->getActuatorJointMap().at(i));
+            goal_tmp->as<ompl::base::RealVectorStateSpace::StateType>(1)->values[i] = goal_state_.getActuatorStateConst().position.at(transform_controller_->getActuatorJointMap().at(i));
           }
       }
 
@@ -492,57 +483,65 @@ namespace se3
     nhp_.param("yaw_joint_low_bound", yaw_joint_low_bound_, -1.58);
     nhp_.param("yaw_joint_high_bound", yaw_joint_high_bound_, 1.58);
 
-    nhp_.param("start_state_z", start_state_.root_state.at(2), 0.0);
-    double r, p, y;
+    double r, p, y, z;
+    nhp_.param("start_state_z", start_state_.getRootPoseNonConst().position.z, 0.0);
     nhp_.param("start_state_roll", r, 0.0);
     nhp_.param("start_state_pitch", p, 0.0);
     nhp_.param("start_state_yaw", y, 0.0);
-    start_state_.setRootRPY(r, p, y);
+    start_state_.setRootOrientation(tf::createQuaternionMsgFromRollPitchYaw(r,p,y));
 
-    nhp_.param("goal_state_z", goal_state_.root_state.at(2), 0.0);
+    nhp_.param("goal_state_z", goal_state_.getRootPoseNonConst().position.z, 0.0);
     nhp_.param("goal_state_roll", r, 0.0);
     nhp_.param("goal_state_pitch", p, 0.0);
     nhp_.param("goal_state_yaw", y, 0.0);
-    goal_state_.setRootRPY(r, p, y);
+    goal_state_.setRootOrientation(tf::createQuaternionMsgFromRollPitchYaw(r,p,y));
 
     if(nhp_.hasParam("goal_state_qx"))
       {
         ROS_WARN("get quaternion goal rotation");
-        nhp_.getParam("goal_state_qx", goal_state_.root_state.at(3));
-        nhp_.getParam("goal_state_qy", goal_state_.root_state.at(4));
-        nhp_.getParam("goal_state_qz", goal_state_.root_state.at(5));
-        nhp_.getParam("goal_state_qw", goal_state_.root_state.at(6));
+        geometry_msgs::Quaternion q;
+        nhp_.getParam("goal_state_qx", goal_state_.getRootPoseNonConst().orientation.x);
+        nhp_.getParam("goal_state_qy", goal_state_.getRootPoseNonConst().orientation.y);
+        nhp_.getParam("goal_state_qz", goal_state_.getRootPoseNonConst().orientation.z);
+        nhp_.getParam("goal_state_qw", goal_state_.getRootPoseNonConst().orientation.w);
       }
 
     nhp_.param("gimbal_roll_thresh", gimbal_roll_thresh_, 1.6);
     nhp_.param("gimbal_pitch_thresh", gimbal_pitch_thresh_, 1.1);
+
+    /* test
+    ROS_WARN("start pos: [%f, %f, %f], goal pos: [%f, %f, %f]",
+             start_state_.getRootPoseNonConst().position.x,
+             start_state_.getRootPoseNonConst().position.y,
+             start_state_.getRootPoseNonConst().position.z,
+             goal_state_.getRootPoseNonConst().position.x,
+             goal_state_.getRootPoseNonConst().position.y,
+             goal_state_.getRootPoseNonConst().position.z);
+    */
   }
 
   void MotionPlanning::addState(ompl::base::State *ompl_state)
   {
-    State new_state = start_state_;
+    MultilinkState new_state = start_state_;
+    geometry_msgs::Pose root_pose;
 
     if(planning_mode_ == sampling_based_method::PlanningMode::ONLY_BASE_MODE)
       {
         if(motion_type_ == sampling_based_method::PlanningMode::SE2)
           {
-            new_state.root_state.at(0) = ompl_state->as<ompl::base::SE2StateSpace::StateType>()->getX();
-            new_state.root_state.at(1) = ompl_state->as<ompl::base::SE2StateSpace::StateType>()->getY();
-            tf::Quaternion q = tf::createQuaternionFromYaw(ompl_state->as<ompl::base::SE2StateSpace::StateType>()->getYaw());
-            new_state.root_state.at(3) = q.x();
-            new_state.root_state.at(4) = q.y();
-            new_state.root_state.at(5) = q.z();
-            new_state.root_state.at(6) = q.w();
+            root_pose.position.x = ompl_state->as<ompl::base::SE2StateSpace::StateType>()->getX();
+            root_pose.position.y = ompl_state->as<ompl::base::SE2StateSpace::StateType>()->getY();
+            root_pose.orientation = tf::createQuaternionMsgFromYaw(ompl_state->as<ompl::base::SE2StateSpace::StateType>()->getYaw());
           }
         if(motion_type_ == sampling_based_method::PlanningMode::SE3)
           {
-            new_state.root_state.at(0) = ompl_state->as<ompl::base::SE3StateSpace::StateType>()->getX();
-            new_state.root_state.at(1) = ompl_state->as<ompl::base::SE3StateSpace::StateType>()->getY();
-            new_state.root_state.at(2) = ompl_state->as<ompl::base::SE3StateSpace::StateType>()->getZ();
-            new_state.root_state.at(3) = ompl_state->as<ompl::base::SE3StateSpace::StateType>()->rotation().x;
-            new_state.root_state.at(4) = ompl_state->as<ompl::base::SE3StateSpace::StateType>()->rotation().y;
-            new_state.root_state.at(5) = ompl_state->as<ompl::base::SE3StateSpace::StateType>()->rotation().z;
-            new_state.root_state.at(6) = ompl_state->as<ompl::base::SE3StateSpace::StateType>()->rotation().w;
+            root_pose.position.x = ompl_state->as<ompl::base::SE3StateSpace::StateType>()->getX();
+            root_pose.position.y = ompl_state->as<ompl::base::SE3StateSpace::StateType>()->getY();
+            root_pose.position.z = ompl_state->as<ompl::base::SE3StateSpace::StateType>()->getZ();
+            root_pose.orientation.x = ompl_state->as<ompl::base::SE3StateSpace::StateType>()->rotation().x;
+            root_pose.orientation.y = ompl_state->as<ompl::base::SE3StateSpace::StateType>()->rotation().y;
+            root_pose.orientation.z = ompl_state->as<ompl::base::SE3StateSpace::StateType>()->rotation().z;
+            root_pose.orientation.w = ompl_state->as<ompl::base::SE3StateSpace::StateType>()->rotation().w;
           }
       }
     else if(planning_mode_ == sampling_based_method::PlanningMode::JOINTS_AND_BASE_MODE)
@@ -552,43 +551,37 @@ namespace se3
         /* SE2 */
         if(motion_type_ == sampling_based_method::PlanningMode::SE2)
           {
-            new_state.root_state.at(0) = state_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->getX();
-            new_state.root_state.at(1) = state_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->getY();
-            tf::Quaternion q = tf::createQuaternionFromYaw(state_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->getYaw());
-            new_state.root_state.at(3) = q.x();
-            new_state.root_state.at(4) = q.y();
-            new_state.root_state.at(5) = q.z();
-            new_state.root_state.at(6) = q.w();
+            root_pose.position.x = state_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->getX();
+            root_pose.position.y = state_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->getY();
+            root_pose.orientation = tf::createQuaternionMsgFromYaw( state_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->getYaw());
           }
 
         /* SE3 */
         if(motion_type_ == sampling_based_method::PlanningMode::SE3)
           {
-            new_state.root_state.at(0) = state_tmp->as<ompl::base::SE3StateSpace::StateType>(0)->getX();
-            new_state.root_state.at(1) = state_tmp->as<ompl::base::SE3StateSpace::StateType>(0)->getY();
-            new_state.root_state.at(2) = state_tmp->as<ompl::base::SE3StateSpace::StateType>(0)->getZ();
-            new_state.root_state.at(3) = state_tmp->as<ompl::base::SE3StateSpace::StateType>(0)->rotation().x;
-            new_state.root_state.at(4) = state_tmp->as<ompl::base::SE3StateSpace::StateType>(0)->rotation().y;
-            new_state.root_state.at(5) = state_tmp->as<ompl::base::SE3StateSpace::StateType>(0)->rotation().z;
-            new_state.root_state.at(6) = state_tmp->as<ompl::base::SE3StateSpace::StateType>(0)->rotation().w;
+            root_pose.position.x = state_tmp->as<ompl::base::SE3StateSpace::StateType>(0)->getX();
+            root_pose.position.y = state_tmp->as<ompl::base::SE3StateSpace::StateType>(0)->getY();
+            root_pose.position.z = state_tmp->as<ompl::base::SE3StateSpace::StateType>(0)->getZ();
+            root_pose.orientation.x = state_tmp->as<ompl::base::SE3StateSpace::StateType>(0)->rotation().x;
+            root_pose.orientation.y = state_tmp->as<ompl::base::SE3StateSpace::StateType>(0)->rotation().y;
+            root_pose.orientation.z = state_tmp->as<ompl::base::SE3StateSpace::StateType>(0)->rotation().z;
+            root_pose.orientation.w = state_tmp->as<ompl::base::SE3StateSpace::StateType>(0)->rotation().w;
           }
 
-        for(int j = 0; j < joint_num_; j++)
-          new_state.joint_states.at(j) = state_tmp->as<ompl::base::RealVectorStateSpace::StateType>(1)->values[j];
+        int index = 0;
+        for(auto itr : transform_controller_->getActuatorJointMap())
+          new_state.setActuatorState(itr, state_tmp->as<ompl::base::RealVectorStateSpace::StateType>(1)->values[index++]);
       }
 
+    new_state.setRootPose(root_pose);
+
     /* special for the dragon kinematics */
-    sensor_msgs::JointState joint_state;
-    joint_state.name = start_state_.joint_names;
-    joint_state.position = new_state.joint_states;
-
     /* consider rootlink (link1) as baselink */
-    transform_controller_->setCogDesireOrientation(KDL::Rotation::Quaternion(new_state.root_state.at(3),
-                                                                             new_state.root_state.at(4),
-                                                                             new_state.root_state.at(5),
-                                                                             new_state.root_state.at(6)));
+    KDL::Rotation q;
+    tf::quaternionMsgToKDL(new_state.getRootPoseConst().orientation, q);
+    transform_controller_->setCogDesireOrientation(q);
+    transform_controller_->forwardKinematics(new_state.getActuatorStateNonConst());
 
-    transform_controller_->forwardKinematics(joint_state);
     transform_controller_->stabilityMarginCheck();
 
     if(transform_controller_->getStabilityMargin() < min_var_)
@@ -604,18 +597,24 @@ namespace se3
         max_force_state_ = path_.size();
       }
 
+#if 0
     //set the nominal gimbal angles for moveit collision check
-    std::vector<double> gimbal_nominal_angles = transform_controller_->getGimbalNominalAngles();
+    std::vector<double> gimbal_nominal_angles = boost::dynamic_pointer_cast<DragonTransformController>(transform_controller_)->getGimbalNominalAngles();
     for(int i = 0; i < gimbal_nominal_angles.size(); i++)
         new_state.joint_states.at(joint_num_ + i) = gimbal_nominal_angles.at(i); // roll -> pitch -> roll ->pitch
+#endif
 
     /* log out */
-    double r, p, y; new_state.getRootRPY(r, p, y);
-    ROS_INFO("index: %d, dist_var: %f, max_force: %f, base pose: [%f, %f, %f] att: [%f, %f, %f]", (int)path_.size(), transform_controller_->getStabilityMargin(), transform_controller_->getOptimalHoveringThrust().maxCoeff(), new_state.root_state.at(0), new_state.root_state.at(1), new_state.root_state.at(2), r, p, y);
+    double r, p, y;
+    tf::Quaternion tf_q;
+    quaternionMsgToTF(new_state.getRootPoseConst().orientation, tf_q);
+    tf::Matrix3x3(tf_q).getRPY(r, p, y);
+    ROS_INFO("index: %d, dist_var: %f, max_force: %f, base pose: [%f, %f, %f] att: [%f, %f, %f]", (int)path_.size(), transform_controller_->getStabilityMargin(), transform_controller_->getOptimalHoveringThrust().maxCoeff(), new_state.getRootPoseConst().position.x, new_state.getRootPoseConst().position.y, new_state.getRootPoseConst().position.z, r, p, y);
 
     se2::MotionPlanning::addState(new_state);
   }
 
+#if 0
   /* keypose size: 7 + joint_state_size (no gimbal) */
   State MotionPlanning::cog2root(const std::vector<double> &keypose)
   {
@@ -641,9 +640,14 @@ namespace se3
     transform_controller_->setCogDesireOrientation(kdl_q);
     transform_controller_->forwardKinematics(joint_state);
     tf::Transform cog_root = transform_controller_->getCog(); // cog in root frame
-    std::vector<double> gimbal_nominal_angles = transform_controller_->getGimbalNominalAngles();
+    std::vector<double> gimbal_nominal_angles = boost::dynamic_pointer_cast<DragonTransformController>(transform_controller_)->getGimbalNominalAngles();
     for(int i = 0; i < gimbal_nominal_angles.size(); i++)
-      state.joint_states.at(joint_num_ + i) = gimbal_nominal_angles.at(i);
+      {
+        // ROS_INFO("%s: %f vs %f",
+        //          start_state_.joint_names.at(joint_num_ + i).c_str(),
+        //          joint_state.position.at(joint_num_ + i), gimbal_nominal_angles.at(i));
+        state.joint_states.at(joint_num_ + i) = gimbal_nominal_angles.at(i);
+      }
 
     /* root */
     tf::Transform root_world = cog_world * transform_controller_->getCog().inverse();
@@ -680,7 +684,7 @@ namespace se3
       state.joint_states.at(i) = keypose.at(7 + i);
     joint_state.position = state.joint_states;
 
-    /* cog */
+    /* cog: true baselink (e.g. fc) */
     tf::Quaternion baselink_q = root_world * transform_controller_->getRoot2Link(base_link_, joint_state).getRotation();
     state.cog_state.at(3) = baselink_q.x();
     state.cog_state.at(4) = baselink_q.y();
@@ -690,7 +694,6 @@ namespace se3
     KDL::Rotation kdl_q;
     tf::quaternionTFToKDL(baselink_q, kdl_q);
     transform_controller_->setCogDesireOrientation(kdl_q);
-
     transform_controller_->forwardKinematics(joint_state);
     tf::Vector3 cog_world_pos = root_world * transform_controller_->getCog().getOrigin();
 
@@ -718,5 +721,5 @@ namespace se3
       }
     return state;
   }
-
+#endif
 }

@@ -27,6 +27,7 @@
   <build_depend>cmake_modules</build_depend>
   <build_depend>std_msgs</build_depend>
   <build_depend>nav_msgs</build_depend>
+  <build_depend>aerial_motion_planning_msgs</build_depend>
 
   <run_depend>roscpp</run_depend>
   <run_depend>tf</run_depend>
@@ -43,7 +44,7 @@
   <run_depend>message_runtime</run_depend>
   <run_depend>std_msgs</run_depend>
   <run_depend>nav_msgs</run_depend>
-
+  <run_depend>aerial_motion_planning_msgs</run_depend>
 
 </package>
 

@@ -14,19 +14,19 @@ goal_state_pitch: 0.0
 goal_state_yaw: 0.0
 
 ## joint init and goal
-start_state_joint1: 0.0 # joint1_pitch
-start_state_joint2: 1.57 # joint1_yaw
-start_state_joint3: 0.0 # joint2_pitch
-start_state_joint4: 1.57 # joint2_yaw
-start_state_joint5: 0.0 # joint3_pitch
-start_state_joint6: 1.57 # joint3_yaw
+start_joint1_pitch: 0.0
+start_joint1_yaw: 1.57  
+start_joint2_pitch: 0.0
+start_joint2_yaw: 1.57
+start_joint3_pitch: 0.0
+start_joint3_yaw: 1.57
 
-goal_state_joint1: 0 # joint1_pitch
-goal_state_joint2: 1.57 # joint1_yaw
-goal_state_joint3: 0 # joint2_pitch
-goal_state_joint4: 1.57 # joint2_yaw
-goal_state_joint5: 0 # joint3_pitch
-goal_state_joint6: 1.57 # joint3_yaw
+goal_joint1_pitch: 0
+goal_joint1_yaw: 1.57
+goal_joint2_pitch: 0
+goal_joint2_yaw: 1.57
+goal_joint3_pitch: 0
+goal_joint3_yaw: 1.57
 
 ## bound
 x_low_bound: -1.0
@@ -46,7 +46,7 @@ length_cost_thre: 6
 # dist check
 gimbal_roll_thresh: 1.5
 gimbal_pitch_thresh: 1.0
-var_thre: 0.3 # l: 0.22, s: 0.21; 
+stability_margin_thre: 0.3 # l: 0.22, s: 0.21; 
 # overlap check
 edf_max_tilt: 0.1 #0.18
 # statics

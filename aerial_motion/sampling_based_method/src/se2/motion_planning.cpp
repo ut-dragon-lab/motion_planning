@@ -45,9 +45,10 @@ namespace
 
 namespace se2
 {
-  MotionPlanning::MotionPlanning(ros::NodeHandle nh, ros::NodeHandle nhp):
-    nh_(nh), nhp_(nhp), solved_(false), real_odom_flag_(false),
-    path_(0), calculation_time_(0), best_cost_(-1), min_var_(1e6),
+  MotionPlanning::MotionPlanning(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<TransformController> transform_controller):
+    nh_(nh), nhp_(nhp), transform_controller_(transform_controller),
+    solved_(false), real_odom_flag_(false), path_(0), calculation_time_(0),
+    best_cost_(-1), min_var_(1e6),
     planning_mode_(sampling_based_method::PlanningMode::ONLY_JOINTS_MODE),
     motion_type_(sampling_based_method::PlanningMode::SE2)
   {
@@ -92,19 +93,21 @@ namespace se2
 
   void MotionPlanning::robotInit()
   {
-    root_motion_dof_ = 3;
-    transform_controller_ = boost::shared_ptr<TransformController>(new TransformController(nh_, nhp_, false));
-    joint_num_ = transform_controller_->getRotorNum() - 1;
-
-    start_state_.joint_states.resize(joint_num_);
-    goal_state_.joint_states.resize(joint_num_);
-
-    for(int i = 0; i < joint_num_; i++)
+    sensor_msgs::JointState actuator_state;
+    for (auto itr: transform_controller_->getActuatorMap())
       {
-        std::stringstream ss;
-        ss << i + 1;
-        start_state_.joint_names.push_back(std::string("joint") + ss.str());
+        actuator_state.name.push_back(itr.first);
+        actuator_state.position.push_back(0);
+        //debug: ROS_ERROR("%s: %d", itr.first.c_str(), itr.second);
       }
+
+    transform_controller_->setActuatorJointMap(actuator_state); // get joint index from get actuator map
+    joint_num_ = transform_controller_->getActuatorJointMap().size();
+    //debug: for(auto itr: transform_controller_->getActuatorJointMap()) ROS_ERROR("%d", itr);
+    //debug: ROS_ERROR("test: joint num is %d", joint_num_);
+
+    start_state_.setActuatorState(actuator_state);
+    goal_state_.setActuatorState(actuator_state);
   }
 
   void MotionPlanning::motionSequenceFunc(const ros::TimerEvent &e)
@@ -118,11 +121,6 @@ namespace se2
           {
             ROS_WARN("plan size is %d, planning time is %f, motion cost is %f, min var is %f, min var state index: %d", getPathSize(), getPlanningTime(), getMotionCost(), getMinVar(), getMinVarStateIndex());
 
-            int min_var_state_index = getMinVarStateIndex();
-            for(int i = 0; i < joint_num_; i++)
-              std::cout << start_state_.joint_names.at(i) << ": " << getState(min_var_state_index).joint_states.at(i) << " ";
-            std::cout << std::endl;
-
             first_flag = false;
           }
 
@@ -131,16 +129,16 @@ namespace se2
         if(path_tf_debug_)
           {
             tf::TransformBroadcaster br;
-            tf::Transform cog_world(tf::Quaternion(getState(state_index).cog_state[3], getState(state_index).cog_state[4], getState(state_index).cog_state[5], getState(state_index).cog_state[6]),
-                                    tf::Vector3(getState(state_index).cog_state[0], getState(state_index).cog_state[1], getState(state_index).cog_state[2]));
+
+            tf::Transform cog_world;
+            tf::poseMsgToTF(getState(state_index).getCogPoseConst(), cog_world);
             br.sendTransform(tf::StampedTransform(cog_world.inverse(), ros::Time::now(), "cog", "world"));
             double r, p, y; cog_world.getBasis().getRPY(r, p, y);
 
             /* joint state */
             sensor_msgs::JointState joint_state_msg;
+            joint_state_msg = getState(state_index).getActuatorStateConst();
             joint_state_msg.header.stamp = ros::Time::now();
-            joint_state_msg.name = start_state_.joint_names;
-            joint_state_msg.position = getState(state_index).joint_states;
             joint_state_pub_.publish(joint_state_msg);
           }
 
@@ -154,7 +152,7 @@ namespace se2
       }
   }
 
-  bool MotionPlanning::getKeyposes(sampling_based_method::Keyposes::Request &req, sampling_based_method::Keyposes::Response &res)
+  bool MotionPlanning::getKeyposes(aerial_motion_planning_msgs::Keyposes::Request &req, aerial_motion_planning_msgs::Keyposes::Response &res)
   {
     int keyposes_num = path_.size();
     if (solved_ && ros::ok() && keyposes_num){
@@ -172,24 +170,23 @@ namespace se2
       res.data.layout.dim[1].stride = 6 + joint_num_;
       res.data.layout.data_offset = 0;
 
-      for (int i = 0; i < keyposes_num; ++i){
-        /* cog position */
-        for (int j = 0; j < 3; ++j)
-          res.data.data.push_back(path_.at(i).cog_state.at(j));
+      for (int i = 0; i < keyposes_num; ++i)
+        {
+          /* cog position */
+          res.data.data.push_back(path_.at(i).getCogPoseConst().position.x);
+          res.data.data.push_back(path_.at(i).getCogPoseConst().position.y);
+          res.data.data.push_back(path_.at(i).getCogPoseConst().position.z);
 
-        /* convert to euler enagles */
-        tf::Matrix3x3 att(tf::Quaternion(path_.at(i).cog_state.at(3),
-                                         path_.at(i).cog_state.at(4),
-                                         path_.at(i).cog_state.at(5),
-                                         path_.at(i).cog_state.at(6)));
-        double r, p, y; path_.at(i).getCogRPY(r, p, y);
-        res.data.data.push_back(r);
-        res.data.data.push_back(p);
-        res.data.data.push_back(y);
+          /* convert to euler enagles */
+          tf::Matrix3x3 att(path_.at(i).getBaselinkDesiredAttConst());
+          double r, p, y; att.getRPY(r, p, y);
+          res.data.data.push_back(r);
+          res.data.data.push_back(p);
+          res.data.data.push_back(y);
 
-        /* set joint state */
-        for (int j = 0; j < joint_num_; ++j)
-          res.data.data.push_back(path_.at(i).joint_states.at(j));
+          /* set joint state */
+          for(auto itr : transform_controller_->getActuatorJointMap())
+            res.data.data.push_back(path_.at(i).getActuatorStateConst().position.at(itr));
       }
       solved_ = false;
     }
@@ -202,43 +199,39 @@ namespace se2
 
   bool  MotionPlanning::isStateValid(const ompl::base::State *state)
   {
-    State current_state = start_state_;
+    MultilinkState current_state = start_state_;
+    geometry_msgs::Pose root_pose;
 
-    double yaw = 0;
     if(planning_mode_ == sampling_based_method::PlanningMode::ONLY_JOINTS_MODE)
       {
-        for(int i = 0; i < joint_num_; i++)
-          current_state.joint_states.at(i) = state->as<ompl::base::RealVectorStateSpace::StateType>()->values[i];
+        int index = 0;
+        for(auto itr : transform_controller_->getActuatorJointMap())
+          current_state.setActuatorState(itr, state->as<ompl::base::RealVectorStateSpace::StateType>()->values[index++]);
       }
     else if(planning_mode_ == sampling_based_method::PlanningMode::ONLY_BASE_MODE)
       {
-        current_state.root_state.at(0) = state->as<ompl::base::SE2StateSpace::StateType>()->getX();
-        current_state.root_state.at(1) = state->as<ompl::base::SE2StateSpace::StateType>()->getY();
-        yaw = state->as<ompl::base::SE2StateSpace::StateType>()->getYaw();
+        root_pose.position.x = state->as<ompl::base::SE2StateSpace::StateType>()->getX();
+        root_pose.position.y = state->as<ompl::base::SE2StateSpace::StateType>()->getY();
+        root_pose.orientation = tf::createQuaternionMsgFromYaw(state->as<ompl::base::SE2StateSpace::StateType>()->getYaw());
       }
     else if(planning_mode_ == sampling_based_method::PlanningMode::JOINTS_AND_BASE_MODE)
       {
         const ompl::base::CompoundState* state_tmp = dynamic_cast<const ompl::base::CompoundState*>(state);
-        current_state.root_state.at(0) = state_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->getX();
-        current_state.root_state.at(1) = state_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->getY();
-        yaw = state_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->getYaw();
-        for(int i = 0; i < joint_num_; i++)
-          current_state.joint_states.at(i) = state_tmp->as<ompl::base::RealVectorStateSpace::StateType>(1)->values[i];
+        root_pose.position.x = state_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->getX();
+        root_pose.position.y = state_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->getY();
+        root_pose.orientation = tf::createQuaternionMsgFromYaw( state_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->getYaw());
+
+        int index = 0;
+        for(auto itr : transform_controller_->getActuatorJointMap())
+          current_state.setActuatorState(itr, state_tmp->as<ompl::base::RealVectorStateSpace::StateType>(1)->values[index++]);
       }
 
-    tf::Quaternion q = tf::createQuaternionFromYaw(yaw);
-    current_state.root_state.at(3) = q.x();
-    current_state.root_state.at(4) = q.y();
-    current_state.root_state.at(5) = q.z();
-    current_state.root_state.at(6) = q.w();
+    current_state.setRootPose(root_pose);
 
-    //check distance thresold
+      //check distance thresold
     if(planning_mode_ == sampling_based_method::PlanningMode::JOINTS_AND_BASE_MODE || planning_mode_ == sampling_based_method::PlanningMode::ONLY_JOINTS_MODE)
       {
-        sensor_msgs::JointState joint_state;
-        joint_state.name = start_state_.joint_names;
-        joint_state.position = current_state.joint_states;
-        transform_controller_->forwardKinematics(joint_state);
+        transform_controller_->forwardKinematics(current_state.getActuatorStateNonConst());
 
         if(!transform_controller_->stabilityMarginCheck()) return false;
         if(!transform_controller_->modelling()) return false;
@@ -344,6 +337,9 @@ namespace se2
 
     collision_object.operation = collision_object.ADD;
     planning_scene_->processCollisionObjectMsg(collision_object);
+
+    /* set the correct base link ( which is not root_link = link1), to be suitable for the control system */
+    transform_controller_->setBaselink(base_link_);
   }
 
   void MotionPlanning::plan()
@@ -420,6 +416,9 @@ namespace se2
 
   void MotionPlanning::planInit()
   {
+    //set root link as the baselink for the planning
+    transform_controller_->setBaselink(std::string("link1"));
+
     //planning
     //x, y
     ompl::base::StateSpacePtr se2(new ompl::base::SE2StateSpace());
@@ -474,29 +473,29 @@ namespace se2
       {
         for(int i = 0; i < joint_num_; i ++)
           {
-            start->as<ompl::base::RealVectorStateSpace::StateType>()->values[i] = start_state_.joint_states.at(i);
-            goal->as<ompl::base::RealVectorStateSpace::StateType>()->values[i] = goal_state_.joint_states.at(i);
+            start->as<ompl::base::RealVectorStateSpace::StateType>()->values[i] = start_state_.getActuatorStateConst().position.at(transform_controller_->getActuatorJointMap().at(i));
+            goal->as<ompl::base::RealVectorStateSpace::StateType>()->values[i] = goal_state_.getActuatorStateConst().position.at(transform_controller_->getActuatorJointMap().at(i));
           }
       }
     else if(planning_mode_ == sampling_based_method::PlanningMode::ONLY_BASE_MODE)
       {
-        start->as<ompl::base::SE2StateSpace::StateType>()->setXY(start_state_.root_state.at(0), start_state_.root_state.at(1));
-        start->as<ompl::base::SE2StateSpace::StateType>()->setYaw(tf::getYaw(tf::Quaternion(start_state_.root_state.at(3), start_state_.root_state.at(4), start_state_.root_state.at(5), start_state_.root_state.at(6))));
-        goal->as<ompl::base::SE2StateSpace::StateType>()->setXY(goal_state_.root_state.at(0), goal_state_.root_state.at(1));
-        goal->as<ompl::base::SE2StateSpace::StateType>()->setYaw(tf::getYaw(tf::Quaternion(goal_state_.root_state.at(3), goal_state_.root_state.at(4), goal_state_.root_state.at(5), goal_state_.root_state.at(6))));
+        start->as<ompl::base::SE2StateSpace::StateType>()->setXY(start_state_.getRootPoseConst().position.x, start_state_.getRootPoseConst().position.y);
+        start->as<ompl::base::SE2StateSpace::StateType>()->setYaw(tf::getYaw(start_state_.getRootPoseConst().orientation));
+        goal->as<ompl::base::SE2StateSpace::StateType>()->setXY(goal_state_.getRootPoseConst().position.x, goal_state_.getRootPoseConst().position.y);
+        goal->as<ompl::base::SE2StateSpace::StateType>()->setYaw(tf::getYaw(goal_state_.getRootPoseConst().orientation));
       }
     else if(planning_mode_ == sampling_based_method::PlanningMode::JOINTS_AND_BASE_MODE)
       {
         ompl::base::CompoundState* start_tmp = dynamic_cast<ompl::base::CompoundState*> (start.get());
-        start_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->setXY(start_state_.root_state.at(0), start_state_.root_state.at(1));
-        start_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->setYaw(tf::getYaw(tf::Quaternion(start_state_.root_state.at(3), start_state_.root_state.at(4), start_state_.root_state.at(5), start_state_.root_state.at(6))));
+        start_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->setXY(start_state_.getRootPoseConst().position.x, start_state_.getRootPoseConst().position.y);
+        start_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->setYaw(tf::getYaw(start_state_.getRootPoseConst().orientation));
         ompl::base::CompoundState* goal_tmp = dynamic_cast<ompl::base::CompoundState*> (goal.get());
-        goal_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->setXY(goal_state_.root_state.at(0), goal_state_.root_state.at(1));
-        goal_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->setYaw(tf::getYaw(tf::Quaternion(goal_state_.root_state.at(3), goal_state_.root_state.at(4), goal_state_.root_state.at(5), goal_state_.root_state.at(6))));
+        goal_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->setXY(goal_state_.getRootPoseConst().position.x, goal_state_.getRootPoseConst().position.y);
+        goal_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->setYaw(tf::getYaw(goal_state_.getRootPoseConst().orientation));
         for(int i = 0; i < joint_num_; i ++)
           {
-            start_tmp->as<ompl::base::RealVectorStateSpace::StateType>(1)->values[i] = start_state_.joint_states.at(i);
-            goal_tmp->as<ompl::base::RealVectorStateSpace::StateType>(1)->values[i] = goal_state_.joint_states.at(i);
+            start_tmp->as<ompl::base::RealVectorStateSpace::StateType>(1)->values[i] = start_state_.getActuatorStateConst().position.at(transform_controller_->getActuatorJointMap().at(i));
+            goal_tmp->as<ompl::base::RealVectorStateSpace::StateType>(1)->values[i] = goal_state_.getActuatorStateConst().position.at(transform_controller_->getActuatorJointMap().at(i));
           }
       }
 
@@ -533,25 +532,36 @@ namespace se2
     nhp_.param("motion_type", motion_type_, 1); //SE2
     ROS_ERROR("motion planning: %s", base_link_.c_str());
 
-    nhp_.param("start_state_x", start_state_.root_state.at(0), 0.0);
-    nhp_.param("start_state_y", start_state_.root_state.at(1), 0.5);
+    geometry_msgs::Pose pose;
     double yaw;
+    nhp_.param("start_state_x", pose.position.x, 0.0);
+    nhp_.param("start_state_y", pose.position.y, 0.5);
     nhp_.param("start_state_theta", yaw, 0.785);
-    start_state_.setRootRPY(0, 0, yaw);
+    pose.orientation = tf::createQuaternionMsgFromYaw(yaw);
+    start_state_.setRootPose(pose);
 
-    nhp_.param("goal_state_x", goal_state_.root_state.at(0), 0.0);
-    nhp_.param("goal_state_y", goal_state_.root_state.at(1), 0.5);
+    nhp_.param("goal_state_x", pose.position.x, 0.0);
+    nhp_.param("goal_state_y", pose.position.y, 0.5);
     nhp_.param("goal_state_theta", yaw, 0.785);
-    goal_state_.setRootRPY(0, 0, yaw);
+    pose.orientation = tf::createQuaternionMsgFromYaw(yaw);
+    goal_state_.setRootPose(pose);
 
     for(int i = 0; i < joint_num_; i++)
       {
-        std::stringstream joint_no;
-        joint_no << i + 1;
-
-        nhp_.param(std::string("start_state_joint") + joint_no.str(), start_state_.joint_states.at(i), 0.0);
-        nhp_.param(std::string("goal_state_joint") + joint_no.str(), goal_state_.joint_states.at(i), 0.0);
+        int joint_no = transform_controller_->getActuatorJointMap().at(i);
+        nhp_.param(std::string("start_") + start_state_.getActuatorStateNonConst().name.at(joint_no), start_state_.getActuatorStateNonConst().position.at(joint_no), 0.0);
+        nhp_.param(std::string("goal_") + goal_state_.getActuatorStateNonConst().name.at(joint_no), goal_state_.getActuatorStateNonConst().position.at(joint_no), 0.0);
       }
+
+    /* debug
+    for(int i = 0; i < start_state_.getActuatorStateConst().name.size(); i++)
+      {
+        ROS_WARN("%s: start: %f, goal: %f", start_state_.getActuatorStateConst().name.at(i).c_str(),
+                 start_state_.getActuatorStateConst().position.at(i),
+                 goal_state_.getActuatorStateConst().position.at(i));
+      }
+    */
+
     nhp_.param("file_state_offset_x", file_state_offset_x_, 0.0);
     nhp_.param("file_state_offset_y", file_state_offset_y_, 0.0);
     nhp_.param("file_state_offset_z", file_state_offset_z_, 0.0);
@@ -572,47 +582,39 @@ namespace se2
       {
         if(planning_mode_ == sampling_based_method::PlanningMode::ONLY_JOINTS_MODE) length_cost_thre_ = 0.1;
         for(int i = 0; i < joint_num_; i ++)
-          length_cost_thre_ += fabs(start_state_.joint_states.at(i) - goal_state_.joint_states.at(i));
+          length_cost_thre_ += fabs(start_state_.getActuatorStateConst().position.at(i) - goal_state_.getActuatorStateConst().position.at(i));
       }
     return ompl::base::Cost(length_cost_thre_);
   }
 
   void MotionPlanning::addState(ompl::base::State *ompl_state)
   {
-    State new_state = start_state_;
+    MultilinkState new_state = start_state_;
+    geometry_msgs::Pose root_pose;
 
     if(planning_mode_ == sampling_based_method::PlanningMode::ONLY_JOINTS_MODE || planning_mode_ == sampling_based_method::PlanningMode::JOINTS_AND_BASE_MODE)
       {
         if(planning_mode_ == sampling_based_method::PlanningMode::ONLY_JOINTS_MODE)
           {
-            for(int j = 0; j < joint_num_; j++)
-              new_state.joint_states.at(j) = ompl_state->as<ompl::base::RealVectorStateSpace::StateType>()->values[j];
+            int index = 0;
+            for(auto itr : transform_controller_->getActuatorJointMap())
+              new_state.setActuatorState(itr, ompl_state->as<ompl::base::RealVectorStateSpace::StateType>()->values[index++]);
           }
         else if(planning_mode_ == sampling_based_method::PlanningMode::JOINTS_AND_BASE_MODE)
           {
             const ompl::base::CompoundState* state_tmp = dynamic_cast<const ompl::base::CompoundState*>(ompl_state);
-            new_state.root_state.at(0) = state_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->getX();
-            new_state.root_state.at(1) = state_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->getY();
-            tf::Quaternion q = tf::createQuaternionFromYaw(state_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->getYaw());
-            new_state.root_state.at(3) = q.x();
-            new_state.root_state.at(4) = q.y();
-            new_state.root_state.at(5) = q.z();
-            new_state.root_state.at(6) = q.w();
-            for(int j = 0; j < joint_num_; j++)
-              new_state.joint_states.at(j) = state_tmp->as<ompl::base::RealVectorStateSpace::StateType>(1)->values[j];
+
+            root_pose.position.x = state_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->getX();
+            root_pose.position.y = state_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->getY();
+            root_pose.orientation = tf::createQuaternionMsgFromYaw( state_tmp->as<ompl::base::SE2StateSpace::StateType>(0)->getYaw());
+            new_state.setRootPose(root_pose);
+
+            int index = 0;
+            for(auto itr : transform_controller_->getActuatorJointMap())
+              new_state.setActuatorState(itr, state_tmp->as<ompl::base::RealVectorStateSpace::StateType>(1)->values[index++]);
           }
 
-        // dist thre
-        sensor_msgs::JointState joint_state;
-        for(int j = 0; j < joint_num_; j++)
-          {
-            std::stringstream ss;
-            ss << j + 1;
-            joint_state.name.push_back(std::string("joint") + ss.str());
-            joint_state.position.push_back(new_state.joint_states.at(j));
-          }
-
-        transform_controller_->forwardKinematics(joint_state);
+        transform_controller_->forwardKinematics(new_state.getActuatorStateNonConst());
         transform_controller_->stabilityMarginCheck();
 
         if(transform_controller_->getStabilityMargin() < min_var_)
@@ -623,13 +625,10 @@ namespace se2
       }
     else if(planning_mode_ == sampling_based_method::PlanningMode::ONLY_BASE_MODE)
       {
-        new_state.root_state.at(0) = ompl_state->as<ompl::base::SE2StateSpace::StateType>()->getX();
-        new_state.root_state.at(1) = ompl_state->as<ompl::base::SE2StateSpace::StateType>()->getY();
-        tf::Quaternion q = tf::createQuaternionFromYaw(ompl_state->as<ompl::base::SE2StateSpace::StateType>()->getYaw());
-        new_state.root_state.at(3) = q.x();
-        new_state.root_state.at(4) = q.y();
-        new_state.root_state.at(5) = q.z();
-        new_state.root_state.at(6) = q.w();
+        root_pose.position.x = ompl_state->as<ompl::base::SE2StateSpace::StateType>()->getX();
+        root_pose.position.y = ompl_state->as<ompl::base::SE2StateSpace::StateType>()->getY();
+        root_pose.orientation = tf::createQuaternionMsgFromYaw(ompl_state->as<ompl::base::SE2StateSpace::StateType>()->getYaw());
+        new_state.setRootPose(root_pose);
       }
 
     addState(new_state);
@@ -640,16 +639,18 @@ namespace se2
     std::ofstream ofs;
     ofs.open(file_name_);
     ofs << "start_state_: ";
-    for (auto it = start_state_.root_state.begin(); it != start_state_.root_state.end(); it++)
-      ofs << " " << *it;
-    for (auto it = start_state_.joint_states.begin(); it != start_state_.joint_states.end(); it++)
-      ofs << " " << *it;
+    /* root pose */
+    for (int i = 0; i < 7; i++) ofs << " " << start_state_.getRootActuatorStateConst().at(i);
+    /* joint state */
+    for (int j = 0; j < joint_num_; j++)
+      ofs << " " << start_state_.getActuatorStateConst().position.at(transform_controller_->getActuatorJointMap().at(j));
     ofs << std::endl;
     ofs << "goal_state_: ";
-    for (auto it = goal_state_.root_state.begin(); it != goal_state_.root_state.end(); it++)
-      ofs << " " << *it;
-    for (auto it = goal_state_.joint_states.begin(); it != goal_state_.joint_states.end(); it++)
-      ofs << " " << *it;
+    /* root pose */
+    for (int i = 0; i < 7; i++) ofs << " " << goal_state_.getRootActuatorStateConst().at(i);
+    /* joint state */
+    for (int j = 0; j < joint_num_; j++)
+      ofs << " " << goal_state_.getActuatorStateConst().position.at(transform_controller_->getActuatorJointMap().at(j));
     ofs << std::endl;
 
     ofs << "states: " << path_.size()  << std::endl;
@@ -659,13 +660,15 @@ namespace se2
     ofs << "minimum_var: " << min_var_ << std::endl;
     ofs << "minimum_var_state_entry: " << min_var_state_  << std::endl;
 
-    for(int k = 0; k < (int)path_.size();  k++)
+    for(auto k = 0; k < (int)path_.size();  k++)
       {
         ofs << "state" << k << ": ";
-        for (auto it = path_.at(k).root_state.begin(); it != path_.at(k).root_state.end(); it++)
-          ofs << " " << *it;
-        for (auto it = path_.at(k).joint_states.begin(); it != path_.at(k).joint_states.end(); it++)
-          ofs << " " << *it;
+        /* root pose */
+        for (int i = 0; i < 7; i++) ofs << " " << path_.at(k).getRootActuatorStateConst().at(i);
+        /* joint state */
+        for (int j = 0; j < joint_num_; j++)
+          ofs << " " << path_.at(k).getActuatorStateConst().position.at(transform_controller_->getActuatorJointMap().at(j));
+
         ofs << std::endl;
       }
     ofs << "end"  << std::endl;
@@ -686,30 +689,35 @@ namespace se2
     std::stringstream ss[11];
     std::string str;
     std::string header;
+    std::vector<double> state_vec(7 + transform_controller_->getActuatorMap().size());
     //1 start and goal state
     std::getline(ifs, str);
     ss[0].str(str);
     ss[0] >> header;
-    for (int i = 0; i < 7; i ++)
-      ss[0] >> start_state_.root_state.at(i);
-    for (int i = 0; i < start_state_.joint_states.size(); i++)
-      ss[0] >> start_state_.joint_states.at(i);
+    /* root pose */
+    for (int i = 0; i < 7; i++) ss[0] >> state_vec.at(i);
+    /* joint state */
+    for (int i = 0; i < joint_num_; i++) ss[0] >> state_vec.at(7 + transform_controller_->getActuatorJointMap().at(i));
 
-    start_state_.root_state.at(0) += file_state_offset_x_;
-    start_state_.root_state.at(1) += file_state_offset_y_;
-    start_state_.root_state.at(2) += file_state_offset_z_;
+    state_vec.at(0) += file_state_offset_x_;
+    state_vec.at(1) += file_state_offset_y_;
+    state_vec.at(2) += file_state_offset_z_;
+
+    start_state_.setRootActuatorState(state_vec);
 
     std::getline(ifs, str);
     ss[1].str(str);
     ss[1] >> header;
-    for (int i = 0; i < 7; i ++)
-      ss[1] >> goal_state_.root_state.at(i);
-    for (int i = 0; i < goal_state_.joint_states.size(); i++)
-      ss[1] >> goal_state_.joint_states.at(i);
+    /* root pose */
+    for (int i = 0; i < 7; i++) ss[1] >> state_vec.at(i);
+    /* joint state */
+    for (int i = 0; i < joint_num_; i++) ss[1] >> state_vec.at(7 + transform_controller_->getActuatorJointMap().at(i));
 
-    goal_state_.root_state.at(0) += file_state_offset_x_;
-    goal_state_.root_state.at(1) += file_state_offset_y_;
-    goal_state_.root_state.at(2) += file_state_offset_z_;
+    state_vec.at(0) += file_state_offset_x_;
+    state_vec.at(1) += file_state_offset_y_;
+    state_vec.at(2) += file_state_offset_z_;
+
+    goal_state_.setRootActuatorState(state_vec);
 
     std::getline(ifs, str);
     ss[2].str(str);
@@ -739,21 +747,46 @@ namespace se2
     for(int k = 0; k < state_list;  k++)
       {
         std::stringstream ss_tmp;
-        std::vector<double> state_vec(7 + start_state_.joint_states.size());
 
         std::getline(ifs, str);
         ss_tmp.str(str);
         ss_tmp >> header;
-        for (int i = 0; i < state_vec.size(); i++) ss_tmp >> state_vec.at(i);
+        /* root pose */
+        for (int i = 0; i < 7; i++) ss_tmp >> state_vec.at(i);
+        /* joint state */
+        for (int i = 0; i < joint_num_; i++) ss_tmp >> state_vec.at(7 + transform_controller_->getActuatorJointMap().at(i));
 
         state_vec.at(0) += file_state_offset_x_;
         state_vec.at(1) += file_state_offset_y_;
         state_vec.at(2) += file_state_offset_z_;
-        path_.push_back(root2cog(state_vec));
+
+        MultilinkState state_tmp;
+        state_tmp.setActuatorState(start_state_.getActuatorStateConst()); // init joint state
+        state_tmp.setRootActuatorState(state_vec); //init root and joint state
+        state_tmp.targetRootPose2TargetBaselinkPose(transform_controller_);
+        path_.push_back(state_tmp);
       }
+
+    /* debug */
+    ROS_WARN("start pos: [%f, %f, %f], goal pos: [%f, %f, %f]",
+             start_state_.getRootPoseNonConst().position.x,
+             start_state_.getRootPoseNonConst().position.y,
+             start_state_.getRootPoseNonConst().position.z,
+             goal_state_.getRootPoseNonConst().position.x,
+             goal_state_.getRootPoseNonConst().position.y,
+             goal_state_.getRootPoseNonConst().position.z);
+
+    for(int i = 0; i < start_state_.getActuatorStateConst().name.size(); i++)
+      {
+        ROS_WARN("%s: start: %f, goal: %f", start_state_.getActuatorStateConst().name.at(i).c_str(),
+                 start_state_.getActuatorStateConst().position.at(i),
+                 goal_state_.getActuatorStateConst().position.at(i));
+      }
+
     solved_ = true;
   }
 
+#if 0
   /* keypose size: 7 + joint_state_size */
   State MotionPlanning::root2cog(const std::vector<double> &keypose)
   {
@@ -771,9 +804,8 @@ namespace se2
       state.joint_states.at(i) = (keypose.at(7 + i));
     joint_state.position = state.joint_states;
 
-    /* cog */
+    /* cog: true baselink (e.g. fc) */
     tf::Quaternion baselink_q = root_world * transform_controller_->getRoot2Link(base_link_, joint_state).getRotation();
-    tf::Quaternion tmp1 = transform_controller_->getRoot2Link(base_link_, joint_state).getRotation();
     state.cog_state.at(3) = baselink_q.x();
     state.cog_state.at(4) = baselink_q.y();
     state.cog_state.at(5) = baselink_q.z();
@@ -781,6 +813,7 @@ namespace se2
 
     KDL::Rotation kdl_q;
     tf::quaternionTFToKDL(baselink_q, kdl_q);
+    transform_controller_->setCogDesireOrientation(kdl_q);
     transform_controller_->forwardKinematics(joint_state);
     tf::Vector3 cog_world_pos = root_world * transform_controller_->getCog().getOrigin();
 
@@ -801,26 +834,29 @@ namespace se2
     for(int i = 0; i < 7; i++) state.cog_state.at(i) = keypose.at(i);
     tf::Transform cog_world(tf::Quaternion(keypose[3], keypose[4], keypose[5], keypose[6]),
                             tf::Vector3(keypose[0], keypose[1], keypose[2]));
-
     /* joint state */
     sensor_msgs::JointState joint_state;
     joint_state.name = start_state_.joint_names;
-    for(int i = 0; i < joint_state.name.size(); i++)
-      state.joint_states.at(i) = keypose.at(7 + i);
-    joint_state.position = state.joint_states;
+    joint_state.position.resize(joint_state.name.size(), 0);
+    for(int i = 0; i < joint_num_; i++)
+      joint_state.position.at(i) = keypose.at(7 + i);
 
     KDL::Rotation kdl_q;
     tf::quaternionTFToKDL(baselink_desired_att_, kdl_q);
     transform_controller_->setCogDesireOrientation(kdl_q);
     transform_controller_->forwardKinematics(joint_state);
+    // for(int i = 0; i < joint_state.name.size(); i++)
+    //   ROS_WARN("%s: %f", joint_state.name.at(i).c_str(), joint_state.position.at(i));
+
     tf::Transform cog_root = transform_controller_->getCog(); // cog in root frame
+
+    state.joint_states = joint_state.position;
 
     /* root */
     tf::Transform root_world = cog_world * transform_controller_->getCog().inverse();
     state.root_state.at(0) = root_world.getOrigin().getX();
     state.root_state.at(1) = root_world.getOrigin().getY();
     state.root_state.at(2) = root_world.getOrigin().getZ();
-
     tf::Quaternion q = root_world.getRotation();
     state.root_state.at(3) = q.x();
     state.root_state.at(4) = q.y();
@@ -829,20 +865,23 @@ namespace se2
 
     return state;
   }
+#endif
 
-  robot_state::RobotState MotionPlanning::setRobotState2Moveit(State state)
+  robot_state::RobotState MotionPlanning::setRobotState2Moveit(MultilinkState state)
   {
+    geometry_msgs::Pose root_state = state.getRootPoseConst();
+    sensor_msgs::JointState joint_state = state.getActuatorStateConst();
     robot_state::RobotState& robot_state = planning_scene_->getCurrentStateNonConst();
-    robot_state.setVariablePosition(std::string("base/trans_x"), state.root_state.at(0));
-    robot_state.setVariablePosition(std::string("base/trans_y"), state.root_state.at(1));
-    robot_state.setVariablePosition(std::string("base/trans_z"), state.root_state.at(2));
-    robot_state.setVariablePosition(std::string("base/rot_x"),   state.root_state.at(3));
-    robot_state.setVariablePosition(std::string("base/rot_y"),   state.root_state.at(4));
-    robot_state.setVariablePosition(std::string("base/rot_z"),   state.root_state.at(5));
-    robot_state.setVariablePosition(std::string("base/rot_w"),   state.root_state.at(6));
+    robot_state.setVariablePosition(std::string("base/trans_x"), root_state.position.x);
+    robot_state.setVariablePosition(std::string("base/trans_y"), root_state.position.y);
+    robot_state.setVariablePosition(std::string("base/trans_z"), root_state.position.z);
+    robot_state.setVariablePosition(std::string("base/rot_x"),   root_state.orientation.x);
+    robot_state.setVariablePosition(std::string("base/rot_y"),   root_state.orientation.y);
+    robot_state.setVariablePosition(std::string("base/rot_z"),   root_state.orientation.z);
+    robot_state.setVariablePosition(std::string("base/rot_w"),   root_state.orientation.w);
 
-    for(int i = 0; i < start_state_.joint_names.size(); i++)
-      robot_state.setVariablePosition(state.joint_names.at(i), state.joint_states.at(i));
+    for(int i = 0; i < joint_state.name.size(); i++)
+      robot_state.setVariablePosition(joint_state.name.at(i), joint_state.position.at(i));
 
     return robot_state;
   }
@@ -857,38 +896,27 @@ namespace se2
   {
     if(!real_odom_flag_) return;
 
-    std::vector<double> real_robot_state(7 + start_state_.joint_names.size(), 0);
-
-    /* cog, pos, attitude */
-    real_robot_state.at(0) = robot_cog_odom_.pose.pose.position.x;
-    real_robot_state.at(1) = robot_cog_odom_.pose.pose.position.y;
-    real_robot_state.at(2) = robot_cog_odom_.pose.pose.position.z;
-    real_robot_state.at(3) = robot_cog_odom_.pose.pose.orientation.x;
-    real_robot_state.at(4) = robot_cog_odom_.pose.pose.orientation.y;
-    real_robot_state.at(5) = robot_cog_odom_.pose.pose.orientation.z;
-    real_robot_state.at(6) = robot_cog_odom_.pose.pose.orientation.w;
-
     /* joint state */
-    if(start_state_.joint_names.size() != joints_msg->name.size())
-      {
-        ROS_ERROR("size of joint is not equal: rosmsg: %d, file: %d", (int)joints_msg->name.size(), (int)start_state_.joint_names.size());
-        return;
-      }
-
+    /* CAUTION: we can not use getActuatorMap(), which is not the order of true joint state from machine */
+    MultilinkState state_tmp;
+    state_tmp.setActuatorState(start_state_.getActuatorStateConst()); // init joint state
     for (int i = 0; i < joints_msg->name.size(); i++)
       {
-        auto itr = std::find(start_state_.joint_names.begin(), start_state_.joint_names.end(), joints_msg->name.at(i));
-        if (itr == start_state_.joint_names.end())
+        auto itr = std::find(state_tmp.getActuatorStateConst().name.begin(), state_tmp.getActuatorStateConst().name.end(), joints_msg->name.at(i));
+        if (itr == state_tmp.getActuatorStateConst().name.end())
           {
             ROS_ERROR("can not find the joint name: %s", joints_msg->name.at(i).c_str());
             return;
           }
 
-        size_t index = std::distance( start_state_.joint_names.begin(), itr );
-        real_robot_state.at(7 + index) = joints_msg->position[i];
+        size_t index = std::distance(state_tmp.getActuatorStateConst().name.begin(), itr );
+        state_tmp.getActuatorStateNonConst().position.at(index) = joints_msg->position[i];
       }
-    robot_state::RobotState robot_state = setRobotState2Moveit(cog2root(real_robot_state));
 
+    state_tmp.setCogPose(robot_cog_odom_.pose.pose);
+    state_tmp.setBaselinkDesiredAtt(baselink_desired_att_);
+    state_tmp.cogPose2RootPose(transform_controller_);
+    robot_state::RobotState robot_state = setRobotState2Moveit(state_tmp);
     /* check collision */
     collision_detection::CollisionRequest collision_request;
     collision_detection::CollisionResult collision_result;
@@ -901,45 +929,42 @@ namespace se2
   {
     assert(msg->data.size() == 6 + joint_num_);
 
-    std::vector<double> state_vec(7 + start_state_.joint_names.size(), 0);
+    /* cog pose */
+    geometry_msgs::Pose cog_pose;
+    cog_pose.position.x = msg->data.at(0);
+    cog_pose.position.y = msg->data.at(1);
+    cog_pose.position.z = msg->data.at(2);
+    cog_pose.orientation = tf::createQuaternionMsgFromYaw(msg->data.at(5)); /* special: only get yaw angle */
 
-    /* pos and att */
-    for(int i = 0; i < 3; i++) state_vec.at(i) = msg->data.at(i);
-    /* special: only get yaw angle */
-    tf::Quaternion q; q.setRPY(0, 0, msg->data.at(5));
-    state_vec.at(3) = q.x();
-    state_vec.at(4) = q.y();
-    state_vec.at(5) = q.z();
-    state_vec.at(6) = q.w();
-    /* joint state: correct order */
-    for(int i = 0; i < joint_num_; i++) state_vec.at(7 + i) = msg->data.at(6 + i);
+    /* joint state:  */
+    sensor_msgs::JointState joint_state = start_state_.getActuatorStateConst();
+    for(int i = 0; i < joint_num_; i++)
+      joint_state.position.at(transform_controller_->getActuatorJointMap().at(i)) = msg->data.at(6 + i);
+
+    MultilinkState state_tmp;
+    state_tmp.setCogPose(cog_pose);
+    state_tmp.setActuatorState(joint_state);
+    state_tmp.setBaselinkDesiredAtt(baselink_desired_att_);
+    state_tmp.cogPose2RootPose(transform_controller_);
 
     if(path_tf_debug_)
       {
         /* visualize debug */
-        State new_state = cog2root(state_vec);
         /* cog to world */
         tf::TransformBroadcaster br;
-        tf::Transform cog_world(tf::Quaternion(new_state.cog_state.at(3),
-                                               new_state.cog_state.at(4),
-                                               new_state.cog_state.at(5),
-                                               new_state.cog_state.at(6)),
-                                tf::Vector3(new_state.cog_state.at(0),
-                                            new_state.cog_state.at(1),
-                                            new_state.cog_state.at(2)));
-        br.sendTransform(tf::StampedTransform(cog_world.inverse(), ros::Time::now(), "cog", "world"));
+        tf::Transform cog_tf;
+        tf::poseMsgToTF(cog_pose, cog_tf);
+        br.sendTransform(tf::StampedTransform(cog_tf.inverse(), ros::Time::now(), "cog", "world"));
         /* joint state */
-        sensor_msgs::JointState joint_state_msg;
-        joint_state_msg.header.stamp = ros::Time::now();
-        joint_state_msg.name = new_state.joint_names;
-        joint_state_msg.position = new_state.joint_states;
-        joint_state_pub_.publish(joint_state_msg);
+        joint_state.header.stamp = ros::Time::now();
+        joint_state_pub_.publish(joint_state);
       }
 
-    robot_state::RobotState robot_state = setRobotState2Moveit(cog2root(state_vec));
+    robot_state::RobotState robot_state = setRobotState2Moveit(state_tmp);
     planning_scene_->getPlanningSceneMsg(planning_scene_msg_);
     planning_scene_msg_.is_diff = true;
     planning_scene_diff_pub_.publish(planning_scene_msg_);
+
   }
 
   void MotionPlanning::desireCoordinateCallback(const spinal::DesireCoordConstPtr & msg)

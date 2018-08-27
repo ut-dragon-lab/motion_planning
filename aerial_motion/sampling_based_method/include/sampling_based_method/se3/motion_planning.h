@@ -40,23 +40,27 @@
 #include <dragon/transform_control.h>
 #include <ompl/base/spaces/SE3StateSpace.h>
 
+#include <kdl_conversions/kdl_msg.h>
+
 namespace se3
 {
   class MotionPlanning :public se2::MotionPlanning
   {
 
   public:
-    MotionPlanning(ros::NodeHandle nh, ros::NodeHandle nhp);
+    MotionPlanning(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<TransformController> transform_controller);
     ~MotionPlanning(){};
 
     static const uint8_t HORIZONTAL_GAP = 0;
     static const uint8_t VERTICAL_GAP = 1;
 
+#if 0
     State cog2root(const std::vector<double> &keypose); // transfer cog link keypose to rootlink
     State root2cog(const std::vector<double> &keypose); // transfer root link keypose to cog link
+#endif
 
   private:
-    boost::shared_ptr<DragonTransformController> transform_controller_; /* override */
+    //boost::shared_ptr<DragonTransformController> transform_controller_; /* override */
 
     /* gap env */
     int gap_type_;
@@ -77,7 +81,6 @@ namespace se3
     bool isStateValid(const ompl::base::State *state);
 
     void rosParamInit();
-    void robotInit();
     void gapEnvInit();
     void addState(ompl::base::State *ompl_state);
   };
