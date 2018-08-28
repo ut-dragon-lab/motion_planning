@@ -52,7 +52,7 @@
 class TinysplineInterface
 {
 public:
-  tinyspline::BSpline* spline_ptr_;
+  boost::shared_ptr<tinyspline::BSpline> spline_ptr_;
   tinyspline::BSpline spline_derive_;
   std::vector<tinyspline::rational> controlpts_;
   std::vector<tinyspline::rational> knotpts_;
@@ -74,9 +74,9 @@ public:
   ros::Publisher pub_reconstructed_path_markers_;
 
   TinysplineInterface(ros::NodeHandle nh, ros::NodeHandle nhp);
-  ~TinysplineInterface();
+  ~TinysplineInterface(){}
   void splinePathDisplay();
-  void bsplineParamInput(bspline_generator::ControlPoints* msg);
+  void bsplineParamInput(boost::shared_ptr<bspline_generator::ControlPoints> msg);
   void getDerive();
   std::vector<double> evaluate(double t);
   std::vector<double> evaluateDerive(double t);

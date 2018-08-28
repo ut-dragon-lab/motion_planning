@@ -43,17 +43,9 @@ TinysplineInterface::TinysplineInterface(ros::NodeHandle nh, ros::NodeHandle nhp
   pub_reconstructed_path_markers_ = nh_.advertise<visualization_msgs::MarkerArray>("reconstructed_path_markers", 1);
 }
 
-TinysplineInterface::~TinysplineInterface()
-{
-  delete spline_ptr_;
-}
-
-void TinysplineInterface::bsplineParamInput(bspline_generator::ControlPoints* msg)
+void TinysplineInterface::bsplineParamInput(boost::shared_ptr<bspline_generator::ControlPoints> msg)
 {
   /* Init */
-  if (spline_ptr_)
-    delete spline_ptr_;
-
   is_uniform_ = msg->is_uniform;
   deg_ = msg->degree;
   dim_ = msg->dim;
@@ -69,9 +61,9 @@ void TinysplineInterface::bsplineParamInput(bspline_generator::ControlPoints* ms
   }
 
   if (is_uniform_)
-    spline_ptr_ = new tinyspline::BSpline(deg_, dim_, controlpts_num_, TS_CLAMPED);
+    spline_ptr_ = boost::shared_ptr<tinyspline::BSpline>(new tinyspline::BSpline(deg_, dim_, controlpts_num_, TS_CLAMPED));
   else
-    spline_ptr_ = new tinyspline::BSpline(deg_, dim_, controlpts_num_, TS_NONE);
+    spline_ptr_ = boost::shared_ptr<tinyspline::BSpline>(new tinyspline::BSpline(deg_, dim_, controlpts_num_, TS_NONE));
 
   time_start_ = msg->start_time;
   time_end_ = msg->end_time;
