@@ -1,6 +1,0 @@
----
-bool available_flag
-uint8 motion_type
-uint8 dim
-uint32 states_cnt
-std_msgs/Float64MultiArray data

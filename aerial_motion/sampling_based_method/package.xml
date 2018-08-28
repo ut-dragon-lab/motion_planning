@@ -1,0 +1,51 @@
+<?xml version="1.0"?>
+<package>
+  <name>sampling_based_method</name>
+  <version>0.1.0</version>
+  <description>sampling_based_method </description>
+
+  <maintainer email="chou@jsk.imi.i.u-tokyo.ac.jp">Bakui Chou</maintainer> 
+  <license>BSD</license>
+  <url>http://ros.org/wiki/collision_check</url>
+  <author email="chou@jsk.imi.i.u-tokyo.ac.jp">Bakui Chou</author>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <build_depend>roscpp</build_depend>
+  <build_depend>tf</build_depend>
+  <build_depend>ompl</build_depend>
+  <build_depend>geometry_msgs</build_depend>
+  <build_depend>sensor_msgs</build_depend>
+  <build_depend>pluginlib</build_depend>
+  <build_depend>moveit_msgs</build_depend>
+  <build_depend>moveit_core</build_depend>
+  <build_depend>moveit_ros_planning_interface</build_depend>
+  <build_depend>aerial_robot_base</build_depend>
+  <build_depend>hydrus</build_depend>
+  <build_depend>dragon</build_depend>
+  <build_depend>message_generation</build_depend>
+  <build_depend>cmake_modules</build_depend>
+  <build_depend>std_msgs</build_depend>
+  <build_depend>nav_msgs</build_depend>
+  <build_depend>aerial_motion_planning_msgs</build_depend>
+
+  <run_depend>roscpp</run_depend>
+  <run_depend>tf</run_depend>
+  <run_depend>ompl</run_depend>
+  <run_depend>geometry_msgs</run_depend>
+  <run_depend>sensor_msgs</run_depend>
+  <run_depend>pluginlib</run_depend>
+  <run_depend>moveit_msgs</run_depend>
+  <run_depend>moveit_core</run_depend>
+  <run_depend>moveit_ros_planning_interface</run_depend>
+  <run_depend>aerial_robot_base</run_depend>
+  <run_depend>hydrus</run_depend>
+  <run_depend>dragon</run_depend>
+  <run_depend>message_runtime</run_depend>
+  <run_depend>std_msgs</run_depend>
+  <run_depend>nav_msgs</run_depend>
+  <run_depend>aerial_motion_planning_msgs</run_depend>
+
+</package>
+
+

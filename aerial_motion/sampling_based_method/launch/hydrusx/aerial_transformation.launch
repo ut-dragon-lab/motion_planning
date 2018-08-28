@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<launch>
+
+  <arg name="type" default="hex" />
+
+  ###########  Robot Model  ###########
+  <include file="$(find hydrus)/launch/robot_model.launch" >
+    <arg name="model" value="hydrusx"/>
+    <arg name="type" value="$(arg type)" />
+    <arg name="headless" value="true" />
+    <arg name="need_joint_state" value="false"/>
+  </include >
+  <node name="rviz" pkg="rviz" type="rviz"
+        args="-d $(find sampling_based_method)/config/planning.rviz" respawn="true" />
+
+  ########## Planning for aerial transformation ###########
+  <param name="/robot_description_semantic" textfile="$(find sampling_based_method)/config/hydrusx/$(arg type)/moveit.srdf" />
+
+  <node name="motion_planning_node" pkg="sampling_based_method" type="se2_motion_planning_node" respawn="false" output="screen">
+    <param name="play_path_flag" type="bool" value="true"/>
+    <param name="save_path_flag" type="bool" value="false" />
+    <param name="load_path_flag" type="bool" value="false" />
+
+    <param name="coefficient_rate" value="0.05"/>
+    <param name="planning_mode" value="0"/>
+    <param name="motion_sequence_rate" value="50"/>
+    <param name="ompl_mode" value="0"/> <!-- RRT START:0 -->
+
+    <param name="state_validity_check_res" value="0.03"/>
+    <param name="valid_segment_count_factor" value="20"/> <!--20-->
+
+    <param name="solving_time_limit" type="double" value="3600"/>
+
+    <!-- for specific param -->
+    <rosparam file="$(find hydrus)/config/hydrusx/$(arg type)/Hydrus.yaml" command="load" />
+    <rosparam file="$(find sampling_based_method)/config/hydrusx/$(arg type)/Transformation.yaml" command="load" />
+
+    <!-- for motion control -->
+    <param name="file_name" value="$(find sampling_based_method)/path_log/planning_log.txt" />
+  </node>
+
+</launch>
