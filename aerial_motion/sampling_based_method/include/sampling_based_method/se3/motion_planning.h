@@ -41,49 +41,46 @@
 #include <ompl/base/spaces/SE3StateSpace.h>
 
 #include <kdl_conversions/kdl_msg.h>
-
-namespace se3
+namespace sampling_base
 {
-  class MotionPlanning :public se2::MotionPlanning
+  namespace se3
   {
+    class MotionPlanning :public se2::MotionPlanning
+    {
 
-  public:
-    MotionPlanning(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<TransformController> transform_controller);
-    ~MotionPlanning(){};
+    public:
+      MotionPlanning(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<TransformController> transform_controller);
+      ~MotionPlanning(){};
 
-    static const uint8_t HORIZONTAL_GAP = 0;
-    static const uint8_t VERTICAL_GAP = 1;
+      static const uint8_t HORIZONTAL_GAP = 0;
+      static const uint8_t VERTICAL_GAP = 1;
 
-#if 0
-    State cog2root(const std::vector<double> &keypose); // transfer cog link keypose to rootlink
-    State root2cog(const std::vector<double> &keypose); // transfer root link keypose to cog link
-#endif
+    private:
+      //boost::shared_ptr<DragonTransformController> transform_controller_; /* override */
 
-  private:
-    //boost::shared_ptr<DragonTransformController> transform_controller_; /* override */
+      /* gap env */
+      int gap_type_;
+      int locomotion_mode_;
+      double max_force_;
+      int max_force_state_;
+      double z_low_bound_;
+      double z_high_bound_;
+      double pitch_joint_low_bound_;
+      double pitch_joint_high_bound_;
+      double yaw_joint_low_bound_;
+      double yaw_joint_high_bound_;
 
-    /* gap env */
-    int gap_type_;
-    int locomotion_mode_;
-    double max_force_;
-    int max_force_state_;
-    double z_low_bound_;
-    double z_high_bound_;
-    double pitch_joint_low_bound_;
-    double pitch_joint_high_bound_;
-    double yaw_joint_low_bound_;
-    double yaw_joint_high_bound_;
+      double gimbal_roll_thresh_;
+      double gimbal_pitch_thresh_;
 
-    double gimbal_roll_thresh_;
-    double gimbal_pitch_thresh_;
+      void planInit();
+      bool isStateValid(const ompl::base::State *state);
 
-    void planInit();
-    bool isStateValid(const ompl::base::State *state);
+      void rosParamInit();
+      void gapEnvInit();
+      void addState(ompl::base::State *ompl_state);
+    };
 
-    void rosParamInit();
-    void gapEnvInit();
-    void addState(ompl::base::State *ompl_state);
   };
-
 };
 #endif

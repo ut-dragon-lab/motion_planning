@@ -38,14 +38,13 @@
 
 /* ros */
 #include <ros/ros.h>
-#include <aerial_motion_planning_msgs/Keyposes.h>
-#include <aerial_motion_planning_msgs/multilink_state.h>
 #include <sampling_based_method/PlanningMode.h>
 #include <nav_msgs/Odometry.h>
 #include <sensor_msgs/JointState.h>
 #include <std_msgs/Empty.h>
 
 /* basic header */
+#include <aerial_motion_planning_msgs/multilink_state.h>
 #include <hydrus/transform_control.h>
 
 /* moveit for FCL and visualization */
@@ -55,6 +54,7 @@
 #include <moveit/kinematic_constraints/utils.h>
 #include <moveit_msgs/DisplayTrajectory.h>
 #include <moveit_msgs/PlanningScene.h>
+#include <moveit/robot_state/conversions.h>
 
 /* ompl */
 #include <ompl/control/SpaceInformation.h>
@@ -77,151 +77,121 @@
 #include <sstream>
 #include <fstream>
 
-namespace se2
+namespace sampling_base
 {
-  class MotionPlanning
+  namespace se2
   {
-
-  public:
-    MotionPlanning(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<TransformController> transform_controller);
-    ~MotionPlanning(){}
-
-    void baseInit();
-
-    static const int RRT_START_MODE = 0;
-
-    const std::vector<MultilinkState>& getPath() { return path_;}
-    const MultilinkState& getState(int index){ return path_[index];}
-
-    inline int getPathSize(){return  path_.size();}
-    inline double getMotionCost(){return best_cost_;}
-    inline float getPlanningTime(){return calculation_time_;}
-    inline float getMinVar() {return  min_var_; }
-    inline int  getMinVarStateIndex() {return min_var_state_;}
-
-#if 0
-    virtual State cog2root(const std::vector<double> &keypose); // transfer cog link keypose to rootlink
-    virtual State root2cog(const std::vector<double> &keypose); // transfer root link keypose to cog link
-#endif
-    boost::shared_ptr<TransformController> getTransformController() { return transform_controller_;}
-
-  protected:
-    /* ros */
-    ros::NodeHandle nh_;
-    ros::NodeHandle nhp_;
-    ros::Publisher planning_scene_diff_pub_;
-    ros::ServiceServer keyposes_server_;
-    ros::Subscriber continous_path_sub_;
-    ros::Subscriber robot_cog_odom_sub_;
-    ros::Subscriber robot_joint_states_sub_;
-    ros::Subscriber baselink_desired_attitude_sub_;
-    nav_msgs::Odometry robot_cog_odom_;
-
-    ros::Timer motion_sequence_timer_;
-    double  motion_sequence_rate_;
-
-    /* flag */
-    bool save_path_flag_;
-    bool load_path_flag_;
-    bool play_path_flag_;
-    bool path_tf_debug_;
-    int motion_type_;
-
-    /* moveit */
-    //boost::shared_ptr<robot_model_loader::RobotModelLoader> robot_model_loader_;
-    boost::shared_ptr<planning_scene::PlanningScene> planning_scene_;
-    moveit_msgs::PlanningScene planning_scene_msg_;
-    collision_detection::AllowedCollisionMatrix acm_;
-
-    /* gap env */
-    double gap_left_x_, gap_left_y_;
-    double gap_x_offset_;
-    double gap_y_offset_;
-    double gap_left_width_;
-    double gap_right_width_;
-    tf::Vector3 left_half_corner;
-    tf::Vector3 right_half_corner;
-
-    /* robot */
-    std::string base_link_;
-    tf::Quaternion baselink_desired_att_;
-    boost::shared_ptr<TransformController> transform_controller_;
-    int joint_num_;
-    //int ex_joint_num_; //the extended joint number for moveit robot state
-
-    /* path */
-#if 0
-    State start_state_;
-    State goal_state_;
-    std::vector<State> path_;
-#endif
-    MultilinkState start_state_;
-    MultilinkState goal_state_;
-    std::vector<MultilinkState> path_;
-
-    double file_state_offset_x_;
-    double file_state_offset_y_;
-    double file_state_offset_z_;
-    std::string file_name_;
-
-    /* OMPL */
-    ompl::base::StateSpacePtr config_space_;
-    ompl::base::SpaceInformationPtr space_information_;
-    ompl::base::ProblemDefinitionPtr pdef_;
-    double x_low_bound_;
-    double x_high_bound_;
-    double y_low_bound_;
-    double y_high_bound_;
-    double joint_low_bound_;
-    double joint_high_bound_;
-
-    bool solved_;
-    bool real_odom_flag_;
-    double state_validity_check_res_;
-    int valid_segment_count_factor_;
-    double solving_time_limit_;
-    int ompl_mode_;
-    double length_cost_thre_;
-    double best_cost_;
-    int planning_mode_;
-    double calculation_time_;
-    float min_var_;
-    int min_var_state_;
-
-    void plan();
-    void sceneInit();
-
-    virtual void motionSequenceFunc(const ros::TimerEvent &e);
-
-    ompl::base::Cost onlyJointPathLimit();
-
-    ompl::base::ValidStateSamplerPtr allocValidStateSampler(const ompl::base::SpaceInformation *si)
+    class MotionPlanning
     {
-      return ompl::base::ValidStateSamplerPtr(new ompl::base::ObstacleBasedValidStateSampler(si));
-    }
 
-    bool getKeyposes(aerial_motion_planning_msgs::Keyposes::Request &req, aerial_motion_planning_msgs::Keyposes::Response &res);
-    void addState(MultilinkState state) { path_.push_back(state); }
+    public:
+      MotionPlanning(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<TransformController> transform_controller);
+      ~MotionPlanning(){}
 
-    virtual void planInit();
-    virtual bool isStateValid(const ompl::base::State *state);
-    virtual void savePath();
-    virtual void loadPath();
+      static const int RRT_START_MODE = 0;
 
-    virtual void rosParamInit();
-    virtual void robotInit();
-    virtual void gapEnvInit();
-    virtual void addState(ompl::base::State *ompl_state);
-    virtual robot_state::RobotState setRobotState2Moveit(MultilinkState state);
+      const std::vector<MultilinkState>& getPathConst() const { return path_;}
+      const MultilinkState& getStateConst(int index) const { return path_[index];}
 
-    /* debug */
-    ros::Publisher joint_state_pub_;
+      inline int getPathSize(){return  path_.size();}
+      inline double getMotionCost(){return best_cost_;}
+      inline float getPlanningTime(){return calculation_time_;}
+      inline float getMinVar() {return  min_var_; }
+      inline int  getMinVarStateIndex() {return min_var_state_;}
 
-    void robotOdomCallback(const nav_msgs::OdometryConstPtr& msg);
-    void robotJointStatesCallback(const sensor_msgs::JointStateConstPtr& joint_msg);
-    void continousPathCallback(const std_msgs::Float64MultiArrayConstPtr& msg);
-    void desireCoordinateCallback(const spinal::DesireCoordConstPtr & msg);
+      void plan();
+      void loadPath();
+      void motionSequence();
+      //void visualizeRobotState(const MultilinkState& state);
+      bool checkCollision(const MultilinkState& state);
+
+    protected:
+      /* ros */
+      ros::NodeHandle nh_;
+      ros::NodeHandle nhp_;
+      ros::Publisher planning_scene_diff_pub_;
+      ros::Publisher joint_state_pub_;       /* debug */
+
+      /* flag */
+      bool headless_;
+      bool save_path_flag_;
+      bool path_tf_debug_;
+      int motion_type_;
+
+      /* moveit */
+      boost::shared_ptr<planning_scene::PlanningScene> planning_scene_;
+      moveit_msgs::PlanningScene planning_scene_msg_;
+      collision_detection::AllowedCollisionMatrix acm_;
+
+      /* gap env */
+      double gap_left_x_, gap_left_y_;
+      double gap_x_offset_;
+      double gap_y_offset_;
+      double gap_left_width_;
+      double gap_right_width_;
+      tf::Vector3 left_half_corner;
+      tf::Vector3 right_half_corner;
+
+      /* robot */
+      std::string base_link_;
+      tf::Quaternion baselink_desired_att_;
+      boost::shared_ptr<TransformController> transform_controller_;
+      int joint_num_;
+
+      /* path */
+      MultilinkState start_state_;
+      MultilinkState goal_state_;
+      std::vector<MultilinkState> path_;
+
+      double file_state_offset_x_;
+      double file_state_offset_y_;
+      double file_state_offset_z_;
+      std::string file_name_;
+
+      /* OMPL */
+      ompl::base::StateSpacePtr config_space_;
+      ompl::base::SpaceInformationPtr space_information_;
+      ompl::base::ProblemDefinitionPtr pdef_;
+      double x_low_bound_;
+      double x_high_bound_;
+      double y_low_bound_;
+      double y_high_bound_;
+      double joint_low_bound_;
+      double joint_high_bound_;
+
+      double calculation_time_;
+      bool real_odom_flag_;
+      double state_validity_check_res_;
+      int valid_segment_count_factor_;
+      double solving_time_limit_;
+      int ompl_mode_;
+      double length_cost_thre_;
+      double best_cost_;
+      int planning_mode_;
+      float min_var_;
+      int min_var_state_;
+
+      void sceneInit();
+
+      ompl::base::Cost onlyJointPathLimit();
+
+      ompl::base::ValidStateSamplerPtr allocValidStateSampler(const ompl::base::SpaceInformation *si)
+      {
+        return ompl::base::ValidStateSamplerPtr(new ompl::base::ObstacleBasedValidStateSampler(si));
+      }
+
+      void addState(MultilinkState state) { path_.push_back(state); }
+
+      virtual void planInit();
+      virtual bool isStateValid(const ompl::base::State *state);
+      virtual void savePath();
+
+      virtual void rosParamInit();
+      virtual void robotInit();
+      virtual void gapEnvInit();
+      virtual void addState(ompl::base::State *ompl_state);
+    };
+
   };
-
 };
 #endif

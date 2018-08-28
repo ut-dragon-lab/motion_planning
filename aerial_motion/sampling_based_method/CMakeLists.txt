@@ -44,18 +44,11 @@ Add_library (se2_motion_planning src/se2/motion_planning.cpp )
 add_dependencies(se2_motion_planning  ${PROJECT_NAME}_gencpp)
 target_link_libraries (se2_motion_planning ${catkin_LIBRARIES}  ${Boost_LIBRARIES} ${OMPL_LIBRARIES})
 
-add_executable(se2_motion_planning_node src/se2/motion_planning_node.cpp)
-add_dependencies(se2_motion_planning  ${PROJECT_NAME}_gencpp)
-target_link_libraries (se2_motion_planning_node ${catkin_LIBRARIES}  ${Boost_LIBRARIES} se2_motion_planning ${OMPL_LIBRARIES})
-
 # SE(3)
 Add_library (se3_motion_planning src/se3/motion_planning.cpp )
 add_dependencies(se3_motion_planning  ${PROJECT_NAME}_gencpp)
 target_link_libraries (se3_motion_planning se2_motion_planning ${catkin_LIBRARIES}  ${Boost_LIBRARIES} ${OMPL_LIBRARIES})
 
-add_executable(se3_motion_planning_node src/se3/motion_planning_node.cpp)
-add_dependencies(se3_motion_planning  ${PROJECT_NAME}_gencpp)
-target_link_libraries (se3_motion_planning_node ${catkin_LIBRARIES}  ${Boost_LIBRARIES} se2_motion_planning se3_motion_planning ${OMPL_LIBRARIES})
 
 
 install(PROGRAMS
