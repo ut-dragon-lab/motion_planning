@@ -7,6 +7,7 @@ project(squeeze_navigation)
 find_package(catkin REQUIRED COMPONENTS
   aerial_motion_planning_msgs
   bspline_generator
+  dragon
   roscpp
   sampling_based_method
 )

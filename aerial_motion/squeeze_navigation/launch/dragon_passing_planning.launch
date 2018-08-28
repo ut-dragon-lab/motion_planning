@@ -1,21 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
 <launch>
+  <arg name="headless" default="false" />
 
   <arg name="type" default="quad" />
   <arg name="transformation" default="true" />
-  <arg name="se2" default="false" />
   <arg name="horizontal_gap" default="false" />
 
-  <arg name="load_path_flag" default="true" />
+  <arg name="discrete_path_debug_flag" default="0" />
+  <arg name="discrete_path_search_method_type" default="0" /> <!--sampling base: 0, differential type: 1-->
+  <arg name="motion_type"  default="1" /> <!--SE2: 0, SE3: 1 -->
+
+  <!-- sampling based method -->
+  <arg name="path_tf_debug" default= "false" />
   <arg name="save_path_flag" default="true" />
-  <arg name="play_path_flag" default="false" />
-  <arg name="replay_flag" default="false" />
+  <arg name="load_path_flag" default="true" />
   <arg name="path_file_name" default="dragon_planning_log.txt" />
 
-  <arg name="path_tf_debug" default= "false" />
-
   ###########  Robot Model  ###########
-  <group if="$(arg play_path_flag)">
+  <group unless="$(arg headless)">
     <include file="$(find dragon)/launch/robot_model.launch" >
       <arg name="type" value="$(arg type)" />
       <arg name="headless" value="true" />
@@ -27,61 +29,58 @@
           args="-d $(find sampling_based_method)/config/planning.rviz" respawn="true" />
   </group>
 
-  ########## Planning for gap passing ###########
+  ########## Sampling based method (Moveit) ###########
   <param name="/robot_description_semantic" textfile="$(find sampling_based_method)/config/dragon/$(arg type)/moveit.srdf" />
 
-  <node name="motion_planning_node" pkg="sampling_based_method" type="se3_motion_planning_node" respawn="false" output="screen">
-    <param name="play_path_flag" type="bool" value="$(arg play_path_flag)"/>
-    <param name="save_path_flag" type="bool" value="$(arg save_path_flag)" />
-    <param name="load_path_flag" type="bool" value="$(arg load_path_flag)" />
+  ###########  Path Planning and Navigation  ###########
+  <node pkg="squeeze_navigation" type="squeeze_navigation_node" name="squeeze_navigation_node" output="screen">
 
-    <param name="file_name" value="$(find sampling_based_method)/path_log/dragon/$(arg path_file_name)" />
+    <param name="debug_verbose" value="false" />
+    <param name="headless" value="$(arg headless)" />
 
-    <param name="planning_mode" value="1" unless="$(arg transformation)"/>
-    <param name="planning_mode" value="2" if="$(arg transformation)"/>
-    <param name="motion_mode" value="0" if="$(arg se2)"/>
-    <param name="motion_mode" value="1" unless="$(arg se2)"/> <!-- se3 -->
-    <param name="gap_type" value="0" if="$(arg horizontal_gap)"/>
-    <param name="gap_type" value="1" unless="$(arg horizontal_gap)"/>
-
-    <param name="solving_time_limit" type="double" value="36000"/>
-    <param name="motion_sequence_rate" value="10"/>
-
-    <param name="coefficient_rate" value="0.05"/>
-    <param name="ompl_mode" value="0"/> <!-- RRT START:0 -->
-    <param name="state_validity_check_res" value="0.005"/>
-    <param name="valid_segment_count_factor" value="20"/> <!--20-->
-
-    <param name="file_state_offset_x" type="double" value="0.0" />
-    <param name="file_state_offset_y" type="double" value="0.0" />
-    <param name="file_state_offset_z" type="double" value="0.0" />
-    <param name="joint_state_topic_name" value="dragon/joint_states" />
-    <param name="path_tf_debug" value="$(arg path_tf_debug)" />
-
-    <!-- for specific param -->
+    <!-- robot model -->
     <rosparam file="$(find dragon)/config/$(arg type)/AttitudeControl.yaml" command="load" />
+
+    <!-- discrete path search -->
     <rosparam file="$(find sampling_based_method)/config/dragon/$(arg type)/GapWithTransformation.yaml" command="load" if="$(arg transformation)"/>
     <rosparam file="$(find sampling_based_method)/config/dragon/$(arg type)/GapWithoutTransformation.yaml" command="load" unless="$(arg transformation)"/>
     <rosparam file="$(find sampling_based_method)/config/gap/HorizontalGapNoOverlap.yaml" command="load" if="$(arg horizontal_gap)"/>
     <rosparam file="$(find sampling_based_method)/config/gap/VerticalGap.yaml" command="load" unless="$(arg horizontal_gap)"/>
+
+    <param name="discrete_path_search_method_type" value="$(arg discrete_path_search_method_type)" />
+    <param name="discrete_path_debug_flag" value="$(arg discrete_path_debug_flag)" />
+    <param name="planning_mode" value="1" unless="$(arg transformation)"/>
+    <param name="planning_mode" value="2" if="$(arg transformation)"/>
+    <param name="motion_type" value="$(arg motion_type)" />
+    <param name="gap_type" value="0" if="$(arg horizontal_gap)"/>
+    <param name="gap_type" value="1" unless="$(arg horizontal_gap)"/>
+    <param name="file_state_offset_x" type="double" value="0.0" />
+    <param name="file_state_offset_y" type="double" value="0.0" />
+    <param name="file_state_offset_z" type="double" value="0.0" />
+
+    <!-- sampling based method -->
+    <param name="save_path_flag" type="bool" value="$(arg save_path_flag)" />
+    <param name="load_path_flag" type="bool" value="$(arg load_path_flag)" />
+    <param name="path_tf_debug" value="$(arg path_tf_debug)" />
+    <param name="file_name" value="$(find sampling_based_method)/path_log/dragon/$(arg path_file_name)" />
+    <param name="solving_time_limit" type="double" value="36000"/>
+    <param name="motion_sequence_rate" value="10"/>
+
+    <!-- RRT -->
+    <param name="ompl_mode" value="0"/> <!-- RRT START:0 -->
+    <param name="state_validity_check_res" value="0.005"/>
+    <param name="valid_segment_count_factor" value="20"/> <!--20-->
+
+    <!-- continuous path generator -->
+    <!-- bsploine -->
+    <param name="bspline_degree" value="5" />
+    <param name="trajectory_period" value="80.0" />
+
+    <!-- navigation -->
+    <param name="control_frequency" value="40.0" />
+    <param name="joint_control_topic_name" value="/dragon/joints_ctrl" />
+    <param name="joint_state_topic_name" value="dragon/joint_states" />
   </node>
-
-  ###########  Path Navigation  ###########
-  <group unless="$(arg replay_flag)">
-    <node pkg="squeeze_navigation" type="squeeze_navigation_node" name="squeeze_navigation_node" output="screen">
-      <param name="debug_verbose" value="false" />
-      <param name="control_frequency" value="40.0" />
-
-      <!-- trajectory relate -->
-      <param name="bspline_degree" value="5" />
-      <param name="trajectory_period" value="80.0" />
-
-      <!-- trajectory tracking relate -->
-      <param name="joint_upperbound" value="1.58" />
-      <param name="joint_lowerbound" value="-1.58" />
-      <param name="joint_control_topic_name" value="/dragon/joints_ctrl" />
-    </node>
-  </group>
 
   ######### Debug ##################
   <group if="$(arg path_tf_debug)" >

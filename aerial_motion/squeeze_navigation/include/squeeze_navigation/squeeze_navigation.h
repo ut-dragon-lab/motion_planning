@@ -38,8 +38,6 @@
 
 /* ros */
 #include <ros/ros.h>
-#include <aerial_motion_planning_msgs/Keyposes.h>
-#include <sampling_based_method/PlanningMode.h>
 #include <std_msgs/Float64MultiArray.h>
 #include <std_msgs/MultiArrayDimension.h>
 #include <std_msgs/Empty.h>
@@ -47,6 +45,13 @@
 #include <aerial_robot_msgs/FlightNav.h>
 #include <spinal/DesireCoord.h>
 #include <spinal/FlightConfigCmd.h>
+#include <moveit_msgs/DisplayRobotState.h>
+
+/* robot model */
+#include <dragon/transform_control.h>
+
+/* discrete path search */
+#include <sampling_based_method/se3/motion_planning.h>
 
 /* continous path generator */
 #include <bspline_generator/tinyspline_interface.h>
@@ -59,50 +64,78 @@
 #include <vector>
 #include <boost/algorithm/clamp.hpp>
 
+
+namespace motion_type
+{
+  enum {SE2 = 0, SE3 = 1,};
+};
+
+
 class SqueezeNavigation{
 public:
   SqueezeNavigation(ros::NodeHandle nh, ros::NodeHandle nhp);
-  ~SqueezeNavigation();
+  ~SqueezeNavigation(){}
 
   std::vector<double> getKeypose(int id);
 
 private:
   ros::NodeHandle nh_;
   ros::NodeHandle nhp_;
-  ros::Subscriber inquiry_robot_state_sub_;
+  ros::Subscriber plan_start_flag_sub_;
   ros::Subscriber move_start_flag_sub_;
   ros::Subscriber adjust_initial_state_sub_;
   ros::Subscriber flight_config_sub_;
-  ros::Publisher desired_state_pub_;
+
+  ros::Subscriber robot_baselink_odom_sub_;
+  ros::Subscriber robot_joint_states_sub_;
+
   ros::Publisher joints_ctrl_pub_;
   ros::Publisher flight_nav_pub_;
   ros::Publisher se3_roll_pitch_nav_pub_;
-
-  int joint_num_;
-  int motion_type_;
-  bool move_start_flag_;
+  ros::Publisher desired_path_pub_;
 
   bool debug_verbose_;
-  double controller_freq_;
-  double trajectory_period_;
+  bool headless_;
+
+  /* discrete path */
+  int discrete_path_search_method_type_;
+  bool discrete_path_debug_flag_;
+  bool load_path_flag_;
+  int motion_type_;
+
+  /* continuous path */
   int bspline_degree_;
+  double trajectory_period_;
+
+  /* navigation */
   ros::Timer navigate_timer_;
+  bool move_start_flag_;
   double move_start_time_;
-  double joint_upperbound_;
-  double joint_lowerbound_;
+  double controller_freq_;
 
+  /* robot model */
+  boost::shared_ptr<TransformController> robot_model_ptr_;
+  int joint_num_;
+
+  /* discrete path search */
+  // 1. sampling based method
+  boost::shared_ptr<sampling_base::se2::MotionPlanning> sampling_base_planner_;
+
+
+  /* continuous path generator */
   boost::shared_ptr<TinysplineInterface> bspline_ptr_;
-  bspline_generator::ControlPoints* control_pts_ptr_;
+  boost::shared_ptr<bspline_generator::ControlPoints> control_pts_ptr_;
 
-  boost::thread spline_init_thread_;
-  void splineInitThread();
-
+  void rosParamInit();
   void navigate(const ros::TimerEvent& event);
-  void waitForKeyposes();
+  void continuousPath(const std::vector<MultilinkState>& discrete_path);
 
+  void planStartCallback(const std_msgs::Empty msg);
   void moveStartCallback(const std_msgs::Empty msg);
   void adjustInitalStateCallback(const std_msgs::Empty msg);
   void flightConfigCallback(const spinal::FlightConfigCmdConstPtr msg);
+  void robotOdomCallback(const nav_msgs::OdometryConstPtr& msg);
+  void robotJointStatesCallback(const sensor_msgs::JointStateConstPtr& joint_msg);
 
   double generateContinousEulerAngle(double ang, int id)
   {
