@@ -58,6 +58,21 @@ void MultilinkState::cogPose2RootPose(boost::shared_ptr<TransformController> rob
   root_update_ = true;
 }
 
+void MultilinkState::baselinkPose2RootPose(geometry_msgs::Pose baselink_pose, boost::shared_ptr<TransformController> robot_model_ptr)
+{
+  /* the robot model ptr should  have the true baselink (e.g. fc) */
+  assert(actuator_update_);
+
+  /* root */
+  tf::Transform baselink_tf;
+  tf::poseMsgToTF(baselink_pose, baselink_tf);
+  tf::Transform root_tf = baselink_tf * robot_model_ptr->getRoot2Link(robot_model_ptr->getBaselink(), actuator_state_).inverse();
+  tf::poseTFToMsg(root_tf, root_pose_);
+
+  root_update_ = true;
+}
+
+
 void MultilinkState::targetRootPose2TargetBaselinkPose(boost::shared_ptr<TransformController> robot_model_ptr)
 {
   /* the robot model ptr should  have the true baselink (e.g. fc) */
@@ -119,3 +134,23 @@ void MultilinkState::setRootActuatorState(const std::vector<double>& states)
   actuator_update_ = true;
 }
 
+const moveit_msgs::RobotState MultilinkState::getVisualizeRobotStateConst() const
+{
+  assert(root_update_ && actuator_update_);
+
+  moveit_msgs::RobotState robot_state;
+
+  robot_state.joint_state = actuator_state_;
+
+  robot_state.multi_dof_joint_state.header.frame_id = "world";
+  robot_state.multi_dof_joint_state.joint_names.push_back("root");
+
+  geometry_msgs::Transform root_pose;
+  root_pose.translation.x = root_pose_.position.x;
+  root_pose.translation.y = root_pose_.position.y;
+  root_pose.translation.z = root_pose_.position.z;
+  root_pose.rotation = root_pose_.orientation;
+
+  robot_state.multi_dof_joint_state.transforms.push_back(root_pose);
+  return robot_state;
+}

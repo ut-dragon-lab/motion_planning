@@ -39,10 +39,12 @@
 #include <geometry_msgs/Twist.h>
 #include <sensor_msgs/JointState.h>
 #include <tf/transform_datatypes.h>
+#include <moveit_msgs/RobotState.h>
 
 /* robot model */
 #include <hydrus/transform_control.h>
 #include <dragon/transform_control.h>
+
 
 /* utils */
 #include <algorithm>
@@ -56,6 +58,7 @@ public:
   ~MultilinkState(){}
 
   void cogPose2RootPose(boost::shared_ptr<TransformController> robot_model_ptr);
+  void baselinkPose2RootPose(geometry_msgs::Pose baselink_pose, boost::shared_ptr<TransformController> robot_model_ptr);
   void targetRootPose2TargetBaselinkPose(boost::shared_ptr<TransformController> robot_model_ptr);
 
   geometry_msgs::Pose& getCogPoseNonConst()
@@ -148,6 +151,8 @@ public:
 
   const std::vector<double> getRootActuatorStateConst() const;
   void setRootActuatorState(const std::vector<double>& states);
+
+  const moveit_msgs::RobotState getVisualizeRobotStateConst() const;
 
 private:
 
