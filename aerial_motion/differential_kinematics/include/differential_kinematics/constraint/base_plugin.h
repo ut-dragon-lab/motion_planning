@@ -41,6 +41,9 @@
 /* Linear Math */
 #include <Eigen/Dense>
 
+/* robot state */
+#include <aerial_motion_planning_msgs/multilink_state.h>
+
 namespace differential_kinematics
 {
   namespace constraint

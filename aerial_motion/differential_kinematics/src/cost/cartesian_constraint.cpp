@@ -77,7 +77,7 @@ namespace differential_kinematics
       tf::vectorTFToEigen(target_rot_err_root_link, temp_vec);
       delta_cartesian.tail(3) = temp_vec;
 
-      if(Base<motion_planner>::planner_->getMultilinkType() == motion_planner::MULTILINK_TYPE_SE2)
+      if(Base<motion_planner>::planner_->getMultilinkType() == motion_type::SE2)
         {
           if(!Base<motion_planner>::orientation_) delta_cartesian.segment(2, 4) = Eigen::VectorXd::Zero(4);
           else delta_cartesian.segment(2, 3) = Eigen::VectorXd::Zero(3);
@@ -157,7 +157,7 @@ namespace differential_kinematics
         }
 
       /* special */
-      if(Base<motion_planner>::planner_->getMultilinkType() == motion_planner::MULTILINK_TYPE_SE2)
+      if(Base<motion_planner>::planner_->getMultilinkType() == motion_type::SE2)
         {
           if(!Base<motion_planner>::orientation_)
             jacobian.block(2, 0, 4, jacobian.cols()) = Eigen::MatrixXd::Zero(4, jacobian.cols());

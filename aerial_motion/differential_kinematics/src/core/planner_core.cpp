@@ -41,12 +41,12 @@ namespace differential_kinematics
   using CostContainer = std::vector<boost::shared_ptr<cost::Base<Planner> > >;
   using ConstraintContainer = std::vector<boost::shared_ptr<constraint::Base<Planner> > >;
 
-  Planner::Planner(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<RobotModel> robot_model_ptr): nh_(nh), nhp_(nhp), robot_model_ptr_(robot_model_ptr), multilink_type_(MULTILINK_TYPE_SE2), motion_func_vector_(), solved_(false)
+  Planner::Planner(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<RobotModel> robot_model_ptr): nh_(nh), nhp_(nhp), robot_model_ptr_(robot_model_ptr), multilink_type_(motion_type::SE2), motion_func_vector_(), solved_(false)
   {
     for(auto itr = robot_model_ptr_->getRobotModel().joints_.begin(); itr != robot_model_ptr_->getRobotModel().joints_.end(); itr++)
       {
         if(itr->second->type != urdf::Joint::FIXED && itr->second->axis.z == 0)
-          multilink_type_ = MULTILINK_TYPE_SE3;
+          multilink_type_ = motion_type::SE3;
       }
 
     nhp_.param ("differential_kinematics_count", differential_kinematics_count_, 100);
@@ -59,7 +59,8 @@ namespace differential_kinematics
     /* motion timer */
     double rate;
     nhp_.param("motion_func_rate", rate, 10.0);
-    motion_timer_ = nhp_.createTimer(ros::Duration(1.0 / rate), &Planner::motionFunc, this);
+    if(rate > 0)
+      motion_timer_ = nhp_.createTimer(ros::Duration(1.0 / rate), &Planner::motionFunc, this);
   }
 
   bool Planner::solver(CostContainer cost_container, ConstraintContainer constraint_container, bool debug)

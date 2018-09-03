@@ -33,65 +33,72 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *********************************************************************/
 
-#ifndef DIFFERENTIA_KINEMATICS_COST_PLUGIN_H
-#define DIFFERENTIA_KINEMATICS_COST_PLUGIN_H
+#ifndef SQUEEZE_MOTION_SOLVER_H
+#define SQUEEZE_MOTION_SOLVER_H
 
-#include <ros/ros.h>
-
-/* Linear Math */
-#include <Eigen/Dense>
-
-/* robot state */
+#include <differential_kinematics/planner_core.h>
 #include <aerial_motion_planning_msgs/multilink_state.h>
 
-namespace differential_kinematics
-{
-  namespace cost
+#include <pluginlib/class_loader.h>
+/* special cost plugin for cartesian constraint */
+#include <differential_kinematics/cost/cartesian_constraint.h>
+/* special constraint plugin for collision avoidance */
+#include <differential_kinematics/constraint/collision_avoidance.h>
+
+/* utils */
+#include <tf_conversions/tf_kdl.h>
+#include <fnmatch.h>
+
+using namespace differential_kinematics;
+
+enum Phase
   {
-    template <class motion_planner>
-    class Base
-    {
-    public:
-      Base() {}
-      ~Base(){}
-
-      void virtual initialize(ros::NodeHandle nh, ros::NodeHandle nhp,
-                              boost::shared_ptr<motion_planner> planner, std::string cost_name,
-                              bool orientation, bool full_body)
-      {
-        nh_ = ros::NodeHandle(nh, cost_name);
-        nhp_ = ros::NodeHandle(nhp, cost_name);
-
-        planner_ = planner;
-
-        //std::cout << nhp_.getNamespace() << std::endl;
-        nhp_.param("verbose", verbose_, false);
-
-        cost_name_ = cost_name;
-        orientation_ = orientation;
-        full_body_ = full_body;
-        j_ndof_ = planner_->getRobotModelPtr()->getActuatorJointMap().size();
-      }
-
-      virtual bool getHessianGradient(bool& convergence, Eigen::MatrixXd& H, Eigen::VectorXd& g, bool debug = false) = 0;
-
-      std::string getCostName() {return cost_name_;}
-    protected:
-
-      ros::NodeHandle nh_;
-      ros::NodeHandle nhp_;
-
-      boost::shared_ptr<motion_planner> planner_;
-
-      bool verbose_;
-      std::string cost_name_;
-
-      int j_ndof_;
-      bool orientation_;
-      bool full_body_;
-
-    };
+    CASE1,
+    CASE2_1,
+    CASE2_2,
+    CASE3,
   };
+
+class DifferentialKinematicsSolver
+{
+  using robot_model = TransformController;
+public:
+  DifferentialKinematicsSolver(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<robot_model> robot_model_ptr);
+  ~DifferentialKinematicsSolver(){}
+
+  const MultilinkState getStateConst(int index) const {return path_.at(index);}
+  const int getPathSize() const {return path_.size();}
+
+  bool plan(bool debug = false);
+  void visualizeEnv();
+private:
+
+  ros::NodeHandle nh_;
+  ros::NodeHandle nhp_;
+  ros::Publisher env_collision_pub_;
+  tf::TransformBroadcaster br_;
+
+  boost::shared_ptr<robot_model> robot_model_ptr_;
+  boost::shared_ptr<Planner> planner_core_ptr_;
+
+  /* path */
+  MultilinkState start_state_;
+  MultilinkState goal_state_;
+  std::vector<MultilinkState> path_;
+
+  tf::Transform openning_center_frame_;
+
+  double delta_pinch_length_; //to propagate the pinch action
+
+  bool debug_;
+  Phase phase_;
+  double reference_point_ratio_;
+
+  boost::shared_ptr<cost::CartersianConstraint<Planner> > cartersian_constraint_;
+
+  visualization_msgs::MarkerArray env_collision_;
+
+  bool updatePinchPoint();
 };
 
 #endif

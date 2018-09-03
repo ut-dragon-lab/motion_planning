@@ -82,7 +82,7 @@ namespace differential_kinematics
             lb.segment(3, 3) *= -root_rotational_vel_thre_;
             ub.segment(3, 3) *= root_rotational_vel_thre_;
 
-            if(Base<motion_planner>::planner_->getMultilinkType() == motion_planner::MULTILINK_TYPE_SE2)
+            if(Base<motion_planner>::planner_->getMultilinkType() == motion_type::SE2)
               {
                 lb.segment(2, 3) *= 0;
                 ub.segment(2, 3) *= 0;

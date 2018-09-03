@@ -41,6 +41,7 @@
 
 /* robot model */
 #include <hydrus/transform_control.h>
+#include <aerial_motion_planning_msgs/multilink_state.h>
 
 /* for QP solution for force-closure */
 #include <qpOASES.hpp>
@@ -68,9 +69,6 @@ namespace differential_kinematics
     void registerUpdateFunc(std::function<bool(void)> new_func);
     void registerMotionFunc(std::function<void(void)> new_func);
 
-    static constexpr uint8_t MULTILINK_TYPE_SE2 = 0;
-    static constexpr uint8_t MULTILINK_TYPE_SE3 = 1;
-
     /* kinematics */
     boost::shared_ptr<RobotModel> getRobotModelPtr() {return robot_model_ptr_;}
     const sensor_msgs::JointState& getTargetActuatorVector() {return target_actuator_vector_;}
@@ -80,6 +78,9 @@ namespace differential_kinematics
 
     inline void setInitRootPose(const tf::Transform& init_root_pose) { target_root_pose_ = init_root_pose;}
     inline void setInitActuatorPose(const sensor_msgs::JointState& init_actuator_vector) {target_actuator_vector_ = init_actuator_vector;}
+
+    const std::vector<tf::Transform>& getRootPoseSequence() const {return target_root_pose_sequence_;}
+    const std::vector<sensor_msgs::JointState>& getActuatorStateSequence() const {return target_actuator_vector_sequence_;}
 
   private:
     ros::NodeHandle nh_;

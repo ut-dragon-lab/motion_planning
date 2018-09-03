@@ -33,7 +33,7 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *********************************************************************/
 
-#include <differential_kinematics/sample/end_effector_ik_solver_core.h>
+#include <differential_kinematics/motion/end_effector_ik_solver_core.h>
 
 using namespace differential_kinematics;
 using robot_model = TransformController;
