@@ -38,6 +38,8 @@
 
 namespace
 {
+  pluginlib::ClassLoader<squeeze_motion_planner::Base> plugin_loader("squeeze_navigation", "squeeze_motion_planner::Base");
+
   nav_msgs::Odometry robot_baselink_odom_;
   bool real_odom_flag_ = false;
   int state_index_ = 0;
@@ -82,17 +84,10 @@ SqueezeNavigation::SqueezeNavigation(ros::NodeHandle nh, ros::NodeHandle nhp):
   /////////////////////////////////
 
   /* discrete path search */
-  //////// temporary //////////////
-  nhp_.param("discrete_path_search_method_type", discrete_path_search_method_type_, 0);
-  if(discrete_path_search_method_type_ == 0) // sampling base
-    {
-      if (motion_type_ == motion_type::SE2) //SE2
-        sampling_base_planner_ = boost::shared_ptr<sampling_base::se2::MotionPlanning>(new sampling_base::se2::MotionPlanning(nh, nhp, robot_model_ptr_));
-      else // Se3
-        sampling_base_planner_ = boost::shared_ptr<sampling_base::se2::MotionPlanning>(new sampling_base::se3::MotionPlanning(nh, nhp, robot_model_ptr_));
-    }
-  /////////////////////////////////
-
+  std::string discrete_path_search_method_name;
+  nhp_.param("discrete_path_search_method_name", discrete_path_search_method_name, std::string("none"));
+  discrete_path_planner_ = plugin_loader.createInstance(discrete_path_search_method_name);
+  discrete_path_planner_->initialize(nh_, nhp_, robot_model_ptr_);
   //////// temporary //////////////
   joint_num_ = robot_model_ptr_->getActuatorJointMap().size();
   assert(joint_num_ > 0);
@@ -145,17 +140,20 @@ void SqueezeNavigation::planStartCallback(const std_msgs::Empty msg)
   state_index_ = 0; //reset
 
   /* discrete path */
-  if(discrete_path_search_method_type_ == 0) // sampling base
+  if(load_path_flag_)
     {
-      if(load_path_flag_) sampling_base_planner_->loadPath();
-      else sampling_base_planner_->plan();
-
-      if(sampling_base_planner_->getPathConst().size() == 0)
+      discrete_path_planner_->loadPath();
+      if(discrete_path_planner_->getPathConst().size() == 0)
         {
           ROS_WARN("squeeze navigation: can not get valid discrete path from sampling based method");
           return;
         }
     }
+  else
+    {
+      if(!discrete_path_planner_->plan()) return;
+    }
+
 
   if (discrete_path_debug_flag_)
     {
@@ -165,8 +163,7 @@ void SqueezeNavigation::planStartCallback(const std_msgs::Empty msg)
 
   /* continuous path */
   if(discrete_path_search_method_type_ == 0) // sampling base
-    continuousPath(sampling_base_planner_->getPathConst());
-
+    continuousPath(discrete_path_planner_->getPathConst());
 }
 
 
@@ -249,14 +246,14 @@ void SqueezeNavigation::navigate(const ros::TimerEvent& event)
 
   moveit_msgs::DisplayRobotState display_robot_state;
 
+  /* some special visualize process, such as ENV */
+  if(!headless_) discrete_path_planner_->visualizeFunc();
+
   /* test (debug) the discrete path */
   if(discrete_path_debug_flag_)
     {
-      if(discrete_path_search_method_type_ == 0) // sampling base
-        display_robot_state.state = sampling_base_planner_->getStateConst(state_index_).getVisualizeRobotStateConst();
-
-      state_index_ ++;
-      if(state_index_ == sampling_base_planner_->getPathSize()) state_index_ = 0;
+      display_robot_state.state = discrete_path_planner_->getStateConst(state_index_++).getVisualizeRobotStateConst();
+      if(state_index_ == discrete_path_planner_->getPathConst().size()) state_index_ = 0;
 
       desired_path_pub_.publish(display_robot_state);
       return;
@@ -331,7 +328,7 @@ void SqueezeNavigation::navigate(const ros::TimerEvent& event)
   cog_pose.orientation = tf::createQuaternionMsgFromYaw(des_pos.at(5)); /* special: only get yaw angle */
 
   /* joint state:  */
-  sensor_msgs::JointState joint_state = sampling_base_planner_->getPathConst().at(0).getActuatorStateConst();
+  sensor_msgs::JointState joint_state = discrete_path_planner_->getPathConst().at(0).getActuatorStateConst();
   for(int i = 0; i < joint_num_; i++)
     joint_state.position.at(robot_model_ptr_->getActuatorJointMap().at(i)) = des_pos.at(6 + i);
 
@@ -446,27 +443,10 @@ void SqueezeNavigation::robotJointStatesCallback(const sensor_msgs::JointStateCo
   /* joint state */
   MultilinkState state_tmp;
 
-#if 0
-  /* CAUTION: we can not use getActuatorMap(), which is not the order of true joint state from machine */
-  state_tmp.setActuatorState(start_state_.getActuatorStateConst()); // init joint state
-  for (int i = 0; i < joints_msg->name.size(); i++)
-    {
-      auto itr = std::find(state_tmp.getActuatorStateConst().name.begin(), state_tmp.getActuatorStateConst().name.end(), joints_msg->name.at(i));
-      if (itr == state_tmp.getActuatorStateConst().name.end())
-        {
-          ROS_ERROR("can not find the joint name: %s", joints_msg->name.at(i).c_str());
-          return;
-        }
-
-      size_t index = std::distance(state_tmp.getActuatorStateConst().name.begin(), itr );
-      state_tmp.getActuatorStateNonConst().position.at(index) = joints_msg->position[i];
-    }
-#endif
-
   state_tmp.setActuatorState(*joints_msg);
   state_tmp.baselinkPose2RootPose(robot_baselink_odom_.pose.pose, robot_model_ptr_);
 
   /* check collision */
   if(discrete_path_search_method_type_ == 0) // sampling base
-    sampling_base_planner_->checkCollision(state_tmp);
+    discrete_path_planner_->checkCollision(state_tmp);
 }

@@ -42,6 +42,7 @@
 #include <std_msgs/MultiArrayDimension.h>
 #include <std_msgs/Empty.h>
 #include <sensor_msgs/JointState.h>
+#include <nav_msgs/Odometry.h>
 #include <aerial_robot_msgs/FlightNav.h>
 #include <spinal/DesireCoord.h>
 #include <spinal/FlightConfigCmd.h>
@@ -51,7 +52,8 @@
 #include <dragon/transform_control.h>
 
 /* discrete path search */
-#include <sampling_based_method/se3/motion_planning.h>
+#include <pluginlib/class_loader.h>
+#include <squeeze_navigation/planner/base_plugin.h>
 
 /* continous path generator */
 #include <bspline_generator/tinyspline_interface.h>
@@ -64,11 +66,6 @@
 #include <vector>
 #include <boost/algorithm/clamp.hpp>
 
-
-namespace motion_type
-{
-  enum {SE2 = 0, SE3 = 1,};
-};
 
 
 class SqueezeNavigation{
@@ -118,9 +115,7 @@ private:
   int joint_num_;
 
   /* discrete path search */
-  // 1. sampling based method
-  boost::shared_ptr<sampling_base::se2::MotionPlanning> sampling_base_planner_;
-
+  boost::shared_ptr<squeeze_motion_planner::Base> discrete_path_planner_;
 
   /* continuous path generator */
   boost::shared_ptr<TinysplineInterface> bspline_ptr_;
