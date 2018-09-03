@@ -1,0 +1,11 @@
+# horizontal opening
+gap_x_width: 0.5
+gap_y_width: 0.5
+gap_height: 0.7
+
+# vertical gap
+#gap_x_offset: 0.0
+#gap_y_offset: 0.6
+#gap_left_width: 0.03 ## 0.1 + 0.03
+#gap_right_width: 0.03 ## 0.1 + 0.029
+#gap_left_x: 0.0

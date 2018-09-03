@@ -3,11 +3,9 @@
   <arg name="headless" default="false" />
 
   <arg name="type" default="quad" />
-  <arg name="transformation" default="true" />
-  <arg name="horizontal_gap" default="false" />
 
   <arg name="discrete_path_debug_flag" default="0" />
-  <arg name="discrete_path_search_method_type" default="0" /> <!--sampling base: 0, differential type: 1-->
+  <arg name="discrete_path_search_method_name" default="sampling_based_method" />
   <arg name="motion_type"  default="1" /> <!--SE2: 0, SE3: 1 -->
 
   <!-- sampling based method -->
@@ -42,18 +40,22 @@
     <rosparam file="$(find dragon)/config/$(arg type)/AttitudeControl.yaml" command="load" />
 
     <!-- discrete path search -->
-    <rosparam file="$(find sampling_based_method)/config/dragon/$(arg type)/GapWithTransformation.yaml" command="load" if="$(arg transformation)"/>
-    <rosparam file="$(find sampling_based_method)/config/dragon/$(arg type)/GapWithoutTransformation.yaml" command="load" unless="$(arg transformation)"/>
-    <rosparam file="$(find sampling_based_method)/config/gap/HorizontalGapNoOverlap.yaml" command="load" if="$(arg horizontal_gap)"/>
-    <rosparam file="$(find sampling_based_method)/config/gap/VerticalGap.yaml" command="load" unless="$(arg horizontal_gap)"/>
+    <param name="discrete_path_search_method_name" value="squeeze_navigation/$(arg discrete_path_search_method_name)" />
 
-    <param name="discrete_path_search_method_type" value="$(arg discrete_path_search_method_type)" />
+    <!--
+    <rosparam file="$(find squeeze_navigation)/config/$(arg discrete_path_search_method_name)/dragon/$(arg type)/GapWithTransformation.yaml" command="load" if="$(arg transformation)"/>
+    <rosparam file="$(find squeeze_navigation)/config/$(arg discrete_path_search_method_name)/dragon$(arg type)/GapWithoutTransformation.yaml" command="load" unless="$(arg transformation)"/>
+    <rosparam file="$(find squeeze_navigation)/config/$(arg discrete_path_search_method_name)/dragon/$(arg type)/GapWithTransformation.yaml" command="load" />
+    <rosparam file="$(find squeeze_navigation)/config/$(arg discrete_path_search_method_name)/gap/HorizontalGapNoOverlap.yaml" command="load"/>
+    <rosparam file="$(find squeeze_navigation)/config/$(arg discrete_path_search_method_name)/gap/VerticalGap.yaml" command="load" unless="$(arg horizontal_gap)"/>
+    -->
+    <rosparam file="$(find squeeze_navigation)/config/$(arg discrete_path_search_method_name)/dragon_$(arg type).yaml" command="load" />
+    <rosparam file="$(find squeeze_navigation)/config/$(arg discrete_path_search_method_name)/gap.yaml" command="load"/>
+
     <param name="discrete_path_debug_flag" value="$(arg discrete_path_debug_flag)" />
-    <param name="planning_mode" value="1" unless="$(arg transformation)"/>
-    <param name="planning_mode" value="2" if="$(arg transformation)"/>
+    <param name="planning_mode" value="2" /> <!-- if="$(arg transformation)" -->
     <param name="motion_type" value="$(arg motion_type)" />
-    <param name="gap_type" value="0" if="$(arg horizontal_gap)"/>
-    <param name="gap_type" value="1" unless="$(arg horizontal_gap)"/>
+    <param name="gap_type" value="1" /> <!-- unless="$(arg horizontal_gap)" -->
     <param name="file_state_offset_x" type="double" value="0.0" />
     <param name="file_state_offset_y" type="double" value="0.0" />
     <param name="file_state_offset_z" type="double" value="0.0" />
