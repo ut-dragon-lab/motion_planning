@@ -11,6 +11,7 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   hydrus
   dragon
+  aerial_motion_planning_msgs
   pluginlib)
 
 ## System dependencies are found with CMake's conventions
@@ -49,9 +50,8 @@ generate_messages(
 
 catkin_package(
   INCLUDE_DIRS include fcl/include ${CMAKE_CURRENT_BINARY_DIR}/fcl/include ${CMAKE_CURRENT_BINARY_DIR}/qpOASES/qpOASES-3.0/include
-  LIBRARIES  differential_kinematics_planner_core end_effector_ik_solver_core gap_passing_solver_core
+  LIBRARIES  differential_kinematics_planner_core end_effector_ik_solver_core fcl
   CATKIN_DEPENDS hydrus dragon
-#  DEPENDS system_lib
 )
 
 # Eigen requires optimization to get good performance
@@ -103,16 +103,3 @@ target_link_libraries (se2_end_effector_ik_node ${catkin_LIBRARIES} end_effector
 
 add_executable (se3_end_effector_ik_node src/motion/sample/se3_end_effector_ik_node.cpp)
 target_link_libraries (se3_end_effector_ik_node ${catkin_LIBRARIES} end_effector_ik_solver_core)
-
-
-# gap passing solver
-add_library (gap_passing_solver_core src/motion/gap_passing_solver_core.cpp)
-target_link_libraries (gap_passing_solver_core ${catkin_LIBRARIES} differential_kinematics_planner_core fcl)
-
-## specific robots
-add_executable (se2_gap_passing_solver_node  src/motion/sample/se2_gap_passing_solver_node.cpp)
-target_link_libraries (se2_gap_passing_solver_node ${catkin_LIBRARIES} gap_passing_solver_core)
-
-add_executable (se3_gap_passing_solver_node  src/motion/sample/se3_gap_passing_solver_node.cpp)
-target_link_libraries (se3_gap_passing_solver_node ${catkin_LIBRARIES} gap_passing_solver_core)
-
