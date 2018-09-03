@@ -1,0 +1,8 @@
+<library path="lib/libplanner_pluginlib">
+  <class name="squeeze_navigation/sampling_based_method" type="squeeze_motion_planner::SamplingBasedMethod" base_class_type="squeeze_motion_planner::Base">
+    <description>This is a planner based on sampling based method.</description>
+  </class>
+  <class name="squeeze_navigation/differential_kinematics" type="squeeze_motion_planner::DifferentialKinematics" base_class_type="squeeze_motion_planner::Base">
+    <description>This is a planner based on differential kinematics.</description>
+  </class>
+</library>
