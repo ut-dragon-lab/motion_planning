@@ -309,7 +309,7 @@ namespace squeeze_motion_planner
       if(planner_core_ptr_->solver(cost_container, constraint_container, debug))
         {
           assert(planner_core_ptr_->getRootPoseSequence().size() == planner_core_ptr_->getActuatorStateSequence().size());
-          for(int index = 0; index < planner_core_ptr_->getRootPoseSequence().size(); index++ )
+          for(int index = 0; index < planner_core_ptr_->getRootPoseSequence().size(); index++)
             {
               MultilinkState robot_state;
               geometry_msgs::Pose root_pose;
@@ -318,7 +318,7 @@ namespace squeeze_motion_planner
               robot_state.setActuatorState(planner_core_ptr_->getActuatorStateSequence().at(index));
               robot_state.targetRootPose2TargetBaselinkPose(robot_model_ptr_);
               path_.push_back(robot_state);
-            }
+           }
 
           /* tmeporary: add several extra point after squeezing */
           /* simply only change the target altitude of the CoG frame */

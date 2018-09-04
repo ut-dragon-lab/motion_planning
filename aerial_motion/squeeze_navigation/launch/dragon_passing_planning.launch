@@ -24,7 +24,7 @@
     </include >
 
     <node name="rviz" pkg="rviz" type="rviz"
-          args="-d $(find sampling_based_method)/config/planning.rviz" respawn="true" />
+          args="-d $(find sampling_based_method)/config/planning.rviz" respawn="false" />
   </group>
 
   ########## Sampling based method (Moveit) ###########
@@ -74,6 +74,10 @@
     <param name="valid_segment_count_factor" value="20"/> <!--20-->
 
     <!-- continuous path generator -->
+    <!-- low pass filter -->
+    <param name="cutoff_freq" value="30.0" />
+    <param name="cutoff_rate" value="0.175" />
+    <param name="cutoff_band" value="0.05" />
     <!-- bsploine -->
     <param name="bspline_degree" value="5" />
     <param name="trajectory_period" value="80.0" />

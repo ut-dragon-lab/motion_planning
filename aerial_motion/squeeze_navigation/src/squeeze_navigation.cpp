@@ -44,7 +44,11 @@ namespace
   bool real_odom_flag_ = false;
   int state_index_ = 0;
 
+  std::vector<IirFilter> low_path_filter_vec_;
+  std::vector<MultilinkState> fft_path_;
   std_msgs::ColorRGBA desired_state_color_;
+
+  std::vector<float> timevec_test_;
 }
 
 
@@ -154,6 +158,107 @@ void SqueezeNavigation::planStartCallback(const std_msgs::Empty msg)
       if(!discrete_path_planner_->plan()) return;
     }
 
+  /* debug: low path filter */
+  double rx_freq, cutoff_freq;
+  nhp_.param("rx_freq", rx_freq, 100.0);
+  nhp_.param("cutoff_freq", cutoff_freq, 20.0);
+  low_path_filter_vec_.clear();
+  low_path_filter_vec_.push_back(IirFilter(rx_freq, cutoff_freq));
+
+
+  /* filtering by FFT */
+  double cutoff_rate, cutoff_band;
+  nhp_.param("cutoff_rate", cutoff_rate, 0.5);
+  nhp_.param("cutoff_band", cutoff_band, 0.1);
+
+#if 0
+  double start_time = ros::Time::now().toSec();
+  std::vector< std::vector<float> > timevec_array(6 + joint_num_);
+  for(auto itr: discrete_path_planner_->getPathConst())
+    {
+      /* root position */
+      timevec_array.at(0).push_back(itr.getRootPoseConst().position.x);
+      timevec_array.at(1).push_back(itr.getRootPoseConst().position.y);
+      timevec_array.at(2).push_back(itr.getRootPoseConst().position.z);
+
+      /* attitdue, TODO: use Quaternion FFT */
+      tf::Quaternion q;
+      tf::quaternionMsgToTF(itr.getRootPoseConst().orientation, q);
+      double r, p, y;
+      tf::Matrix3x3(q).getRPY(r, p, y);
+      timevec_array.at(3).push_back(r);
+      timevec_array.at(4).push_back(p);
+      timevec_array.at(5).push_back(y);
+
+      /* joint state */
+      for(int j = 0; j < joint_num_; j++)
+        {
+          int index = robot_model_ptr_->getActuatorJointMap().at(j);
+          timevec_array.at(6 + j).push_back(itr.getActuatorStateConst().position.at(index));
+        }
+    }
+  for(auto itr = timevec_array.begin(); itr != timevec_array.end(); itr++)
+    {
+      Eigen::FFT<float> fft;
+      std::vector<std::complex<float> > freqvec;
+      fft.fwd(freqvec, *itr);
+
+      for(int index = 0; index < freqvec.size(); index++)
+        {
+          if(index > freqvec.size() * cutoff_rate)
+            {
+              freqvec.at(index).real(0);
+              freqvec.at(index).imag(0);
+            }
+        }
+      fft.inv(*itr, freqvec);
+    }
+  for(int index = 0; index < discrete_path_planner_->getPathConst().size(); index++)
+    {
+      MultilinkState robot_state = discrete_path_planner_->getStateConst(0);
+      robot_state.getRootPoseNonConst().position.x = timevec_array.at(0).at(index);
+      robot_state.getRootPoseNonConst().position.y = timevec_array.at(1).at(index);
+      robot_state.getRootPoseNonConst().position.z = timevec_array.at(2).at(index);
+
+      robot_state.getCogPoseNonConst().orientation = tf::createQuaternionMsgFromRollPitchYaw(timevec_array.at(3).at(index), timevec_array.at(4).at(index), timevec_array.at(5).at(index));
+
+      sensor_msgs::JointState actuator_state = robot_state.getActuatorStateConst();
+      for(int j = 0; j < joint_num_; j++)
+        {
+          actuator_state.position.at(robot_model_ptr_->getActuatorJointMap().at(j)) = timevec_array.at(6 + j).at(index);
+        }
+
+      robot_state.targetRootPose2TargetBaselinkPose(robot_model_ptr_);
+      fft_path_.push_back(robot_state);
+    }
+
+  ROS_ERROR("fft time: %f", ros::Time::now().toSec() - start_time);
+
+#endif
+
+
+  Eigen::FFT<float> fft;
+  std::vector<std::complex<float> > freqvec;
+  for(auto itr: discrete_path_planner_->getPathConst())
+    timevec_test_.push_back(itr.getRootPoseConst().position.y);
+  fft.fwd(freqvec, timevec_test_);
+
+  for(int index = 0; index < freqvec.size(); index++)
+    {
+      if(index < freqvec.size() * cutoff_rate + cutoff_band / 2  && index > freqvec.size() * cutoff_rate + cutoff_band / 2)
+        {
+        freqvec.at(index).real(0);
+          freqvec.at(index).imag(0);
+        }
+      //timevec_test_.at(index) = std::abs(freqvec.at(index));
+    }
+  fft.inv(timevec_test_, freqvec);
+
+  for(int i = 0; i < 100; i++)
+    {
+      double temp;
+      low_path_filter_vec_.at(0).filterFunction(discrete_path_planner_->getStateConst(0).getRootPoseConst().position.y, temp);
+    }
 
   if (discrete_path_debug_flag_)
     {
@@ -162,8 +267,7 @@ void SqueezeNavigation::planStartCallback(const std_msgs::Empty msg)
     }
 
   /* continuous path */
-  if(discrete_path_search_method_type_ == 0) // sampling base
-    continuousPath(discrete_path_planner_->getPathConst());
+  continuousPath(discrete_path_planner_->getPathConst());
 }
 
 
@@ -252,10 +356,84 @@ void SqueezeNavigation::navigate(const ros::TimerEvent& event)
   /* test (debug) the discrete path */
   if(discrete_path_debug_flag_)
     {
+#if 0
       display_robot_state.state = discrete_path_planner_->getStateConst(state_index_++).getVisualizeRobotStateConst();
+
       if(state_index_ == discrete_path_planner_->getPathConst().size()) state_index_ = 0;
+      desired_path_pub_.publish(display_robot_state);
+#endif
+      /* debug */
+#if 1
+      if(state_index_ == discrete_path_planner_->getPathConst().size()) return;
+
+      display_robot_state.state.joint_state.header.seq = state_index_;
+
+      /*
+      display_robot_state.state.joint_state.name.push_back("root_x");
+      display_robot_state.state.joint_state.position.push_back(discrete_path_planner_->getStateConst(state_index_).getRootPoseConst().position.x);
+      display_robot_state.state.joint_state.name.push_back("root_x_fft");
+      display_robot_state.state.joint_state.position.push_back(fft_path_.at(state_index_).getRootPoseConst().position.x);
+      display_robot_state.state.joint_state.name.push_back("root_y");
+      display_robot_state.state.joint_state.position.push_back(discrete_path_planner_->getStateConst(state_index_).getRootPoseConst().position.y);
+      display_robot_state.state.joint_state.name.push_back("root_y_fft");
+      display_robot_state.state.joint_state.position.push_back(fft_path_.at(state_index_).getRootPoseConst().position.y);
+      display_robot_state.state.joint_state.name.push_back("root_z");
+      display_robot_state.state.joint_state.position.push_back(discrete_path_planner_->getStateConst(state_index_).getRootPoseConst().position.z);
+      display_robot_state.state.joint_state.name.push_back("root_z_fft");
+      display_robot_state.state.joint_state.position.push_back(fft_path_.at(state_index_).getRootPoseConst().position.z);
+      */
+      /*
+      display_robot_state.state.joint_state.name.push_back("cog_x");
+      display_robot_state.state.joint_state.position.push_back(discrete_path_planner_->getStateConst(state_index_).getCogPoseConst().position.x);
+      display_robot_state.state.joint_state.name.push_back("cog_x_fft");
+      display_robot_state.state.joint_state.position.push_back(fft_path_.at(state_index_).getCogPoseConst().position.x);
+      display_robot_state.state.joint_state.name.push_back("cog_y");
+      display_robot_state.state.joint_state.position.push_back(discrete_path_planner_->getStateConst(state_index_).getCogPoseConst().position.y);
+      display_robot_state.state.joint_state.name.push_back("cog_y_fft");
+      display_robot_state.state.joint_state.position.push_back(fft_path_.at(state_index_).getCogPoseConst().position.y);
+      display_robot_state.state.joint_state.name.push_back("cog_z");
+      display_robot_state.state.joint_state.position.push_back(discrete_path_planner_->getStateConst(state_index_).getCogPoseConst().position.z);
+      display_robot_state.state.joint_state.name.push_back("cog_z_fft");
+      display_robot_state.state.joint_state.position.push_back(fft_path_.at(state_index_).getCogPoseConst().position.z);
+      */
+
+      /*
+      double filtered_value;
+      low_path_filter_vec_.at(0).filterFunction(discrete_path_planner_->getStateConst(state_index_).getRootPoseConst().position.y, filtered_value);
+      display_robot_state.state.joint_state.name.push_back("root_z");
+      display_robot_state.state.joint_state.position.push_back(discrete_path_planner_->getStateConst(state_index_).getRootPoseConst().position.y);
+      display_robot_state.state.joint_state.name.push_back("cog_x_filtered");
+      display_robot_state.state.joint_state.position.push_back(filtered_value);
+      */
+
+      display_robot_state.state.joint_state.name.push_back("joint1_pitch");
+      display_robot_state.state.joint_state.position.push_back(discrete_path_planner_->getStateConst(state_index_).getRootPoseConst().position.y);
+      display_robot_state.state.joint_state.name.push_back("joint1_yaw");
+      display_robot_state.state.joint_state.position.push_back(timevec_test_.at(state_index_));
+
+      /*
+      double r,p,y;
+      tf::Matrix3x3(discrete_path_planner_->getStateConst(state_index_).getBaselinkDesiredAttConst()).getRPY(r,p,y);
+      display_robot_state.state.joint_state.name.push_back("baselink_r");
+      display_robot_state.state.joint_state.position.push_back(r);
+      display_robot_state.state.joint_state.name.push_back("baselink_p");
+      display_robot_state.state.joint_state.position.push_back(p);
+      display_robot_state.state.joint_state.name.push_back("baselink_y");
+      display_robot_state.state.joint_state.position.push_back(y);
+      */
+
+      /*
+      for(auto itr : robot_model_ptr_->getActuatorJointMap())
+        {
+          display_robot_state.state.joint_state.name.push_back(discrete_path_planner_->getStateConst(state_index_).getActuatorStateConst().name.at(itr));
+          display_robot_state.state.joint_state.position.push_back(discrete_path_planner_->getStateConst(state_index_).getActuatorStateConst().position.at(itr));
+        }
+      */
 
       desired_path_pub_.publish(display_robot_state);
+
+      state_index_++;
+#endif
       return;
     }
 
@@ -354,8 +532,6 @@ void SqueezeNavigation::navigate(const ros::TimerEvent& event)
 void SqueezeNavigation::continuousPath(const std::vector<MultilinkState>& discrete_path)
 {
   assert(discrete_path.size() > 0);
-
-  // TODO: interval modification
 
 
   /* insert data */

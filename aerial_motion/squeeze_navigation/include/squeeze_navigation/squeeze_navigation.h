@@ -56,6 +56,8 @@
 #include <squeeze_navigation/planner/base_plugin.h>
 
 /* continous path generator */
+#include <kalman_filter/digital_filter.h>
+#include <unsupported/Eigen/FFT>
 #include <bspline_generator/tinyspline_interface.h>
 
 /* utils */
