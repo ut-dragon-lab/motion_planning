@@ -76,8 +76,8 @@
     <!-- continuous path generator -->
     <!-- low pass filter -->
     <param name="cutoff_freq" value="30.0" />
-    <param name="cutoff_rate" value="0.175" />
-    <param name="cutoff_band" value="0.05" />
+    <param name="discrete_path_filter_flag" value="true" />
+
     <!-- bsploine -->
     <param name="bspline_degree" value="5" />
     <param name="trajectory_period" value="80.0" />
