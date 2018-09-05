@@ -49,16 +49,19 @@ namespace
   std::vector<MultilinkState> filtered_path_;
 
   ros::Publisher debug_pub_;
+
+  double start_return_time_;
 }
 
 SqueezeNavigation::SqueezeNavigation(ros::NodeHandle nh, ros::NodeHandle nhp):
-  nh_(nh), nhp_(nhp), move_start_flag_(false)
+  nh_(nh), nhp_(nhp), move_start_flag_(false), return_flag_(false)
 {
   rosParamInit();
 
   /* ros pub/sub, srv */
   plan_start_flag_sub_ = nh_.subscribe("/plan_start", 1, &SqueezeNavigation::planStartCallback, this);
   move_start_flag_sub_ = nh_.subscribe("/move_start", 1, &SqueezeNavigation::moveStartCallback, this);
+  return_flag_sub_ = nh_.subscribe("/return", 1, &SqueezeNavigation::returnCallback, this);
   adjust_initial_state_sub_ = nh_.subscribe("/adjust_robot_initial_state", 1, &SqueezeNavigation::adjustInitalStateCallback, this);
   flight_config_sub_ = nh_.subscribe("/flight_config_cmd", 1,  &SqueezeNavigation::flightConfigCallback, this);
 
@@ -136,6 +139,8 @@ void SqueezeNavigation::rosParamInit()
   desired_state_color_.b = temp;
   nhp_.param("desired_state_color_a", temp, 0.6);
   desired_state_color_.a = temp;
+
+  nhp_.param("return_delay", return_delay_, 15.0);
 }
 
 void SqueezeNavigation::planStartCallback(const std_msgs::Empty msg)
@@ -319,6 +324,27 @@ void SqueezeNavigation::moveStartCallback(const std_msgs::Empty msg)
   ROS_INFO("[SqueezeNavigation] Receive move start topic.");
 }
 
+
+void SqueezeNavigation::returnCallback(const std_msgs::Empty msg)
+{
+  if(move_start_flag_)
+    {
+      ROS_WARN("still performing desired path motion");
+      return;
+    }
+  return_flag_ = true;
+
+  start_return_time_ = ros::Time::now().toSec();
+
+  /* send init joint state */
+  sensor_msgs::JointState joints_msg;
+  joints_msg.header.stamp = ros::Time::now();
+  for(auto itr : robot_model_ptr_->getActuatorJointMap())
+    joints_msg.position.push_back(discrete_path_planner_->getPathConst().at(0).getActuatorStateConst().position.at(itr));
+
+  joints_ctrl_pub_.publish(joints_msg);
+}
+
 void SqueezeNavigation::flightConfigCallback(const spinal::FlightConfigCmdConstPtr msg)
 {
   if(msg->cmd == spinal::FlightConfigCmd::FORCE_LANDING_CMD)
@@ -330,7 +356,52 @@ void SqueezeNavigation::flightConfigCallback(const spinal::FlightConfigCmdConstP
 
 void SqueezeNavigation::navigate(const ros::TimerEvent& event)
 {
-  if (!move_start_flag_) return;
+  if (!move_start_flag_)
+    {
+      if(return_flag_)
+        {
+          double t = ros::Time::now().toSec() - start_return_time_;
+          if(t < return_delay_ * 2 / 3)
+            {
+              spinal::DesireCoord att_msg;
+              double rate = 1 - t / (return_delay_ * 2 / 3);
+              att_msg.roll = rate * bspline_ptr_->evaluate(trajectory_period_ + 1.0 / controller_freq_)[3];
+              att_msg.pitch = rate * bspline_ptr_->evaluate(trajectory_period_ + 1.0 / controller_freq_)[4];
+              se3_roll_pitch_nav_pub_.publish(att_msg);
+              ROS_INFO_THROTTLE(1.0, "set robot level and the init joint state ");
+            }
+
+          if(t > return_delay_)
+            {
+              /* set SE2 goal (return) position */
+              if (nhp_.hasParam("final_pos_x") && nhp_.hasParam("final_pos_y") && nhp_.hasParam("final_yaw"))
+                {
+                  double final_pos_x, final_pos_y, final_yaw;
+                  nhp_.getParam("final_pos_x", final_pos_x);
+                  nhp_.getParam("final_pos_y", final_pos_y);
+                  nhp_.getParam("final_yaw", final_yaw);
+
+                  aerial_robot_msgs::FlightNav nav_msg;
+                  nav_msg.header.frame_id = std::string("/world");
+                  nav_msg.header.stamp = ros::Time::now();
+                  /* x & y */
+                  nav_msg.control_frame = nav_msg.WORLD_FRAME;
+                  nav_msg.target = nav_msg.COG;
+                  nav_msg.pos_xy_nav_mode = nav_msg.POS_MODE;
+                  nav_msg.target_pos_x = final_pos_x;
+                  nav_msg.target_pos_y = final_pos_y;
+                  /* yaw */
+                  nav_msg.psi_nav_mode = nav_msg.POS_MODE;
+                  nav_msg.target_psi = final_yaw;
+                  flight_nav_pub_.publish(nav_msg);
+                }
+
+              return_flag_ = false;
+            }
+        }
+
+      return;
+    }
 
   moveit_msgs::DisplayRobotState display_robot_state;
 

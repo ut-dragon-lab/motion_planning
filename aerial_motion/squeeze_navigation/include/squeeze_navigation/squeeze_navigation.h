@@ -81,6 +81,7 @@ private:
   ros::NodeHandle nhp_;
   ros::Subscriber plan_start_flag_sub_;
   ros::Subscriber move_start_flag_sub_;
+  ros::Subscriber return_flag_sub_;
   ros::Subscriber adjust_initial_state_sub_;
   ros::Subscriber flight_config_sub_;
 
@@ -108,8 +109,10 @@ private:
   /* navigation */
   ros::Timer navigate_timer_;
   bool move_start_flag_;
+  bool return_flag_;
   double move_start_time_;
   double controller_freq_;
+  double return_delay_;
 
   /* robot model */
   boost::shared_ptr<TransformController> robot_model_ptr_;
@@ -128,6 +131,7 @@ private:
 
   void planStartCallback(const std_msgs::Empty msg);
   void moveStartCallback(const std_msgs::Empty msg);
+  void returnCallback(const std_msgs::Empty msg);
   void adjustInitalStateCallback(const std_msgs::Empty msg);
   void flightConfigCallback(const spinal::FlightConfigCmdConstPtr msg);
   void robotOdomCallback(const nav_msgs::OdometryConstPtr& msg);

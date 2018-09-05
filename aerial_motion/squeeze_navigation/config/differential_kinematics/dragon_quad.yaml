@@ -21,7 +21,11 @@ start_joint2_yaw: 1.57
 start_joint3_pitch: 0.0
 start_joint3_yaw: 1.57
 
-
+## return locaton
+return_delay: 10.0
+final_pos_x: 0.3
+final_pos_y: 0.9
+final_yaw: 1.57
 
 # cost
 differential_kinematics_cost:
