@@ -175,10 +175,11 @@ namespace squeeze_motion_planner
       else if(planner_core_ptr_->getMultilinkType() == motion_type::SE3)
         {
           /* setup env */
-          double openning_width, openning_height, env_width, env_length;
+          double openning_width, openning_height, env_width, env_length, ceiling_offset;
           double wall_thinkness = 0.05;
           nhp_.param("openning_width", openning_width, 0.8);
           nhp_.param("openning_height", openning_height, 0.8);
+          nhp_.param("ceiling_offset", ceiling_offset, 0.6);
           nhp_.param("env_width", env_width, 6.0);
           /* openning side wall(s) */
           visualization_msgs::Marker wall;
@@ -218,7 +219,7 @@ namespace squeeze_motion_planner
           wall.pose.position.y = 0;
           wall.scale.x = env_width;
           wall.scale.y = env_width;
-          wall.pose.position.z = openning_height + 0.45; // + 0.5
+          wall.pose.position.z = openning_height + ceiling_offset; // + 0.5
           env_collision_.markers.push_back(wall);
 
           openning_center_frame_.setOrigin(tf::Vector3(0, 0, openning_height));
@@ -308,6 +309,11 @@ namespace squeeze_motion_planner
       /* start the planning */
       if(planner_core_ptr_->solver(cost_container, constraint_container, debug))
         {
+          /* set the correct base link ( which is not root_link = link1), to be suitable for the control system */
+          std::string base_link;
+          nhp_.param("baselink", base_link, std::string("link1"));
+          robot_model_ptr_->setBaselink(base_link);
+
           assert(planner_core_ptr_->getRootPoseSequence().size() == planner_core_ptr_->getActuatorStateSequence().size());
           for(int index = 0; index < planner_core_ptr_->getRootPoseSequence().size(); index++)
             {
