@@ -1,3 +1,14 @@
 # horizontal opening
-openning_width: 0.4 #0.5
-openning_height: 0.5
+openning_width: 0.5 #default: 0.4, 
+openning_height: 0.7 #default: 0.7,  can be 0.6
+ceiling_offset: 0.45 #default: 0.45
+
+# Important:
+# The interation number is smaller, the path length is shorter, and the motion twist (linear and angular velocity) is smaller.
+# This is very crucial while doing the real machine experiment, where the total duration is set as 80 [sec].
+# The optimal setting for the real machine right now is {openning_width: 0.5, openning_height: 0.7 (robot_start_z: 0.2), ceiling_offset: 0.45}, then the iteration number is 435, the total path length is 2.16
+
+# Not feasible setting for the real machine is {openning_width: 0.4, openning_height: 0.6 (robot_start_z: 0.2), ceiling_offset: 0.45}, then the iteration number is 804, the total path length is 2.596295
+
+
+

@@ -8,7 +8,7 @@ actuator_state_pub_name: /dragon/joint_states
 debug: false
 start_state_x: 0.0
 start_state_y: 0.0
-start_state_z: 0.0
+start_state_z: 0.2
 start_state_roll: 0.0
 start_state_pitch: 0.0
 start_state_yaw: 0.0
