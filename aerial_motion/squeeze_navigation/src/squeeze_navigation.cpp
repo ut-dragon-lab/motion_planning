@@ -47,6 +47,8 @@ namespace
   std::vector<IirFilter> low_path_filter_vec_;
   std_msgs::ColorRGBA desired_state_color_;
   std::vector<MultilinkState> filtered_path_;
+
+  ros::Publisher debug_pub_;
 }
 
 SqueezeNavigation::SqueezeNavigation(ros::NodeHandle nh, ros::NodeHandle nhp):
@@ -66,6 +68,7 @@ SqueezeNavigation::SqueezeNavigation(ros::NodeHandle nh, ros::NodeHandle nhp):
   flight_nav_pub_ = nh_.advertise<aerial_robot_msgs::FlightNav>("/uav/nav", 1);
   se3_roll_pitch_nav_pub_ = nh_.advertise<spinal::DesireCoord>("/desire_coordinate", 1);
   desired_path_pub_ = nh_.advertise<moveit_msgs::DisplayRobotState>("/desired_robot_state", 1);
+  debug_pub_ = nh_.advertise<moveit_msgs::DisplayRobotState>("/debug_robot_state", 1);
 
   if(!headless_)
     {
@@ -213,6 +216,33 @@ void SqueezeNavigation::planStartCallback(const std_msgs::Empty msg)
       filtered_path_.push_back(robot_state);
     }
 
+  bool discrete_path_filter_flag;
+  nhp_.param("discrete_path_filter_flag", discrete_path_filter_flag, false);
+
+  double path_length = 0;
+  if(discrete_path_filter_flag)
+    {
+      for(int i = 0; i < filtered_path_.size() - 1; i++)
+        {
+          tf::Vector3 p1, p2;
+          tf::pointMsgToTF(filtered_path_.at(i).getCogPoseConst().position, p1);
+          tf::pointMsgToTF(filtered_path_.at(i + 1).getCogPoseConst().position, p2);
+          path_length += (p1-p2).length();
+        }
+      ROS_WARN("path length is %f", path_length);
+    }
+  else
+    {
+      for(int i = 0; i < discrete_path_planner_->getPathConst().size() - 1; i++)
+        {
+          tf::Vector3 p1, p2;
+          tf::pointMsgToTF(discrete_path_planner_->getPathConst().at(i).getCogPoseConst().position, p1);
+          tf::pointMsgToTF(discrete_path_planner_->getPathConst().at(i + 1).getCogPoseConst().position, p2);
+          path_length += (p1-p2).length();
+        }
+      ROS_WARN("path length is %f", path_length);
+    }
+
   if (discrete_path_debug_flag_)
     {
       move_start_flag_ = true;
@@ -220,8 +250,6 @@ void SqueezeNavigation::planStartCallback(const std_msgs::Empty msg)
     }
 
   /* continuous path */
-  bool discrete_path_filter_flag;
-  nhp_.param("discrete_path_filter_flag", discrete_path_filter_flag, false);
   if(discrete_path_filter_flag) continuousPath(filtered_path_);
   else continuousPath(discrete_path_planner_->getPathConst());
 }
@@ -323,43 +351,77 @@ void SqueezeNavigation::navigate(const ros::TimerEvent& event)
 
       desired_path_pub_.publish(display_robot_state);
 
+      /* debug */
+      {
+        if(state_index_ +1 < discrete_path_planner_->getPathConst().size())
+          {
+            moveit_msgs::DisplayRobotState debug_robot_state;
+            tf::Vector3 p1, p2;
+            tf::pointMsgToTF(filtered_path_.at(state_index_).getCogPoseConst().position, p1);
+            tf::pointMsgToTF(filtered_path_.at(state_index_ + 1).getCogPoseConst().position, p2);
+            debug_robot_state.state.joint_state.position.push_back((p1-p2).length());
+
+            debug_robot_state.state.joint_state.position.push_back((filtered_path_.at(state_index_ + 1).getBaselinkDesiredAttConst()*filtered_path_.at(state_index_).getBaselinkDesiredAttConst().inverse()).getAngle());
+
+            double joint_angle_sum = 0;
+            for(auto itr : robot_model_ptr_->getActuatorJointMap())
+              {
+                double delta_angle = filtered_path_.at(state_index_ + 1).getActuatorStateConst().position.at(itr) - filtered_path_.at(state_index_).getActuatorStateConst().position.at(itr);
+                joint_angle_sum += (delta_angle * delta_angle);
+              }
+            debug_robot_state.state.joint_state.position.push_back(sqrt(joint_angle_sum));
+
+            debug_pub_.publish(debug_robot_state);
+          }
+#if 0 /* debug */
+
+        debug_robot_state.state.joint_state.position.push_back(current_state.getCogPoseConst().position.x);
+        debug_robot_state.state.joint_state.position.push_back(current_state.getCogPoseConst().position.y);
+        debug_robot_state.state.joint_state.position.push_back(current_state.getCogPoseConst().position.z);
+        debug_robot_state.state.joint_state.position.push_back(robot_state.getCogPoseConst().position.x);
+        debug_robot_state.state.joint_state.position.push_back(robot_state.getCogPoseConst().position.y);
+        debug_robot_state.state.joint_state.position.push_back(robot_state.getCogPoseConst().position.z);
+        double r,p,y;
+        tf::Matrix3x3(current_state.getBaselinkDesiredAttConst()).getRPY(r,p,y);
+        debug_robot_state.state.joint_state.position.push_back(r);
+        debug_robot_state.state.joint_state.position.push_back(p);
+        debug_robot_state.state.joint_state.position.push_back(y);
+        tf::Matrix3x3(robot_state.getBaselinkDesiredAttConst()).getRPY(r,p,y);
+        debug_robot_state.state.joint_state.position.push_back(r);
+        debug_robot_state.state.joint_state.position.push_back(p);
+        debug_robot_state.state.joint_state.position.push_back(y);
+
+        for(auto itr : robot_model_ptr_->getActuatorJointMap())
+          {
+            debug_robot_state.state.joint_state.position.push_back(current_state.getActuatorStateConst().position.at(itr));
+            debug_robot_state.state.joint_state.position.push_back(robot_state.getActuatorStateConst().position.at(itr));
+          }
+
+        debug_pub_.publish(debug_robot_state);
+#endif
+      }
+
       if(++state_index_ == discrete_path_planner_->getPathConst().size()) state_index_ = 0;
 
-#if 0 /* debug */
-      if(state_index_ == discrete_path_planner_->getPathConst().size()) return;
-
-      display_robot_state.state.joint_state.position.push_back(current_state.getCogPoseConst().position.x);
-      display_robot_state.state.joint_state.position.push_back(current_state.getCogPoseConst().position.y);
-      display_robot_state.state.joint_state.position.push_back(current_state.getCogPoseConst().position.z);
-      display_robot_state.state.joint_state.position.push_back(robot_state.getCogPoseConst().position.x);
-      display_robot_state.state.joint_state.position.push_back(robot_state.getCogPoseConst().position.y);
-      display_robot_state.state.joint_state.position.push_back(robot_state.getCogPoseConst().position.z);
-      double r,p,y;
-      tf::Matrix3x3(current_state.getBaselinkDesiredAttConst()).getRPY(r,p,y);
-      display_robot_state.state.joint_state.position.push_back(r);
-      display_robot_state.state.joint_state.position.push_back(p);
-      display_robot_state.state.joint_state.position.push_back(y);
-      tf::Matrix3x3(robot_state.getBaselinkDesiredAttConst()).getRPY(r,p,y);
-      display_robot_state.state.joint_state.position.push_back(r);
-      display_robot_state.state.joint_state.position.push_back(p);
-      display_robot_state.state.joint_state.position.push_back(y);
-
-      for(auto itr : robot_model_ptr_->getActuatorJointMap())
-        {
-          display_robot_state.state.joint_state.position.push_back(current_state.getActuatorStateConst().position.at(itr));
-          display_robot_state.state.joint_state.position.push_back(robot_state.getActuatorStateConst().position.at(itr));
-        }
-
-      desired_path_pub_.publish(display_robot_state);
-
-      state_index_++;
-#endif
       return;
     }
 
   double cur_time = ros::Time::now().toSec() - move_start_time_;
   std::vector<double> des_pos = bspline_ptr_->evaluate(cur_time + 1.0 / controller_freq_);
   std::vector<double> des_vel = bspline_ptr_->evaluateDerive(cur_time);
+
+  {// debug
+    moveit_msgs::DisplayRobotState debug_robot_state;
+    debug_robot_state.state.joint_state.position.push_back(tf::Vector3(des_vel[0], des_vel[1], des_vel[2]).length());
+    debug_robot_state.state.joint_state.position.push_back(tf::Vector3(des_vel[3], des_vel[4], des_vel[5]).length());
+
+    double joint_angle_sum = 0;
+    for(int i = 0; i < joint_num_; i++)
+      joint_angle_sum += (des_vel[6+i] * des_vel[6+i]);
+    debug_robot_state.state.joint_state.position.push_back(sqrt(joint_angle_sum));
+
+    debug_pub_.publish(debug_robot_state);
+  }
 
   /* send general flight navigation command (pos + yaw) */
   aerial_robot_msgs::FlightNav nav_msg;
@@ -452,7 +514,6 @@ void SqueezeNavigation::navigate(const ros::TimerEvent& event)
 void SqueezeNavigation::continuousPath(const std::vector<MultilinkState>& discrete_path)
 {
   assert(discrete_path.size() > 0);
-
 
   /* insert data */
   control_pts_ptr_->num = discrete_path.size() + 2;
