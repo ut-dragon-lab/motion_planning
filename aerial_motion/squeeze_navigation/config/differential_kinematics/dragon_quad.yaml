@@ -5,6 +5,13 @@ differential_kinematics_count: 1000
 actuator_state_sub_name: /dragon/joint_states
 actuator_state_pub_name: /dragon/joint_states
 
+# discrete path filter
+discrete_path_filter_flag: true
+cutoff_freq: 30.0
+
+# discrete path resampling
+resampling_flag: false # true
+
 debug: false
 start_state_x: 0.0
 start_state_y: 0.0
