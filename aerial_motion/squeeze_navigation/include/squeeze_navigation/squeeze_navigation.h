@@ -42,6 +42,7 @@
 #include <std_msgs/MultiArrayDimension.h>
 #include <std_msgs/Empty.h>
 #include <sensor_msgs/JointState.h>
+#include <nav_msgs/Odometry.h>
 #include <aerial_robot_msgs/FlightNav.h>
 #include <spinal/DesireCoord.h>
 #include <spinal/FlightConfigCmd.h>
@@ -51,9 +52,11 @@
 #include <dragon/transform_control.h>
 
 /* discrete path search */
-#include <sampling_based_method/se3/motion_planning.h>
+#include <pluginlib/class_loader.h>
+#include <squeeze_navigation/planner/base_plugin.h>
 
 /* continous path generator */
+#include <kalman_filter/digital_filter.h>
 #include <bspline_generator/tinyspline_interface.h>
 
 /* utils */
@@ -64,11 +67,6 @@
 #include <vector>
 #include <boost/algorithm/clamp.hpp>
 
-
-namespace motion_type
-{
-  enum {SE2 = 0, SE3 = 1,};
-};
 
 
 class SqueezeNavigation{
@@ -83,6 +81,7 @@ private:
   ros::NodeHandle nhp_;
   ros::Subscriber plan_start_flag_sub_;
   ros::Subscriber move_start_flag_sub_;
+  ros::Subscriber return_flag_sub_;
   ros::Subscriber adjust_initial_state_sub_;
   ros::Subscriber flight_config_sub_;
 
@@ -110,17 +109,17 @@ private:
   /* navigation */
   ros::Timer navigate_timer_;
   bool move_start_flag_;
+  bool return_flag_;
   double move_start_time_;
   double controller_freq_;
+  double return_delay_;
 
   /* robot model */
   boost::shared_ptr<TransformController> robot_model_ptr_;
   int joint_num_;
 
   /* discrete path search */
-  // 1. sampling based method
-  boost::shared_ptr<sampling_base::se2::MotionPlanning> sampling_base_planner_;
-
+  boost::shared_ptr<squeeze_motion_planner::Base> discrete_path_planner_;
 
   /* continuous path generator */
   boost::shared_ptr<TinysplineInterface> bspline_ptr_;
@@ -132,6 +131,7 @@ private:
 
   void planStartCallback(const std_msgs::Empty msg);
   void moveStartCallback(const std_msgs::Empty msg);
+  void returnCallback(const std_msgs::Empty msg);
   void adjustInitalStateCallback(const std_msgs::Empty msg);
   void flightConfigCallback(const spinal::FlightConfigCmdConstPtr msg);
   void robotOdomCallback(const nav_msgs::OdometryConstPtr& msg);

@@ -14,15 +14,25 @@
   <build_depend>roscpp</build_depend>
   <build_depend>rospy</build_depend>
   <build_depend>sampling_based_method</build_depend>
+  <build_depend>differential_kinematics</build_depend>
+  <build_depend>pluginlib</build_depend>
   <build_export_depend>aerial_motion_planning_msgs</build_export_depend>
   <build_export_depend>bspline_generator</build_export_depend>
   <build_export_depend>roscpp</build_export_depend>
   <build_export_depend>rospy</build_export_depend>
   <build_export_depend>sampling_based_method</build_export_depend>
+  <build_export_depend>differential_kinematics</build_export_depend>
+  <build_export_depend>pluginlib</build_export_depend>
   <exec_depend>aerial_motion_planning_msgs</exec_depend>
   <exec_depend>bspline_generator</exec_depend>
   <exec_depend>roscpp</exec_depend>
   <exec_depend>rospy</exec_depend>
   <exec_depend>sampling_based_method</exec_depend>
+  <exec_depend>differential_kinematics</exec_depend>
+  <exec_depend>pluginlib</exec_depend>
+
+  <export>
+    <squeeze_navigation plugin="${prefix}/planner_plugins.xml" />
+  </export>
 
 </package>

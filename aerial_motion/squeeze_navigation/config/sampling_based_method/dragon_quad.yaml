@@ -28,6 +28,11 @@ goal_joint2_yaw: 1.57
 goal_joint3_pitch: 0
 goal_joint3_yaw: 1.57
 
+## return locaton
+final_pos_x: 0.3
+final_pos_y: 0.9
+final_yaw: -1.57
+
 ## bound
 x_low_bound: -1.0
 x_high_bound: 1.0

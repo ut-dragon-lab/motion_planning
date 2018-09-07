@@ -10,6 +10,8 @@ find_package(catkin REQUIRED COMPONENTS
   dragon
   roscpp
   sampling_based_method
+  differential_kinematics
+  pluginlib
 )
 
 ## System dependencies are found with CMake's conventions
@@ -103,7 +105,6 @@ find_package(catkin REQUIRED COMPONENTS
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
   INCLUDE_DIRS include
-  LIBRARIES aerial_plannar
 #  CATKIN_DEPENDS aerial_motion_planning_msgs bspline_generator roscpp sampling_based_methods
 #  DEPENDS system_lib
 )
@@ -119,10 +120,17 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
 )
 
+### sequeeze motion planner plugin
+add_library(planner_pluginlib
+    src/planner/differential_kinematics.cpp
+    src/planner/sampling_based_method.cpp)
+target_link_libraries(planner_pluginlib ${catkin_LIBRARIES})
+
 add_library(squeeze_navigation src/squeeze_navigation.cpp)
 target_link_libraries(squeeze_navigation ${catkin_LIBRARIES})
-add_dependencies(squeeze_navigation ${catkin_EXPORTED_TARGETS} )
+add_dependencies(squeeze_navigation ${catkin_EXPORTED_TARGETS})
 # http://docs.ros.org/jade/api/catkin/html/howto/format2/cpp_msg_dependencies.html
 
 add_executable(squeeze_navigation_node src/squeeze_navigation_node.cpp)
 target_link_libraries(squeeze_navigation_node ${catkin_LIBRARIES} squeeze_navigation)
+

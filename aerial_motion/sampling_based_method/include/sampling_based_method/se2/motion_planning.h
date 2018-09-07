@@ -99,8 +99,8 @@ namespace sampling_base
       inline float getMinVar() {return  min_var_; }
       inline int  getMinVarStateIndex() {return min_var_state_;}
 
-      void plan();
-      void loadPath();
+      bool plan();
+      bool loadPath();
       void motionSequence();
       //void visualizeRobotState(const MultilinkState& state);
       bool checkCollision(const MultilinkState& state);

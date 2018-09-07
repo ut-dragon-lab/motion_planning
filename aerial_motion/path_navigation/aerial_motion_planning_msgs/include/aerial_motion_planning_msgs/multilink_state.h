@@ -33,6 +33,9 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *********************************************************************/
 
+#ifndef MULTILINK_STATE_H
+#define MULTILINK_STATE_H
+
 /* ros */
 #include <ros/ros.h>
 #include <geometry_msgs/Pose.h>
@@ -48,6 +51,11 @@
 
 /* utils */
 #include <algorithm>
+
+namespace motion_type
+{
+  enum {SE2 = 0, SE3 = 1,};
+};
 
 class MultilinkState
 {
@@ -164,3 +172,4 @@ private:
 
 };
 
+#endif

@@ -324,12 +324,12 @@ namespace sampling_base
       pdef_->setStartAndGoalStates(start, goal);
     }
 
-    void MotionPlanning::plan()
+    bool MotionPlanning::plan()
     {
       if(headless_)
         {
           ROS_ERROR("sampling base method: please set headless to false, if do planning");
-          return;
+          return false;
         }
 
       sceneInit();
@@ -400,9 +400,14 @@ namespace sampling_base
           ROS_WARN("plan size is %d, planning time is %f, motion cost is %f, min var is %f, min var state index: %d", getPathSize(), getPlanningTime(), getMotionCost(), getMinVar(), getMinVarStateIndex());
 
           if(save_path_flag_) savePath();
+
+          return true;
         }
       else
-        std::cout << "No solution found" << std::endl;
+        {
+          std::cout << "No solution found" << std::endl;
+          return false;
+        }
     }
 
     void MotionPlanning::rosParamInit()
@@ -573,7 +578,7 @@ namespace sampling_base
       ofs.close();
     }
 
-    void MotionPlanning::loadPath()
+    bool MotionPlanning::loadPath()
     {
 
       std::ifstream ifs(file_name_.c_str());
@@ -582,7 +587,7 @@ namespace sampling_base
         {
           ROS_ERROR("File do not exist");
           path_.clear();
-          return;
+          return false;
         }
 
       int state_list;
@@ -688,6 +693,7 @@ namespace sampling_base
 
       ROS_WARN("plan size is %d, planning time is %f, motion cost is %f, min var is %f, min var state index: %d", getPathSize(), getPlanningTime(), getMotionCost(), getMinVar(), getMinVarStateIndex());
 
+      return true;
     }
 #if 0
     void MotionPlanning::visualizeRobotState(const MultilinkState& state)

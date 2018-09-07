@@ -30,13 +30,12 @@ SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES se2_motion_planning se3_motion_planning
-  CATKIN_DEPENDS roscpp  geometry_msgs sensor_msgs tf  moveit_msgs  moveit_core  moveit_ros_planning_interface  pluginlib  hydrus aerial_robot_base message_runtime
+#  CATKIN_DEPENDS roscpp  geometry_msgs sensor_msgs tf pluginlib  hydrus aerial_robot_base message_runtime
 )
 
 include_directories(
   include ${Boost_INCLUDE_DIR} ${catkin_INCLUDE_DIRS} ${OMPL_INCLUDE_DIRS}
 )
-
 
 
 # SE(2)
