@@ -432,6 +432,9 @@ void SqueezeNavigation::flightConfigCallback(const spinal::FlightConfigCmdConstP
 
 void SqueezeNavigation::navigate(const ros::TimerEvent& event)
 {
+  /* some special visualize process, such as ENV */
+  if(!headless_) discrete_path_planner_->visualizeFunc();
+
   if (!move_start_flag_)
     {
       if(return_flag_)
@@ -480,9 +483,6 @@ void SqueezeNavigation::navigate(const ros::TimerEvent& event)
     }
 
   moveit_msgs::DisplayRobotState display_robot_state;
-
-  /* some special visualize process, such as ENV */
-  if(!headless_) discrete_path_planner_->visualizeFunc();
 
   /* test (debug) the discrete path */
   if(discrete_path_debug_flag_)
