@@ -224,28 +224,102 @@ void SqueezeNavigation::planStartCallback(const std_msgs::Empty msg)
   bool discrete_path_filter_flag;
   nhp_.param("discrete_path_filter_flag", discrete_path_filter_flag, false);
 
+
+  /* resampling */
   double path_length = 0;
-  if(discrete_path_filter_flag)
+  const std::vector <MultilinkState>& unsampling_path = discrete_path_filter_flag?filtered_path_:discrete_path_planner_->getPathConst();
+
+  for(int i = 0; i < unsampling_path.size() - 1; i++)
     {
-      for(int i = 0; i < filtered_path_.size() - 1; i++)
-        {
-          tf::Vector3 p1, p2;
-          tf::pointMsgToTF(filtered_path_.at(i).getCogPoseConst().position, p1);
-          tf::pointMsgToTF(filtered_path_.at(i + 1).getCogPoseConst().position, p2);
-          path_length += (p1-p2).length();
-        }
-      ROS_WARN("path length is %f", path_length);
+      tf::Vector3 p1, p2;
+      tf::pointMsgToTF(unsampling_path.at(i).getCogPoseConst().position, p1);
+      tf::pointMsgToTF(unsampling_path.at(i + 1).getCogPoseConst().position, p2);
+      path_length += (p1-p2).length();
     }
-  else
+
+  double ave_delta_trans = path_length / unsampling_path.size();
+  ROS_WARN("path length is %f, average delta trans is %f", path_length, ave_delta_trans);
+
+  // do resampling
+  std::vector<MultilinkState> resampling_path;
+  bool resampling_flag;
+  nhp_.param("resampling_flag", resampling_flag, false);
+  double delta_trans = 0;
+  bool not_enough = false;
+  resampling_path.push_back(unsampling_path.front());
+  if(resampling_flag)
     {
-      for(int i = 0; i < discrete_path_planner_->getPathConst().size() - 1; i++)
+      for(int i = 1; i < unsampling_path.size();)
         {
-          tf::Vector3 p1, p2;
-          tf::pointMsgToTF(discrete_path_planner_->getPathConst().at(i).getCogPoseConst().position, p1);
-          tf::pointMsgToTF(discrete_path_planner_->getPathConst().at(i + 1).getCogPoseConst().position, p2);
-          path_length += (p1-p2).length();
+          tf::Vector3 prev_p;
+          tf::pointMsgToTF(unsampling_path.at(i - 1).getCogPoseConst().position, prev_p);
+
+          tf::Vector3 new_p;
+          tf::pointMsgToTF(unsampling_path.at(i).getCogPoseConst().position, new_p);
+
+          tf::Vector3 ref_p;
+          tf::pointMsgToTF(resampling_path.back().getCogPoseConst().position, ref_p);
+
+          if(delta_trans == 0) delta_trans = (ref_p - new_p).length();
+          if(not_enough)
+            {
+              delta_trans += (prev_p - new_p).length();
+              not_enough = false;
+            }
+
+          ROS_INFO("ref point [%f, %f, %f]", resampling_path.back().getCogPoseConst().position.x, resampling_path.back().getCogPoseConst().position.y ,resampling_path.back().getCogPoseConst().position.z);
+          std::cout << "new point vs resample ref point: [" << i << ", " << resampling_path.size() << "], inrce vs delta_trans vs ave: [" << (ref_p - new_p).length() << ", " << delta_trans << ", " << ave_delta_trans << "]. ";
+
+          if( fabs(delta_trans - ave_delta_trans) < 0.2 * ave_delta_trans)
+            {
+              std::cout << "add unsampling state directly since convergence. rate: " << fabs(delta_trans - ave_delta_trans) / ave_delta_trans << ". " << std::endl;
+              ROS_WARN("delta_trans: %f", delta_trans);
+              resampling_path.push_back(unsampling_path.at(i));
+              delta_trans = 0;
+              i++;
+            }
+          else if (delta_trans >  ave_delta_trans)
+            {
+              // interpolation
+              double interpolate_rate = (1 - (delta_trans - ave_delta_trans) / (prev_p - new_p).length());
+              std::cout << " interpolation since too big delta trans. interpolate rate: " << interpolate_rate << ". "  << std::endl;
+              MultilinkState interpolate_state = unsampling_path.at(i - 1);
+              tf::pointTFToMsg(prev_p * (1 - interpolate_rate) + new_p * interpolate_rate,
+                               interpolate_state.getCogPoseNonConst().position);
+
+              /* joint */
+              for(int j = 0; j < joint_num_; j++)
+                {
+                  int index = robot_model_ptr_->getActuatorJointMap().at(j);
+                  interpolate_state.getActuatorStateNonConst().position.at(index) = unsampling_path.at(i - 1).getActuatorStateConst().position.at(index) * (1 - interpolate_rate) + unsampling_path.at(i).getActuatorStateConst().position.at(index) * interpolate_rate;
+                }
+
+              /* baselink attitude and  root pose */
+              tf::Quaternion baselink_q = unsampling_path.at(i - 1).getBaselinkDesiredAttConst().slerp(unsampling_path.at(i).getBaselinkDesiredAttConst(), interpolate_rate);
+              double r,p,y;
+              tf::Matrix3x3(baselink_q).getRPY(r, p, y);
+              interpolate_state.setBaselinkDesiredAtt(tf::createQuaternionFromRPY(r, p, 0));
+              interpolate_state.getCogPoseNonConst().orientation = tf::createQuaternionMsgFromYaw(y); /* special: only get yaw angle */
+              interpolate_state.cogPose2RootPose(robot_model_ptr_);
+              interpolate_state.setBaselinkDesiredAtt(baselink_q);
+
+              resampling_path.push_back(interpolate_state);
+              tf::Vector3 new_ref_p;
+              tf::pointMsgToTF(resampling_path.back().getCogPoseConst().position, new_ref_p);
+              delta_trans = (new_ref_p - new_p).length();
+
+              ROS_WARN("delta_trans: %f", delta_trans);
+            }
+          else
+            {
+              not_enough = true;
+              i++;
+              std::cout << "  not enough delta trans. "  << std::endl;
+            }
         }
-      ROS_WARN("path length is %f", path_length);
+
+      //debug
+      filtered_path_ = resampling_path;
     }
 
   if (discrete_path_debug_flag_)
@@ -255,8 +329,10 @@ void SqueezeNavigation::planStartCallback(const std_msgs::Empty msg)
     }
 
   /* continuous path */
-  if(discrete_path_filter_flag) continuousPath(filtered_path_);
-  else continuousPath(discrete_path_planner_->getPathConst());
+  // if(discrete_path_filter_flag) continuousPath(filtered_path_);
+  // else continuousPath(discrete_path_planner_->getPathConst());
+  if(resampling_flag) continuousPath(resampling_path);
+  else continuousPath(unsampling_path);
 }
 
 
@@ -411,8 +487,9 @@ void SqueezeNavigation::navigate(const ros::TimerEvent& event)
   /* test (debug) the discrete path */
   if(discrete_path_debug_flag_)
     {
-      display_robot_state.state.joint_state.header.seq = state_index_;
+      if(state_index_ == filtered_path_.size()) return; //debug
 
+      display_robot_state.state.joint_state.header.seq = state_index_;
       bool discrete_path_filter_flag;
       nhp_.param("discrete_path_filter_flag", discrete_path_filter_flag, false);
       if(discrete_path_filter_flag)
@@ -424,9 +501,11 @@ void SqueezeNavigation::navigate(const ros::TimerEvent& event)
 
       /* debug */
       {
-        if(state_index_ +1 < discrete_path_planner_->getPathConst().size())
+        moveit_msgs::DisplayRobotState debug_robot_state;
+
+#if 1
+        if(state_index_ +1 < filtered_path_.size())
           {
-            moveit_msgs::DisplayRobotState debug_robot_state;
             tf::Vector3 p1, p2;
             tf::pointMsgToTF(filtered_path_.at(state_index_).getCogPoseConst().position, p1);
             tf::pointMsgToTF(filtered_path_.at(state_index_ + 1).getCogPoseConst().position, p2);
@@ -444,35 +523,26 @@ void SqueezeNavigation::navigate(const ros::TimerEvent& event)
 
             debug_pub_.publish(debug_robot_state);
           }
+#endif
 #if 0 /* debug */
-
+        MultilinkState current_state = filtered_path_.at(state_index_);
         debug_robot_state.state.joint_state.position.push_back(current_state.getCogPoseConst().position.x);
         debug_robot_state.state.joint_state.position.push_back(current_state.getCogPoseConst().position.y);
         debug_robot_state.state.joint_state.position.push_back(current_state.getCogPoseConst().position.z);
-        debug_robot_state.state.joint_state.position.push_back(robot_state.getCogPoseConst().position.x);
-        debug_robot_state.state.joint_state.position.push_back(robot_state.getCogPoseConst().position.y);
-        debug_robot_state.state.joint_state.position.push_back(robot_state.getCogPoseConst().position.z);
         double r,p,y;
         tf::Matrix3x3(current_state.getBaselinkDesiredAttConst()).getRPY(r,p,y);
         debug_robot_state.state.joint_state.position.push_back(r);
         debug_robot_state.state.joint_state.position.push_back(p);
         debug_robot_state.state.joint_state.position.push_back(y);
-        tf::Matrix3x3(robot_state.getBaselinkDesiredAttConst()).getRPY(r,p,y);
-        debug_robot_state.state.joint_state.position.push_back(r);
-        debug_robot_state.state.joint_state.position.push_back(p);
-        debug_robot_state.state.joint_state.position.push_back(y);
 
         for(auto itr : robot_model_ptr_->getActuatorJointMap())
-          {
-            debug_robot_state.state.joint_state.position.push_back(current_state.getActuatorStateConst().position.at(itr));
-            debug_robot_state.state.joint_state.position.push_back(robot_state.getActuatorStateConst().position.at(itr));
-          }
+          debug_robot_state.state.joint_state.position.push_back(current_state.getActuatorStateConst().position.at(itr));
 
         debug_pub_.publish(debug_robot_state);
 #endif
       }
 
-      if(++state_index_ == discrete_path_planner_->getPathConst().size()) state_index_ = 0;
+      if(++state_index_ == filtered_path_.size()) state_index_ = 0;
 
       return;
     }
@@ -484,7 +554,7 @@ void SqueezeNavigation::navigate(const ros::TimerEvent& event)
   {// debug
     moveit_msgs::DisplayRobotState debug_robot_state;
     debug_robot_state.state.joint_state.position.push_back(tf::Vector3(des_vel[0], des_vel[1], des_vel[2]).length());
-    debug_robot_state.state.joint_state.position.push_back(tf::Vector3(des_vel[3], des_vel[4], des_vel[5]).length());
+    debug_robot_state.state.joint_state.position.push_back(tf::Vector3(des_vel[3], des_vel[4], 0).length()); //no need to add yaw velocity
 
     double joint_angle_sum = 0;
     for(int i = 0; i < joint_num_; i++)
@@ -620,6 +690,7 @@ void SqueezeNavigation::continuousPath(const std::vector<MultilinkState>& discre
         // convert to euler enagles
         tf::Matrix3x3 att(discrete_path.at(id).getBaselinkDesiredAttConst());
         double r, p, y; att.getRPY(r, p, y);
+
         control_pts_ptr_->control_pts.data.push_back(r);
         control_pts_ptr_->control_pts.data.push_back(p);
         /* TODO: use quaternion bspline: keep yaw euler angle continous */
