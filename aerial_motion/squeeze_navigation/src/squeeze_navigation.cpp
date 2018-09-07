@@ -490,6 +490,7 @@ void SqueezeNavigation::navigate(const ros::TimerEvent& event)
       if(state_index_ == filtered_path_.size()) return; //debug
 
       display_robot_state.state.joint_state.header.seq = state_index_;
+      display_robot_state.state.joint_state.header.stamp = ros::Time::now();
       bool discrete_path_filter_flag;
       nhp_.param("discrete_path_filter_flag", discrete_path_filter_flag, false);
       if(discrete_path_filter_flag)
@@ -639,6 +640,7 @@ void SqueezeNavigation::navigate(const ros::TimerEvent& event)
   state_tmp.setBaselinkDesiredAtt(tf::createQuaternionFromRPY(att_msg.roll, att_msg.pitch, 0));
   state_tmp.cogPose2RootPose(robot_model_ptr_);
   display_robot_state.state = state_tmp.getVisualizeRobotStateConst();
+  display_robot_state.state.joint_state.header.stamp = ros::Time::now();
 
   /* set color */
   for(auto itr: robot_model_ptr_->getRobotModel().links_)
