@@ -41,6 +41,9 @@ namespace
   int state_index = 0;
 
   bool odom_flag = false;
+
+  double max_force = 0;
+  double min_force = 1e6;
 }
 
 namespace sampling_base
@@ -670,6 +673,12 @@ namespace sampling_base
           state_tmp.setRootActuatorState(state_vec); //init root and joint state
           state_tmp.targetRootPose2TargetBaselinkPose(transform_controller_);
           path_.push_back(state_tmp);
+
+          transform_controller_->modelling();
+          if(min_force > transform_controller_->getOptimalHoveringThrust().minCoeff())
+            min_force = transform_controller_->getOptimalHoveringThrust().minCoeff();
+          if(max_force < transform_controller_->getOptimalHoveringThrust().maxCoeff())
+            max_force = transform_controller_->getOptimalHoveringThrust().maxCoeff();
         }
 
       /* debug */
@@ -691,7 +700,7 @@ namespace sampling_base
       */
       if(!headless_) sceneInit();
 
-      ROS_WARN("plan size is %d, planning time is %f, motion cost is %f, min var is %f, min var state index: %d", getPathSize(), getPlanningTime(), getMotionCost(), getMinVar(), getMinVarStateIndex());
+      ROS_WARN("plan size is %d, planning time is %f, motion cost is %f, min var is %f, min var state index: %d, min force: %f, max force: %f", getPathSize(), getPlanningTime(), getMotionCost(), getMinVar(), getMinVarStateIndex(), min_force, max_force);
 
       return true;
     }
