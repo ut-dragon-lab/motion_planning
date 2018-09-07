@@ -1,4 +1,4 @@
-# Usage
+# Samples
 
 ### 1. End-effector IK
 
@@ -22,14 +22,6 @@ debug: false"
 
 *Note*: You should confirm the animation in rviz, which the end-effector (attached at the 4th link) moves to the target point [-0.6, 0.6] and yaw: -3.14 gradually without colliding into the red cylinder
 
-### 2. Gap (Opening) Passing
+### 2. Gap (Opening) Passing:
 
-#### Hydrus
-```
-$ roslaunch differential_kinematics hydrus_gap_passing_planning_differential_kinematics.launch
-```
-
-#### Dragon
-```
-$ roslaunch differential_kinematics dragon_gap_passing_planning_differential_kinematics.launch
-```
+move the code to [squeeze_navigation](https://github.com/tongtybj/motion_planning/tree/master/aerial_motion/squeeze_navigation)
