@@ -126,12 +126,14 @@ namespace squeeze_motion_planner
 
       ROS_WARN("model: %d", planner_core_ptr_->getMultilinkType());
 
+      double wall_thickness;
+      nhp_.param("wall_thickness", wall_thickness, 0.05);
+
       if(planner_core_ptr_->getMultilinkType() == motion_type::SE2)
         {
           ROS_WARN("correct model");
           /* setup env */
           double openning_width, env_width, env_length;
-          double wall_thinkness = 0.05;
           nhp_.param("openning_width", openning_width, 0.8);
           nhp_.param("env_width", env_width, 4.0);
           nhp_.param("env_length", env_length, 6.0);
@@ -150,7 +152,7 @@ namespace squeeze_motion_planner
           wall.pose.position.y = -env_width / 2;
           wall.pose.position.z = 0;
           wall.scale.x = env_length;
-          wall.scale.y = wall_thinkness;
+          wall.scale.y = wall_thickness;
           env_collision_.markers.push_back(wall);
 
           wall.id = 2;
@@ -161,7 +163,7 @@ namespace squeeze_motion_planner
           wall.pose.position.x = 0;
           wall.pose.position.y = env_width / 4 + openning_width / 4;
           wall.pose.position.z = 0;
-          wall.scale.x = wall_thinkness;
+          wall.scale.x = wall_thickness;
           wall.scale.y = env_width / 2 - openning_width / 2;
           env_collision_.markers.push_back(wall);
 
@@ -176,7 +178,6 @@ namespace squeeze_motion_planner
         {
           /* setup env */
           double openning_width, openning_height, env_width, env_length, ceiling_offset;
-          double wall_thinkness = 0.05;
           nhp_.param("openning_width", openning_width, 0.8);
           nhp_.param("openning_height", openning_height, 0.8);
           nhp_.param("ceiling_offset", ceiling_offset, 0.6);
@@ -189,7 +190,7 @@ namespace squeeze_motion_planner
           wall.color.g = 1;
           wall.color.a = 1;
           wall.pose.orientation.w = 1;
-          wall.scale.z = 0.05;
+          wall.scale.z = wall_thickness;
           wall.pose.position.z = openning_height;
 
           wall.id = 1;
