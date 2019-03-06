@@ -1,18 +1,19 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(differential_kinematics)
 
-## Compile as C++11, supported in ROS Kinetic and newer
- add_compile_options(-std=c++11)
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
   roscpp
+  aerial_robot_model
   hydrus
   dragon
   aerial_motion_planning_msgs
   pluginlib)
+
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
@@ -85,12 +86,11 @@ add_library (differential_kinematics_constraint_pluginlib
   src/constraint/state_limit.cpp)
 target_link_libraries (differential_kinematics_constraint_pluginlib ${catkin_LIBRARIES} fcl)
 
-## se3 specified differential kinematics constraints
+# se3 specified differential kinematics constraints
 add_library (dragon_differential_kinematics_constraint_pluginlib
   src/constraint/se3/link_attitude.cpp
   src/constraint/se3/overlap.cpp)
 target_link_libraries (dragon_differential_kinematics_constraint_pluginlib ${catkin_LIBRARIES})
-
 
 # end-effector IK solver core
 add_library (end_effector_ik_solver_core src/motion/end_effector_ik_solver_core.cpp)

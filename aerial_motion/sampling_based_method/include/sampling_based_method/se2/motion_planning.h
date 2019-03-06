@@ -45,7 +45,7 @@
 
 /* basic header */
 #include <aerial_motion_planning_msgs/multilink_state.h>
-#include <hydrus/transform_control.h>
+#include <hydrus/hydrus_robot_model.h>
 
 /* moveit for FCL and visualization */
 #include <moveit/robot_model_loader/robot_model_loader.h>
@@ -85,13 +85,13 @@ namespace sampling_base
     {
 
     public:
-      MotionPlanning(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<TransformController> transform_controller);
+      MotionPlanning(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<HydrusRobotModel> transform_controller);
       ~MotionPlanning(){}
 
       static const int RRT_START_MODE = 0;
 
       const std::vector<MultilinkState>& getPathConst() const { return path_;}
-      const MultilinkState& getStateConst(int index) const { return path_[index];}
+      const MultilinkState& getStateConst(int index) const { return path_.at(index);}
 
       inline int getPathSize(){return  path_.size();}
       inline double getMotionCost(){return best_cost_;}
@@ -135,8 +135,7 @@ namespace sampling_base
       /* robot */
       std::string base_link_;
       tf::Quaternion baselink_desired_att_;
-      boost::shared_ptr<TransformController> transform_controller_;
-      int joint_num_;
+      boost::shared_ptr<HydrusRobotModel> robot_model_ptr_;
 
       /* path */
       MultilinkState start_state_;

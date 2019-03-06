@@ -38,30 +38,35 @@
 
 /* ros */
 #include <ros/ros.h>
+#include <tf/transform_broadcaster.h>
 
 /* robot model */
-#include <hydrus/transform_control.h>
+#include <hydrus/hydrus_robot_model.h>
+#include <dragon/dragon_robot_model.h>
 #include <aerial_motion_planning_msgs/multilink_state.h>
 
 /* for QP solution for force-closure */
 #include <qpOASES.hpp>
 USING_NAMESPACE_QPOASES
 
-/* cost & constraint */
-#include <differential_kinematics/cost/base_plugin.h>
-#include <differential_kinematics/constraint/base_plugin.h>
-
-
 namespace differential_kinematics
 {
+  namespace cost
+  {
+    class Base;
+  };
+  namespace constraint
+  {
+    class Base;
+  };
+
   class Planner
   {
-    using RobotModel = TransformController;
-    using CostContainer = std::vector<boost::shared_ptr<cost::Base<Planner> > >;
-    using ConstraintContainer = std::vector<boost::shared_ptr<constraint::Base<Planner> > >;
+    using CostContainer = std::vector<boost::shared_ptr<cost::Base> >;
+    using ConstraintContainer = std::vector<boost::shared_ptr<constraint::Base> >;
 
   public:
-    Planner(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<RobotModel> robot_model_ptr );
+    Planner(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<HydrusRobotModel> robot_model_ptr );
     ~Planner(){}
 
     bool solver(CostContainer cost_container, ConstraintContainer constraint_container, bool debug);
@@ -70,17 +75,15 @@ namespace differential_kinematics
     void registerMotionFunc(std::function<void(void)> new_func);
 
     /* kinematics */
-    boost::shared_ptr<RobotModel> getRobotModelPtr() {return robot_model_ptr_;}
-    const sensor_msgs::JointState& getTargetActuatorVector() {return target_actuator_vector_;}
-    const tf::Transform& getTargetRootPose() {return target_root_pose_;}
-    const Eigen::VectorXd getTargetJointVector();
-    const int getMultilinkType() {return multilink_type_;}
-
-    inline void setInitRootPose(const tf::Transform& init_root_pose) { target_root_pose_ = init_root_pose;}
-    inline void setInitActuatorPose(const sensor_msgs::JointState& init_actuator_vector) {target_actuator_vector_ = init_actuator_vector;}
+    boost::shared_ptr<HydrusRobotModel> getRobotModelPtr() {return robot_model_ptr_;}
+    const tf::Transform& getTargetRootPose() const {return target_root_pose_;}
+    template<class T> const T getTargetActuatorVector() const;
+    template<class T> void setTargetActuatorVector(const T& target_actuator_vector);
+    inline void setTargetRootPose(const tf::Transform& target_root_pose) { target_root_pose_ = target_root_pose;}
+    const int getMultilinkType() const {return multilink_type_;}
 
     const std::vector<tf::Transform>& getRootPoseSequence() const {return target_root_pose_sequence_;}
-    const std::vector<sensor_msgs::JointState>& getActuatorStateSequence() const {return target_actuator_vector_sequence_;}
+    const std::vector<KDL::JntArray>& getActuatorStateSequence() const {return target_actuator_vector_sequence_;}
 
   private:
     ros::NodeHandle nh_;
@@ -90,17 +93,18 @@ namespace differential_kinematics
     ros::Timer  motion_timer_;
 
     /* robot model for kinematics */
-    boost::shared_ptr<RobotModel>  robot_model_ptr_;
+    boost::shared_ptr<HydrusRobotModel> robot_model_ptr_;
     uint8_t multilink_type_;
+    bool gimbal_module_flag_; // TODO: hard-coding
 
     /* result  */
-    sensor_msgs::JointState target_actuator_vector_;
+    KDL::JntArray target_actuator_vector_;
     tf::Transform target_root_pose_;
     bool solved_;
     int differential_kinematics_count_;
 
     int sequence_;
-    std::vector<sensor_msgs::JointState> target_actuator_vector_sequence_;
+    std::vector<KDL::JntArray> target_actuator_vector_sequence_;
     std::vector<tf::Transform> target_root_pose_sequence_;
 
     /* update function for each loop of the differential kinematics */
@@ -110,6 +114,7 @@ namespace differential_kinematics
 
     void motionFunc(const ros::TimerEvent & e);
   };
+
 };
 
 #endif

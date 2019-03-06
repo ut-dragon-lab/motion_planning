@@ -41,13 +41,12 @@
 #include <geometry_msgs/Pose.h>
 #include <geometry_msgs/Twist.h>
 #include <sensor_msgs/JointState.h>
-#include <tf/transform_datatypes.h>
 #include <moveit_msgs/RobotState.h>
+#include <tf_conversions/tf_kdl.h>
 
 /* robot model */
-#include <hydrus/transform_control.h>
-#include <dragon/transform_control.h>
-
+#include <aerial_robot_model/transformable_aerial_robot_model.h>
+#include <dragon/dragon_robot_model.h>
 
 /* utils */
 #include <algorithm>
@@ -60,116 +59,129 @@ namespace motion_type
 class MultilinkState
 {
 public:
-  MultilinkState():
-    cog_update_(false), root_update_(false), actuator_update_(false),
-    cog_pose_(), root_pose_(), cog_twist_(), root_twist_(), actuator_state_() {}
+  MultilinkState() {}
+
+  MultilinkState(boost::shared_ptr<aerial_robot_model::RobotModel> robot_model_ptr):
+    cog_pose_(), root_pose_(), cog_twist_(), gimbal_module_flag_(false)
+  {
+    actuator_map_ = robot_model_ptr->getActuatorMap();
+    actuator_state_.resize(actuator_map_.size());
+
+    /* TODO: hard-coding */
+    for(auto tree_itr : robot_model_ptr->getTree().getSegments())
+      {
+        std::string joint_name = tree_itr.second.segment.getJoint().getName();
+        if(joint_name.find("gimbal") == 0 &&
+           (joint_name.find("roll") != std::string::npos ||
+            joint_name.find("pitch") != std::string::npos) &&
+           tree_itr.second.segment.getJoint().getType() != KDL::Joint::JointType::None)
+          {
+            ROS_WARN("multilink: has gimbal module");
+            gimbal_module_flag_ = true;
+            break;
+          }
+      }
+
+  }
+
+  MultilinkState(boost::shared_ptr<aerial_robot_model::RobotModel> robot_model_ptr,
+                        const tf::Quaternion& baselink_desired_att,
+                        const geometry_msgs::Pose& cog_pose,
+                        const KDL::JntArray& actuator_state): MultilinkState(robot_model_ptr)
+  {
+    setStatesFromCog(robot_model_ptr, baselink_desired_att, cog_pose, actuator_state);
+  }
+
+  MultilinkState(boost::shared_ptr<aerial_robot_model::RobotModel> robot_model_ptr,
+                 const geometry_msgs::Pose& root_pose,
+                 const KDL::JntArray& actuator_state): MultilinkState(robot_model_ptr)
+  {
+    setStatesFromRoot(robot_model_ptr, root_pose, actuator_state);
+  }
+
   ~MultilinkState(){}
 
-  void cogPose2RootPose(boost::shared_ptr<TransformController> robot_model_ptr);
-  void baselinkPose2RootPose(geometry_msgs::Pose baselink_pose, boost::shared_ptr<TransformController> robot_model_ptr);
-  void targetRootPose2TargetBaselinkPose(boost::shared_ptr<TransformController> robot_model_ptr);
+  void setStatesFromCog(boost::shared_ptr<aerial_robot_model::RobotModel> robot_model_ptr,
+                        const tf::Quaternion& baselink_desired_att,
+                        const geometry_msgs::Pose& cog_pose,
+                        const KDL::JntArray& actuator_state);
 
-  geometry_msgs::Pose& getCogPoseNonConst()
-  {
-    assert(cog_update_);
-    return cog_pose_;
-  }
+  void setStatesFromRoot(boost::shared_ptr<aerial_robot_model::RobotModel> robot_model_ptr,
+                        const geometry_msgs::Pose& root_pose,
+                        const KDL::JntArray& actuator_state);
 
-  const geometry_msgs::Pose& getCogPoseConst() const
-  {
-    assert(cog_update_);
-    return cog_pose_;
-  }
 
-  void  setCogPose(geometry_msgs::Pose cog_pose)
-  {
-    cog_pose_ = cog_pose;
-    cog_update_ = true;
-  }
+  static void convertCogPose2RootPose(boost::shared_ptr<aerial_robot_model::RobotModel> robot_model_ptr,
+                               const tf::Quaternion& baselink_desired_att,
+                               const geometry_msgs::Pose& cog_pose,
+                               const KDL::JntArray& actuator_state,
+                               geometry_msgs::Pose& root_pose);
 
-  geometry_msgs::Pose& getRootPoseNonConst()
-  {
-    assert(root_update_);
-    return root_pose_;
-  }
 
-  const geometry_msgs::Pose& getRootPoseConst() const
-  {
-    assert(root_update_);
-    return root_pose_;
-  }
+  static void convertRootPose2CogPose(boost::shared_ptr<aerial_robot_model::RobotModel> robot_model_ptr,
+                               const geometry_msgs::Pose& root_pose,
+                               const KDL::JntArray& actuator_state,
+                               tf::Quaternion& baselink_desired_att,
+                               geometry_msgs::Pose& cog_pose);
 
-  void setRootPose(geometry_msgs::Pose root_pose)
-  {
-    root_pose_ = root_pose;
-    root_update_ = true;
-  }
 
-  void setRootPosition(geometry_msgs::Point root_position)
-  {
-    root_pose_.position = root_position;
-  }
 
-  void  setRootOrientation(geometry_msgs::Quaternion root_orientation)
-  {
-    root_pose_.orientation = root_orientation;
-  }
+  static void convertBaselinkPose2RootPose(boost::shared_ptr<aerial_robot_model::RobotModel> robot_model_ptr,
+                                    const geometry_msgs::Pose& baselink_pose,
+                                    const KDL::JntArray& actuator_state,
+                                    geometry_msgs::Pose& root_pose);
 
+
+  inline geometry_msgs::Pose& getCogPoseNonConst() { return cog_pose_; }
+  const geometry_msgs::Pose& getCogPoseConst() const { return cog_pose_; }
+  void setCogPose(const geometry_msgs::Pose& cog_pose) { cog_pose_ = cog_pose; }
+
+  geometry_msgs::Pose& getRootPoseNonConst() { return root_pose_; }
+  const geometry_msgs::Pose& getRootPoseConst() const { return root_pose_; }
+  void setRootPose(const geometry_msgs::Pose& root_pose) { root_pose_ = root_pose; }
+  void setRootPosition(const geometry_msgs::Point& root_position) { root_pose_.position = root_position; }
+  void  setRootOrientation(const geometry_msgs::Quaternion& root_orientation) { root_pose_.orientation = root_orientation; }
 
   const geometry_msgs::Twist& getCogTwistConst() const { return cog_twist_; }
-  void  setCogTwist(geometry_msgs::Twist cog_twist)  { cog_twist_ = cog_twist; }
+  void setCogTwist(const geometry_msgs::Twist& cog_twist)  { cog_twist_ = cog_twist; }
 
-  const geometry_msgs::Twist& getRootTwistConst() const { return root_twist_; }
-  void  setRootTwist(geometry_msgs::Twist root_twist)  { root_twist_ = root_twist; }
-
-  const sensor_msgs::JointState& getActuatorStateConst() const
+  const KDL::JntArray& getActuatorStateConst() const { return actuator_state_; }
+  void setActuatorState(const KDL::JntArray& actuator_state)
   {
-    assert(actuator_update_);
-    return actuator_state_;
-  }
-
-  sensor_msgs::JointState& getActuatorStateNonConst()
-  {
-    assert(actuator_update_);
-    return actuator_state_;
-  }
-
-  void setActuatorState(sensor_msgs::JointState actuator_state)
-  {
+    assert(actuator_state.rows() == actuator_state_.rows());
     actuator_state_ = actuator_state;
-    actuator_update_ = true;
   }
 
-  void setActuatorState(int index, double state)
+  const tf::Quaternion& getBaselinkDesiredAttConst() const { return baselink_desired_att_; }
+  void setBaselinkDesiredAtt(const tf::Quaternion& baselink_desired_att) { baselink_desired_att_ = baselink_desired_att; }
+
+  [[deprecated("please use setStatesFromRoot() function")]]
+  void setRootActuatorState(std::vector<double> states)
   {
-    actuator_state_.position.at(index) = state;
+    assert(states.size() == 7 + actuator_map_.size());
+
+    root_pose_.position.x = states.at(0);
+    root_pose_.position.y = states.at(1);
+    root_pose_.position.z = states.at(2);
+
+    root_pose_.orientation.x = states.at(3);
+    root_pose_.orientation.y = states.at(4);
+    root_pose_.orientation.z = states.at(5);
+    root_pose_.orientation.w = states.at(6);
+
+    actuator_state_.data = Eigen::Map<Eigen::VectorXd>(states.data() + 7, actuator_state_.rows());
   }
 
-  const tf::Quaternion& getBaselinkDesiredAttConst() const
-  {
-    assert(baselink_desired_att_update_);
-    return baselink_desired_att_;
-  }
-
-  void setBaselinkDesiredAtt(tf::Quaternion baselink_desired_att)
-  {
-    baselink_desired_att_ = baselink_desired_att;
-    baselink_desired_att_update_ = true;
-  }
-
-  const std::vector<double> getRootActuatorStateConst() const;
-  void setRootActuatorState(const std::vector<double>& states);
-
-  const moveit_msgs::RobotState getVisualizeRobotStateConst() const;
+  template<class T> const T getRootActuatorStateConst() const;
 
 private:
-
-  bool cog_update_, root_update_, actuator_update_, baselink_desired_att_update_;
   geometry_msgs::Pose cog_pose_, root_pose_;
-  geometry_msgs::Twist cog_twist_, root_twist_;
-  sensor_msgs::JointState actuator_state_;
+  geometry_msgs::Twist cog_twist_;
+  KDL::JntArray actuator_state_;
   tf::Quaternion baselink_desired_att_;
+  std::map<std::string, uint32_t> actuator_map_;
 
+  bool gimbal_module_flag_;
 };
 
 #endif

@@ -39,23 +39,21 @@ namespace differential_kinematics
 {
   namespace constraint
   {
-    template <class motion_planner>
-    CollisionAvoidance<motion_planner>::CollisionAvoidance():
+    CollisionAvoidance::CollisionAvoidance():
       collision_manager_(new fcl::DynamicAABBTreeCollisionManager<double>()),
-      joint_map_(), min_dist_(1e6)
+      min_dist_(1e6)
     {
     }
 
-    template <class motion_planner>
-    void CollisionAvoidance<motion_planner>::initialize(ros::NodeHandle nh, ros::NodeHandle nhp,
-                                                        boost::shared_ptr<motion_planner> planner,
-                                                        std::string constraint_name,
-                                                        bool orientation, bool full_body)
+    void CollisionAvoidance::initialize(ros::NodeHandle nh, ros::NodeHandle nhp,
+                                        boost::shared_ptr<differential_kinematics::Planner> planner,
+                                        std::string constraint_name,
+                                        bool orientation, bool full_body)
     {
-      Base<motion_planner>::initialize(nh, nhp, planner, constraint_name, orientation, full_body);
+      Base::initialize(nh, nhp, planner, constraint_name, orientation, full_body);
 
       /* collision model conversion */
-      for(auto link: planner->getRobotModelPtr()->getRobotModel().links_)
+      for(auto link: planner->getRobotModelPtr()->getUrdfModel().links_)
         {
           if(link.second->collision)
             {
@@ -70,32 +68,17 @@ namespace differential_kinematics
             }
         }
 
-      Base<motion_planner>::nc_ = robot_collision_model_.size();
-      /* temporary mapping method for hydrusx and dragon, which has "rotor" and "gimbal" as joints */
-      for(int i = 0; i < Base<motion_planner>::planner_->getRobotModelPtr()->getModelTree().getNrOfJoints(); i++)
-        {
-          for(auto it : Base<motion_planner>::planner_->getRobotModelPtr()->getActuatorMap())
-            {
-              if(it.second == i && it.first.find("joint")  != std::string::npos)
-                {
-                  std::cout << Base<motion_planner>::constraint_name_ <<  ", " << it.first << std::endl;
-                  joint_map_.push_back(it.second);
-                }
-            }
-        }
-      // if(joint_map_.size() != Base<motion_planner>::j_ndof_)
-      //   ROS_FATAL("the joint_map_ size %d is not equal with jdof %d", joint_map_.size(), Base<motion_planner>::j_ndof_);
+      nc_ = robot_collision_model_.size();
 
-      Base<motion_planner>::nhp_.param ("collision_damping_gain", collision_damping_gain_, 0.01);
-      if(Base<motion_planner>::verbose_) std::cout << "collision_damping_gain: " << std::setprecision(3) << collision_damping_gain_ << std::endl;
-      Base<motion_planner>::nhp_.param ("collision_distance_constraint_range", collision_distance_constraint_range_, 0.03);
-      if(Base<motion_planner>::verbose_) std::cout << "collision_distance_constraint_range: " << std::setprecision(3) << collision_distance_constraint_range_ << std::endl;
-      Base<motion_planner>::nhp_.param ("collision_distance_forbidden_range", collision_distance_forbidden_range_, 0.01);
-      if(Base<motion_planner>::verbose_) std::cout << "collision_distance_forbidden_range: " << std::setprecision(3) << collision_distance_forbidden_range_ << std::endl;
+      nhp_.param ("collision_damping_gain", collision_damping_gain_, 0.01);
+      if(verbose_) std::cout << "collision_damping_gain: " << std::setprecision(3) << collision_damping_gain_ << std::endl;
+      nhp_.param ("collision_distance_constraint_range", collision_distance_constraint_range_, 0.03);
+      if(verbose_) std::cout << "collision_distance_constraint_range: " << std::setprecision(3) << collision_distance_constraint_range_ << std::endl;
+      nhp_.param ("collision_distance_forbidden_range", collision_distance_forbidden_range_, 0.01);
+      if(verbose_) std::cout << "collision_distance_forbidden_range: " << std::setprecision(3) << collision_distance_forbidden_range_ << std::endl;
     }
 
-    template <class motion_planner>
-    std::shared_ptr<fcl::CollisionGeometry<double>> CollisionAvoidance<motion_planner>::createGeometryObject(boost::shared_ptr<urdf::Link> link)
+    std::shared_ptr<fcl::CollisionGeometry<double>> CollisionAvoidance::createGeometryObject(boost::shared_ptr<urdf::Link> link)
     {
       boost::shared_ptr<urdf::Geometry> geom = link->collision->geometry;
       ROS_ASSERT(geom);
@@ -129,39 +112,27 @@ namespace differential_kinematics
       return nullptr;
     }
 
-    template <class motion_planner>
-    bool CollisionAvoidance<motion_planner>::getConstraint(Eigen::MatrixXd& A, Eigen::VectorXd& lb, Eigen::VectorXd& ub, bool debug)
+    bool CollisionAvoidance::getConstraint(Eigen::MatrixXd& A, Eigen::VectorXd& lb, Eigen::VectorXd& ub, bool debug)
     {
       //debug = true;
-      A = Eigen::MatrixXd::Zero(Base<motion_planner>::nc_, Base<motion_planner>::j_ndof_ + 6);
-      lb = Eigen::VectorXd::Constant(Base<motion_planner>::nc_, -1e6);
-      ub = Eigen::VectorXd::Constant(Base<motion_planner>::nc_, 1e6);
+      A = Eigen::MatrixXd::Zero(nc_, planner_->getRobotModelPtr()->getLinkJointIndex().size() + 6);
+      lb = Eigen::VectorXd::Constant(nc_, -1e6);
+      ub = Eigen::VectorXd::Constant(nc_, 1e6);
 
-      KDL::TreeFkSolverPos_recursive fk_solver(Base<motion_planner>::planner_->getRobotModelPtr()->getModelTree());
-      KDL::JntArray joint_positions(Base<motion_planner>::planner_->getRobotModelPtr()->getModelTree().getNrOfJoints());
+      // fullFK
+      auto full_fk_result = planner_->getRobotModelPtr()->fullForwardKinematics(planner_->getTargetActuatorVector<KDL::JntArray>());
 
-      sensor_msgs::JointState actuator_state = Base<motion_planner>::planner_->getTargetActuatorVector();
+      /* get root tf in world frame */
+      KDL::Frame f_root;
+      tf::transformTFToKDL(planner_->getTargetRootPose(), f_root);
 
-      auto actuator_map = Base<motion_planner>::planner_->getRobotModelPtr()->getActuatorMap();
-      for(size_t i = 0; i < actuator_state.position.size(); i++)
-        {
-          auto itr = actuator_map.find(actuator_state.name.at(i));
-
-          if(itr != actuator_map.end())  joint_positions(actuator_map.find(actuator_state.name.at(i))->second) = actuator_state.position.at(i);
-          //else ROS_FATAL("collision avoidance: no matching joint called %s", actuator_state.name.at(i).c_str());
-        }
-
-        /* check the distance */
+      /* check the distance */
       for(auto it = robot_collision_model_.begin(); it != robot_collision_model_.end(); it++)
         {
-          /* get root tf in world frame */
-          KDL::Frame f_root;
-          tf::transformTFToKDL(Base<motion_planner>::planner_->getTargetRootPose(), f_root);
-
           /* get collision-included link tf in root frame */
           urdf::Link link_info = *(reinterpret_cast<urdf::Link *>((*it)->getUserData())); /* OK */
-          KDL::Frame f_link;
-          int status = fk_solver.JntToCart(joint_positions, f_link, link_info.name);
+          KDL::Frame f_link = full_fk_result.at(link_info.name);
+
           /* get collision model offset tf in collision-included link frame */
           KDL::Frame f_collision_obj_offset(KDL::Rotation::Quaternion(link_info.collision->origin.rotation.x,
                                                                       link_info.collision->origin.rotation.y,
@@ -196,7 +167,7 @@ namespace differential_kinematics
              boost::math::isnan(distance_data.result.nearest_points[0](1)) ||
              boost::math::isnan(distance_data.result.nearest_points[0](2)))
             {
-              ROS_WARN("broadphase distance process causes  nan");
+              ROS_WARN("FCL: broadphase distance process causes nan");
               //ROS_ERROR("distance: %f is nan, link name: %s, collision position: [%f, %f, %f], orientation: [%f, %f, %f, %f]", distance_data.result.min_distance, link_info.name.c_str(), f_collision_obj.p.x(), f_collision_obj.p.y(), f_collision_obj.p.z(), qx, qy, qz, qw);
               //std::cout << " point of env in local frame: x = " << distance_data.result.nearest_points[0](0) << " y = " << distance_data.result.nearest_points[0](1) << " z = " << distance_data.result.nearest_points[0](2) << std::endl;
               //std::cout << " point on robot in local frame: x = " << distance_data.result.nearest_points[1](0) << " y = " << distance_data.result.nearest_points[1](1) << " z = " << distance_data.result.nearest_points[1](2) << std::endl;
@@ -309,7 +280,7 @@ namespace differential_kinematics
           // ROS_ERROR("distance_arrow: [%f, %f, %f], normalized: [%f, %f, %f]",
           //           distance_arrow.x(), distance_arrow.y(), distance_arrow.z(),
           //           distance_arrow.normalized().x(), distance_arrow.normalized().y(), distance_arrow.normalized().z());
-          tf::Vector3 n_in_root_link =  Base<motion_planner>::planner_->getTargetRootPose().getBasis().inverse() * distance_arrow.normalized();
+          tf::Vector3 n_in_root_link =  planner_->getTargetRootPose().getBasis().inverse() * distance_arrow.normalized();
           Eigen::Vector3d n_in_root_link_eigen;
           tf::vectorTFToEigen(n_in_root_link, n_in_root_link_eigen);
 
@@ -317,7 +288,9 @@ namespace differential_kinematics
           int index = std::distance(robot_collision_model_.begin(), it);
 
           Eigen::MatrixXd jacobian;
-          if(!getJacobian(jacobian, joint_positions, link_info.name.c_str(), f_link, f_collision_obj_offset * p_in_robot_local_frame, debug)) return false;
+          if(!getJacobian(jacobian, planner_->getTargetActuatorVector<KDL::JntArray>(),
+                          link_info.name.c_str(), f_link,
+                          f_collision_obj_offset * p_in_robot_local_frame, debug)) return false;
 
           // std::cout << "n_in_root_link_eigen.transpose() * jacobian: \n" << n_in_root_link_eigen.transpose() * jacobian << std::endl;
           // std::cout << "n_in_root_link: \n" << n_in_root_link_eigen.transpose() << std::endl;
@@ -329,14 +302,13 @@ namespace differential_kinematics
 
       if(debug)
         {
-          std::cout << "constraint (" << Base<motion_planner>::constraint_name_.c_str()  << "): matrix A: \n" << A << std::endl;
-          std::cout << "constraint name: " << Base<motion_planner>::constraint_name_ << ", lb: \n" << lb << std::endl;
-          std::cout << "constraint name: " << Base<motion_planner>::constraint_name_ << ", ub: \n" << ub.transpose() << std::endl;
+          std::cout << "constraint (" << constraint_name_.c_str()  << "): matrix A: \n" << A << std::endl;
+          std::cout << "constraint name: " << constraint_name_ << ", lb: \n" << lb << std::endl;
+          std::cout << "constraint name: " << constraint_name_ << ", ub: \n" << ub.transpose() << std::endl;
         }
     }
 
-    template <class motion_planner>
-    bool CollisionAvoidance<motion_planner>::defaultDistanceFunction(fcl::CollisionObject<double>* o1, fcl::CollisionObject<double>* o2, void* cdata_, double& dist)
+    bool CollisionAvoidance::defaultDistanceFunction(fcl::CollisionObject<double>* o1, fcl::CollisionObject<double>* o2, void* cdata_, double& dist)
     {
       auto* cdata = static_cast<DistanceData*>(cdata_);
       const fcl::DistanceRequest<double>& request = cdata->request;
@@ -353,25 +325,24 @@ namespace differential_kinematics
       return cdata->done;
     }
 
-    template <class motion_planner>
-    bool CollisionAvoidance<motion_planner>::getJacobian(Eigen::MatrixXd& jacobian, KDL::JntArray joint_positions, std::string parent_link_name, KDL::Frame f_parent_link, KDL::Vector contact_offset, bool debug)
+    bool CollisionAvoidance::getJacobian(Eigen::MatrixXd& jacobian, KDL::JntArray joint_positions, std::string parent_link_name, KDL::Frame f_parent_link, KDL::Vector contact_offset, bool debug)
     {
-      jacobian = Eigen::MatrixXd::Zero(3, Base<motion_planner>::j_ndof_ + 6);
+      jacobian = Eigen::MatrixXd::Zero(3, planner_->getRobotModelPtr()->getLinkJointIndex().size() + 6);
 
       /* calculate the jacobian */
-      KDL::TreeJntToJacSolver jac_solver(Base<motion_planner>::planner_->getRobotModelPtr()->getModelTree());
-      KDL::Jacobian jac(Base<motion_planner>::planner_->getRobotModelPtr()->getModelTree().getNrOfJoints());
+      KDL::TreeJntToJacSolver jac_solver(planner_->getRobotModelPtr()->getTree());
+      KDL::Jacobian jac(planner_->getRobotModelPtr()->getTree().getNrOfJoints());
       if(jac_solver.JntToJac(joint_positions, jac, parent_link_name) == KDL::SolverI::E_NOERROR)
         {
           /* offset for jacobian */
           jac.changeRefPoint(f_parent_link.M * contact_offset);
           if(debug) std::cout << "raw jacobian for " << parent_link_name << " (only joints):\n" << jac.data << std::endl;
           /* joint reassignment  */
-          for(size_t i = 0; i < joint_map_.size(); i++)
-            jacobian.block(0, 6 + i , 3, 1) = jac.data.block(0, joint_map_.at(i), 3, 1);
+          for(size_t i = 0; i < planner_->getRobotModelPtr()->getLinkJointIndex().size(); i++)
+            jacobian.block(0, 6 + i , 3, 1) = jac.data.block(0, planner_->getRobotModelPtr()->getLinkJointIndex().at(i), 3, 1);
 
           /* full body */
-          if(Base<motion_planner>::full_body_)
+          if(full_body_)
             {
               /* consider root is attached with a 6Dof free joint */
 
@@ -391,22 +362,20 @@ namespace differential_kinematics
           return true;
         }
 
-      ROS_WARN("constraint (%s) can not calculate the jacobian", Base<motion_planner>::constraint_name_.c_str());
+      ROS_WARN("constraint (%s) can not calculate the jacobian", constraint_name_.c_str());
       return false;
     }
 
-    template <class motion_planner>
-    void CollisionAvoidance<motion_planner>::result()
+    void CollisionAvoidance::result()
     {
-      std::cout << Base<motion_planner>::constraint_name_ << "min distance: "
+      std::cout << constraint_name_ << "min distance: "
                 << min_dist_ << ", at " << min_dist_link_ << std::endl;
     }
       };
 };
 
 #include <pluginlib/class_list_macros.h>
-#include <differential_kinematics/planner_core.h>
-PLUGINLIB_EXPORT_CLASS(differential_kinematics::constraint::CollisionAvoidance<differential_kinematics::Planner>, differential_kinematics::constraint::Base<differential_kinematics::Planner>);
+PLUGINLIB_EXPORT_CLASS(differential_kinematics::constraint::CollisionAvoidance, differential_kinematics::constraint::Base);
 
 
 

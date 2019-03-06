@@ -49,14 +49,13 @@ namespace sampling_base
     {
 
     public:
-      MotionPlanning(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<TransformController> transform_controller);
+      MotionPlanning(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<HydrusRobotModel> robot_model_ptr);
       ~MotionPlanning(){};
 
       static const uint8_t HORIZONTAL_GAP = 0;
       static const uint8_t VERTICAL_GAP = 1;
 
     private:
-      //boost::shared_ptr<DragonTransformController> transform_controller_; /* override */
 
       /* gap env */
       int gap_type_;
@@ -65,13 +64,7 @@ namespace sampling_base
       int max_force_state_;
       double z_low_bound_;
       double z_high_bound_;
-      double pitch_joint_low_bound_;
-      double pitch_joint_high_bound_;
-      double yaw_joint_low_bound_;
-      double yaw_joint_high_bound_;
-
-      double gimbal_roll_thresh_;
-      double gimbal_pitch_thresh_;
+      std::vector<double> joint_lower_limits_, joint_upper_limits_;
 
       void planInit();
       bool isStateValid(const ompl::base::State *state);

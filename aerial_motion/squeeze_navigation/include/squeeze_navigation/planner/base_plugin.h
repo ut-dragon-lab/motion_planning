@@ -38,7 +38,7 @@
 
 
 #include <ros/ros.h>
-#include <dragon/transform_control.h>
+#include <dragon/dragon_robot_model.h>
 #include <aerial_motion_planning_msgs/multilink_state.h>
 
 namespace squeeze_motion_planner
@@ -49,16 +49,19 @@ namespace squeeze_motion_planner
     Base() {}
     ~Base() {}
 
-    void virtual initialize(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<TransformController> robot_model_ptr)
+    void virtual initialize(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<HydrusRobotModel> robot_model_ptr)
     {
       nh_ = nh;
       nhp_ = nhp;
 
       robot_model_ptr_ = robot_model_ptr;
+
+      /* important: link1(root) should be base link */
+      robot_model_ptr_->setBaselinkName(std::string("link1"));
     }
 
     virtual bool plan(bool debug = false) = 0;
-    virtual bool loadPath() {return false; }
+    virtual bool loadPath() { return false; }
     virtual const std::vector<MultilinkState>& getPathConst() const = 0 ;
     virtual const MultilinkState& getStateConst(int index) const = 0 ;
     virtual void visualizeFunc() = 0;
@@ -69,7 +72,7 @@ namespace squeeze_motion_planner
     ros::NodeHandle nh_;
     ros::NodeHandle nhp_;
 
-    boost::shared_ptr<TransformController> robot_model_ptr_;
+    boost::shared_ptr<HydrusRobotModel> robot_model_ptr_;
   };
 };
 

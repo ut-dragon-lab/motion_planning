@@ -37,65 +37,106 @@
 
 /* TODO: the orientation of CoG frame is not resolved!! */
 
-void MultilinkState::cogPose2RootPose(boost::shared_ptr<TransformController> robot_model_ptr)
+
+void MultilinkState::convertCogPose2RootPose(boost::shared_ptr<aerial_robot_model::RobotModel> robot_model_ptr,
+                                             const tf::Quaternion& baselink_desired_att,
+                                             const geometry_msgs::Pose& cog_pose,
+                                             const KDL::JntArray& actuator_state,
+                                             geometry_msgs::Pose& root_pose)
 {
-  /* the robot model ptr should  have the true baselink (e.g. fc) */
-  assert(cog_update_ && baselink_desired_att_update_ && actuator_update_);
-
   KDL::Rotation kdl_q;
-  tf::quaternionTFToKDL(baselink_desired_att_, kdl_q);
+  tf::quaternionTFToKDL(baselink_desired_att, kdl_q);
   robot_model_ptr->setCogDesireOrientation(kdl_q);
-  robot_model_ptr->forwardKinematics(actuator_state_);
-
-  tf::Transform cog_root = robot_model_ptr->getCog(); // cog in root frame
+  robot_model_ptr->updateRobotModel(actuator_state);
 
   /* root */
   tf::Transform cog_tf;
-  tf::poseMsgToTF(cog_pose_, cog_tf);
-  tf::Transform root_tf = cog_tf * robot_model_ptr->getCog().inverse();
-  tf::poseTFToMsg(root_tf, root_pose_);
+  tf::poseMsgToTF(cog_pose, cog_tf);
+  tf::Transform root2cog_tf;
+  tf::transformKDLToTF(robot_model_ptr->getCog<KDL::Frame>(), root2cog_tf);
+  tf::Transform root_tf = cog_tf * root2cog_tf.inverse();
+  tf::poseTFToMsg(root_tf, root_pose);
 
-  root_update_ = true;
 }
 
-void MultilinkState::baselinkPose2RootPose(geometry_msgs::Pose baselink_pose, boost::shared_ptr<TransformController> robot_model_ptr)
+void MultilinkState::setStatesFromCog(boost::shared_ptr<aerial_robot_model::RobotModel> robot_model_ptr,
+                                      const tf::Quaternion& baselink_desired_att,
+                                      const geometry_msgs::Pose& cog_pose,
+                                      const KDL::JntArray& actuator_state)
 {
-  /* the robot model ptr should  have the true baselink (e.g. fc) */
-  assert(actuator_update_);
+  if(actuator_map_.empty()) actuator_map_ = robot_model_ptr->getActuatorMap();
 
-  /* root */
+  /* set cog pose */
+  baselink_desired_att_ = baselink_desired_att;
+  cog_pose_ = cog_pose;
+
+  /* set actuator vector */
+  actuator_state_ = actuator_state;
+
+  /* set root pose */
+  convertCogPose2RootPose(robot_model_ptr, baselink_desired_att, cog_pose, actuator_state, root_pose_);
+
+  /* special process for model with gimbal module */
+  if(gimbal_module_flag_) actuator_state_ = boost::dynamic_pointer_cast<DragonRobotModel>(robot_model_ptr)->getGimbalProcessedJoint<KDL::JntArray>();
+}
+
+void MultilinkState::convertBaselinkPose2RootPose(boost::shared_ptr<aerial_robot_model::RobotModel> robot_model_ptr,
+                                                  const geometry_msgs::Pose& baselink_pose,
+                                                  const KDL::JntArray& actuator_state,
+                                                  geometry_msgs::Pose& root_pose)
+{
   tf::Transform baselink_tf;
   tf::poseMsgToTF(baselink_pose, baselink_tf);
-  tf::Transform root_tf = baselink_tf * robot_model_ptr->getRoot2Link(robot_model_ptr->getBaselink(), actuator_state_).inverse();
-  tf::poseTFToMsg(root_tf, root_pose_);
+  tf::Transform root2baselink_tf;
+  tf::transformKDLToTF(robot_model_ptr->forwardKinematics<KDL::Frame>(robot_model_ptr->getBaselinkName(), actuator_state), root2baselink_tf);
+  tf::Transform root_tf = baselink_tf * root2baselink_tf.inverse();
 
-  root_update_ = true;
+  tf::poseTFToMsg(root_tf, root_pose);
 }
 
-
-void MultilinkState::targetRootPose2TargetBaselinkPose(boost::shared_ptr<TransformController> robot_model_ptr)
+void MultilinkState::convertRootPose2CogPose(boost::shared_ptr<aerial_robot_model::RobotModel> robot_model_ptr,
+                                             const geometry_msgs::Pose& root_pose,
+                                             const KDL::JntArray& actuator_state,
+                                             tf::Quaternion& baselink_desired_att,
+                                             geometry_msgs::Pose& cog_pose)
 {
-  /* the robot model ptr should  have the true baselink (e.g. fc) */
-  assert(root_update_ && actuator_update_);
-
   tf::Transform root_tf;
-  tf::poseMsgToTF(root_pose_, root_tf);
-  baselink_desired_att_ = root_tf * robot_model_ptr->getRoot2Link(robot_model_ptr->getBaselink(), actuator_state_).getRotation();
-  baselink_desired_att_update_ = true;
+  tf::poseMsgToTF(root_pose, root_tf);
+  tf::Transform root2baselink_tf;
+  tf::transformKDLToTF(robot_model_ptr->forwardKinematics<KDL::Frame>(robot_model_ptr->getBaselinkName(), actuator_state), root2baselink_tf);
+  baselink_desired_att = root_tf * root2baselink_tf.getRotation();
 
   KDL::Rotation kdl_q;
-  tf::quaternionTFToKDL(baselink_desired_att_, kdl_q);
-  robot_model_ptr->setCogDesireOrientation(kdl_q); // necessary to update the true joint state (e.g., joint state)
-  robot_model_ptr->forwardKinematics(actuator_state_);
+  tf::quaternionTFToKDL(baselink_desired_att, kdl_q);
+  robot_model_ptr->setCogDesireOrientation(kdl_q);
+  robot_model_ptr->updateRobotModel(actuator_state);
 
-  tf::pointTFToMsg(root_tf * robot_model_ptr->getCog().getOrigin(), cog_pose_.position);
-  cog_update_ = true;
+  tf::Transform root2cog_tf;
+  tf::transformKDLToTF(robot_model_ptr->getCog<KDL::Frame>(), root2cog_tf);
+  tf::pointTFToMsg(root_tf * root2cog_tf.getOrigin(), cog_pose.position);
 }
 
-const std::vector<double> MultilinkState::getRootActuatorStateConst() const
+void MultilinkState::setStatesFromRoot(boost::shared_ptr<aerial_robot_model::RobotModel> robot_model_ptr,
+                                       const geometry_msgs::Pose& root_pose,
+                                       const KDL::JntArray& actuator_state)
 {
-  assert(root_update_ && actuator_update_);
+  if(actuator_map_.empty()) actuator_map_ = robot_model_ptr->getActuatorMap();
 
+  /* set cog pose */
+  root_pose_ = root_pose;
+
+  /* set actuator vector */
+  actuator_state_ = actuator_state;
+
+  /* set root pose */
+  convertRootPose2CogPose(robot_model_ptr, root_pose, actuator_state, baselink_desired_att_, cog_pose_);
+
+  /* special process for model with gimbal module */
+  if(gimbal_module_flag_) actuator_state_ = boost::dynamic_pointer_cast<DragonRobotModel>(robot_model_ptr)->getGimbalProcessedJoint<KDL::JntArray>();
+}
+
+template<> const std::vector<double> MultilinkState::getRootActuatorStateConst() const
+{
   std::vector<double> states(0);
   states.push_back(root_pose_.position.x);
   states.push_back(root_pose_.position.y);
@@ -105,46 +146,25 @@ const std::vector<double> MultilinkState::getRootActuatorStateConst() const
   states.push_back(root_pose_.orientation.z);
   states.push_back(root_pose_.orientation.w);
 
-  for(auto itr: actuator_state_.position)
-    states.push_back(itr);
+  for(int i = 0; i < actuator_state_.rows(); i++) states.push_back(actuator_state_(i));
+
   return states;
 }
 
-void MultilinkState::setRootActuatorState(const std::vector<double>& states)
+template<> const moveit_msgs::RobotState MultilinkState::getRootActuatorStateConst() const
 {
-  assert(states.size() == 7 + actuator_state_.name.size());
-  assert(actuator_update_);
-
-  root_pose_.position.x = states.at(0);
-  root_pose_.position.y = states.at(1);
-  root_pose_.position.z = states.at(2);
-
-  root_pose_.orientation.x = states.at(3);
-  root_pose_.orientation.y = states.at(4);
-  root_pose_.orientation.z = states.at(5);
-  root_pose_.orientation.w = states.at(6);
-
-  actuator_state_.position.assign(states.begin() + 7, states.end());
-
-  // for(int i = 0 ; i < actuator_state_.position.size(); i++)
-  //   std::cout << actuator_state_.name.at(i) << ": " <<  actuator_state_.position.at(i) << ", ";
-  // std::cout << std::endl;
-
-  root_update_ = true;
-  actuator_update_ = true;
-}
-
-const moveit_msgs::RobotState MultilinkState::getVisualizeRobotStateConst() const
-{
-  assert(root_update_ && actuator_update_);
-
   moveit_msgs::RobotState robot_state;
 
-  robot_state.joint_state = actuator_state_;
+  robot_state.joint_state.name.reserve(actuator_map_.size());
+  robot_state.joint_state.position.reserve(actuator_map_.size());
+  for(const auto& actuator : actuator_map_)
+    {
+      robot_state.joint_state.name.push_back(actuator.first);
+      robot_state.joint_state.position.push_back(actuator_state_(actuator.second));
+    }
 
   robot_state.multi_dof_joint_state.header.frame_id = "world";
   robot_state.multi_dof_joint_state.joint_names.push_back("root");
-
   geometry_msgs::Transform root_pose;
   root_pose.translation.x = root_pose_.position.x;
   root_pose.translation.y = root_pose_.position.y;

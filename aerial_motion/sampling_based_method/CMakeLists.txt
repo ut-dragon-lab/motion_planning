@@ -25,12 +25,11 @@ add_message_files(FILES PlanningMode.msg)
 
 generate_messages(DEPENDENCIES std_msgs)
 
-SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
 
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES se2_motion_planning se3_motion_planning
-#  CATKIN_DEPENDS roscpp  geometry_msgs sensor_msgs tf pluginlib  hydrus aerial_robot_base message_runtime
 )
 
 include_directories(
@@ -47,8 +46,6 @@ target_link_libraries (se2_motion_planning ${catkin_LIBRARIES}  ${Boost_LIBRARIE
 Add_library (se3_motion_planning src/se3/motion_planning.cpp )
 add_dependencies(se3_motion_planning  ${PROJECT_NAME}_gencpp)
 target_link_libraries (se3_motion_planning se2_motion_planning ${catkin_LIBRARIES}  ${Boost_LIBRARIES} ${OMPL_LIBRARIES})
-
-
 
 install(PROGRAMS
   scripts/state_validation_l4.py

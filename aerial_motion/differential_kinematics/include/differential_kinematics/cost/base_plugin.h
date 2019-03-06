@@ -38,6 +38,9 @@
 
 #include <ros/ros.h>
 
+/* Plannign Core */
+#include <differential_kinematics/planner_core.h>
+
 /* Linear Math */
 #include <Eigen/Dense>
 
@@ -48,7 +51,6 @@ namespace differential_kinematics
 {
   namespace cost
   {
-    template <class motion_planner>
     class Base
     {
     public:
@@ -56,7 +58,7 @@ namespace differential_kinematics
       ~Base(){}
 
       void virtual initialize(ros::NodeHandle nh, ros::NodeHandle nhp,
-                              boost::shared_ptr<motion_planner> planner, std::string cost_name,
+                              boost::shared_ptr<differential_kinematics::Planner> planner, std::string cost_name,
                               bool orientation, bool full_body)
       {
         nh_ = ros::NodeHandle(nh, cost_name);
@@ -64,13 +66,11 @@ namespace differential_kinematics
 
         planner_ = planner;
 
-        //std::cout << nhp_.getNamespace() << std::endl;
         nhp_.param("verbose", verbose_, false);
 
         cost_name_ = cost_name;
         orientation_ = orientation;
         full_body_ = full_body;
-        j_ndof_ = planner_->getRobotModelPtr()->getActuatorJointMap().size();
       }
 
       virtual bool getHessianGradient(bool& convergence, Eigen::MatrixXd& H, Eigen::VectorXd& g, bool debug = false) = 0;
@@ -81,12 +81,11 @@ namespace differential_kinematics
       ros::NodeHandle nh_;
       ros::NodeHandle nhp_;
 
-      boost::shared_ptr<motion_planner> planner_;
+      boost::shared_ptr<differential_kinematics::Planner> planner_;
 
       bool verbose_;
       std::string cost_name_;
 
-      int j_ndof_;
       bool orientation_;
       bool full_body_;
 

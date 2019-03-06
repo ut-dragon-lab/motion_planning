@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 2.8.3)
 project(squeeze_navigation)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
- add_compile_options(-std=c++11)
+ add_compile_options(-std=c++14)
 
 find_package(catkin REQUIRED COMPONENTS
   aerial_motion_planning_msgs
@@ -106,7 +106,7 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
   INCLUDE_DIRS include
 #  CATKIN_DEPENDS aerial_motion_planning_msgs bspline_generator roscpp sampling_based_methods
-#  DEPENDS system_lib
+  DEPENDS system_lib
 )
 
 ###########
@@ -129,8 +129,7 @@ target_link_libraries(planner_pluginlib ${catkin_LIBRARIES})
 add_library(squeeze_navigation src/squeeze_navigation.cpp)
 target_link_libraries(squeeze_navigation ${catkin_LIBRARIES})
 add_dependencies(squeeze_navigation ${catkin_EXPORTED_TARGETS})
-# http://docs.ros.org/jade/api/catkin/html/howto/format2/cpp_msg_dependencies.html
+
 
 add_executable(squeeze_navigation_node src/squeeze_navigation_node.cpp)
 target_link_libraries(squeeze_navigation_node ${catkin_LIBRARIES} squeeze_navigation)
-

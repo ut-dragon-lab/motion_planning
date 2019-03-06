@@ -38,6 +38,9 @@
 
 #include <ros/ros.h>
 
+/* Plannign Core */
+#include <differential_kinematics/planner_core.h>
+
 /* Linear Math */
 #include <Eigen/Dense>
 
@@ -48,7 +51,6 @@ namespace differential_kinematics
 {
   namespace constraint
   {
-    template <class motion_planner>
     class Base
     {
     public:
@@ -56,7 +58,7 @@ namespace differential_kinematics
       ~Base(){}
 
       void virtual initialize(ros::NodeHandle nh, ros::NodeHandle nhp,
-                              boost::shared_ptr<motion_planner> planner, std::string constraint_name,
+                              boost::shared_ptr<differential_kinematics::Planner> planner, std::string constraint_name,
                               bool orientation, bool full_body)
       {
         nh_ = ros::NodeHandle(nh, constraint_name);
@@ -68,7 +70,6 @@ namespace differential_kinematics
         constraint_name_ = constraint_name;
         orientation_ = orientation;
         full_body_ = full_body;
-        j_ndof_ = planner_->getRobotModelPtr()->getActuatorJointMap().size();
       }
       virtual bool getConstraint(Eigen::MatrixXd& A, Eigen::VectorXd& lb, Eigen::VectorXd& ub, bool debug = false) = 0;
       virtual bool directConstraint(){return false;}
@@ -82,13 +83,12 @@ namespace differential_kinematics
       ros::NodeHandle nh_;
       ros::NodeHandle nhp_;
 
-      boost::shared_ptr<motion_planner> planner_;
+      boost::shared_ptr<differential_kinematics::Planner> planner_;
 
       bool verbose_;
       std::string constraint_name_;
       int nc_;
 
-      int j_ndof_;
       bool orientation_;
       bool full_body_;
 

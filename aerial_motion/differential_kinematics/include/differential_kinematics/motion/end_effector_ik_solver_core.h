@@ -36,23 +36,24 @@
 #ifndef END_EFFECTOR_IK_SOLVER_CORE_H
 #define END_EFFECTOR_IK_SOLVER_CORE_H
 
-#include <differential_kinematics/planner_core.h>
-
-#include <pluginlib/class_loader.h>
 /* special cost plugin for cartesian constraint */
 #include <differential_kinematics/cost/cartesian_constraint.h>
 /* special constraint plugin for collision avoidance */
 #include <differential_kinematics/constraint/collision_avoidance.h>
+
+#include <differential_kinematics/planner_core.h>
+
+#include <pluginlib/class_loader.h>
 /* rosservice for target end-effector pose */
+#include <visualization_msgs/MarkerArray.h>
 #include <differential_kinematics/TargetPose.h>
 
 using namespace differential_kinematics;
 
 class EndEffectorIKSolverCore
 {
-  using robot_model = TransformController;
 public:
-  EndEffectorIKSolverCore(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<robot_model> robot_model_ptr);
+  EndEffectorIKSolverCore(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<HydrusRobotModel> robot_model_ptr);
   ~EndEffectorIKSolverCore(){}
 
 private:

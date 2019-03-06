@@ -27,7 +27,7 @@
   <exec_depend>bspline_generator</exec_depend>
   <exec_depend>roscpp</exec_depend>
   <exec_depend>rospy</exec_depend>
-  <exec_depend>sampling_based_method</exec_depend>
+  <exec_depend>sampling_based_method</exec_depend> 
   <exec_depend>differential_kinematics</exec_depend>
   <exec_depend>pluginlib</exec_depend>
 

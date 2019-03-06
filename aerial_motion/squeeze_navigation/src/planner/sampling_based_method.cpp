@@ -44,14 +44,14 @@ namespace squeeze_motion_planner
     SamplingBasedMethod(){}
     ~SamplingBasedMethod() {}
 
-    void initialize(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<TransformController> robot_model_ptr)
+    void initialize(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<HydrusRobotModel> robot_model_ptr)
     {
       Base::initialize(nh, nhp, robot_model_ptr);
       int motion_type;
       nhp_.param("motion_type", motion_type, 0);
       if (motion_type == motion_type::SE2) //SE2
         planner_core_ = boost::shared_ptr<sampling_base::se2::MotionPlanning>(new sampling_base::se2::MotionPlanning(nh, nhp, robot_model_ptr_));
-      else // Se3
+      else // SE3
         planner_core_ = boost::shared_ptr<sampling_base::se2::MotionPlanning>(new sampling_base::se3::MotionPlanning(nh, nhp, robot_model_ptr_));
     };
 

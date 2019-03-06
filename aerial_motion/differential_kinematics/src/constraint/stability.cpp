@@ -42,8 +42,7 @@ namespace differential_kinematics
 {
   namespace constraint
   {
-    template <class motion_planner>
-    class Stability :public Base<motion_planner>
+    class Stability :public Base
     {
     public:
       Stability():
@@ -53,50 +52,64 @@ namespace differential_kinematics
       ~Stability(){}
 
       void virtual initialize(ros::NodeHandle nh, ros::NodeHandle nhp,
-                              boost::shared_ptr<motion_planner> planner, std::string constraint_name,
+                              boost::shared_ptr<differential_kinematics::Planner> planner, std::string constraint_name,
                               bool orientation, bool full_body)
       {
-        Base<motion_planner>::initialize(nh, nhp, planner, constraint_name, orientation, full_body);
-        rotor_num_ = Base<motion_planner>::planner_->getRobotModelPtr()->getRotorNum();
-        Base<motion_planner>::nc_ = 2 + rotor_num_;
+        Base::initialize(nh, nhp, planner, constraint_name, orientation, full_body);
+        rotor_num_ = planner_->getRobotModelPtr()->getRotorNum();
+        nc_ = 2 + rotor_num_;
 
-        stability_margin_thre_ = Base<motion_planner>::planner_->getRobotModelPtr()->stability_margin_thre_;
-        p_det_thre_ = Base<motion_planner>::planner_->getRobotModelPtr()->p_det_thre_;
-        f_min_ = Base<motion_planner>::planner_->getRobotModelPtr()->f_min_;
-        f_max_ = Base<motion_planner>::planner_->getRobotModelPtr()->f_max_;
+        stability_margin_thre_ = planner_->getRobotModelPtr()->getStabilityMaginThresh();
+        p_det_thre_ = planner_->getRobotModelPtr()->getPDetThresh();
+        f_min_ = planner_->getRobotModelPtr()->getThrustLowerLimit();
+        f_max_ = planner_->getRobotModelPtr()->getThrustUpperLimit();
 
-        Base<motion_planner>::nhp_.param ("stability_margin_decrease_vel_thre", stability_margin_decrease_vel_thre_, -0.01);
-        if(Base<motion_planner>::verbose_) std::cout << "stability_margin_decrease_vel_thre: " << std::setprecision(3) << stability_margin_decrease_vel_thre_ << std::endl;
-        Base<motion_planner>::nhp_.param ("stability_margin_constraint_range", stability_margin_constraint_range_, 0.02);
-        if(Base<motion_planner>::verbose_) std::cout << "stability_margin_constraint_range: " << std::setprecision(3) << stability_margin_constraint_range_ << std::endl;
-        Base<motion_planner>::nhp_.param ("stability_margin_forbidden_range", stability_margin_forbidden_range_, 0.005);
-        if(Base<motion_planner>::verbose_) std::cout << "stability_margin_forbidden_range: " << std::setprecision(3) << stability_margin_forbidden_range_ << std::endl;
+        nhp_.param ("stability_margin_decrease_vel_thre", stability_margin_decrease_vel_thre_, -0.01);
+        if(verbose_) std::cout << "stability_margin_decrease_vel_thre: " << std::setprecision(3) << stability_margin_decrease_vel_thre_ << std::endl;
+        nhp_.param ("stability_margin_constraint_range", stability_margin_constraint_range_, 0.02);
+        if(verbose_) std::cout << "stability_margin_constraint_range: " << std::setprecision(3) << stability_margin_constraint_range_ << std::endl;
+        nhp_.param ("stability_margin_forbidden_range", stability_margin_forbidden_range_, 0.005);
+        if(verbose_) std::cout << "stability_margin_forbidden_range: " << std::setprecision(3) << stability_margin_forbidden_range_ << std::endl;
 
-        Base<motion_planner>::nhp_.param ("force_vel_thre", force_vel_thre_, 0.1);
-        if(Base<motion_planner>::verbose_) std::cout << "force_vel_thre: " << std::setprecision(3) << force_vel_thre_ << std::endl;
-        Base<motion_planner>::nhp_.param ("force_constraint_range", force_constraint_range_, 0.2);
-        if(Base<motion_planner>::verbose_) std::cout << "force_constraint_range: " << std::setprecision(3) << force_constraint_range_ << std::endl;
-        Base<motion_planner>::nhp_.param ("force_forbidden_range", force_forbidden_range_, 0.1);
-        if(Base<motion_planner>::verbose_) std::cout << "force_forbidden_range: " << std::setprecision(3) << force_forbidden_range_ << std::endl;
+        nhp_.param ("force_vel_thre", force_vel_thre_, 0.1);
+        if(verbose_) std::cout << "force_vel_thre: " << std::setprecision(3) << force_vel_thre_ << std::endl;
+        nhp_.param ("force_constraint_range", force_constraint_range_, 0.2);
+        if(verbose_) std::cout << "force_constraint_range: " << std::setprecision(3) << force_constraint_range_ << std::endl;
+        nhp_.param ("force_forbidden_range", force_forbidden_range_, 0.1);
+        if(verbose_) std::cout << "force_forbidden_range: " << std::setprecision(3) << force_forbidden_range_ << std::endl;
 
       }
 
       bool getConstraint(Eigen::MatrixXd& A, Eigen::VectorXd& lb, Eigen::VectorXd& ub, bool debug = false)
       {
+        auto robotModelUpdate = [this](KDL::Rotation root_att, KDL::JntArray actuator_vector)
+          {
+            planner_->getRobotModelPtr()->setCogDesireOrientation(root_att);
+            planner_->getRobotModelPtr()->updateRobotModel(actuator_vector);
+            planner_->getRobotModelPtr()->stabilityMarginCheck();
+            planner_->getRobotModelPtr()->modelling();
+          };
+
         //debug = true;
-        A = Eigen::MatrixXd::Zero(Base<motion_planner>::nc_, Base<motion_planner>::j_ndof_ + 6);
-        lb = Eigen::VectorXd::Constant(Base<motion_planner>::nc_, -0.1);
-        ub = Eigen::VectorXd::Constant(Base<motion_planner>::nc_, 0.1);
+        A = Eigen::MatrixXd::Zero(nc_, planner_->getRobotModelPtr()->getLinkJointIndex().size() + 6);
+        lb = Eigen::VectorXd::Constant(nc_, -0.1);
+        ub = Eigen::VectorXd::Constant(nc_, 0.1);
+
+        /* 0. udpate the robot model with current state */
+        KDL::Rotation curr_root_att;
+        tf::quaternionTFToKDL(planner_->getTargetRootPose().getRotation(), curr_root_att);
+        auto curr_actuator_vector =  planner_->getTargetActuatorVector<KDL::JntArray>();
+        robotModelUpdate(curr_root_att, curr_actuator_vector);
 
         /* 1. stability margin */
-        double nominal_stability_margin = Base<motion_planner>::planner_->getRobotModelPtr()->getStabilityMargin();
+        double nominal_stability_margin = planner_->getRobotModelPtr()->getStabilityMargin();
         /* fill lb */
         lb(0) = stability_margin_decrease_vel_thre_;
-         if(nominal_stability_margin - stability_margin_thre_   < stability_margin_constraint_range_)
-         lb(0) *=  ((nominal_stability_margin - stability_margin_thre_ - stability_margin_forbidden_range_) / (stability_margin_constraint_range_ - stability_margin_forbidden_range_));
+        if(nominal_stability_margin - stability_margin_thre_  < stability_margin_constraint_range_)
+          lb(0) *=  ((nominal_stability_margin - stability_margin_thre_ - stability_margin_forbidden_range_) / (stability_margin_constraint_range_ - stability_margin_forbidden_range_));
 
         /* 2. singularity */
-        double nominal_p_det = Base<motion_planner>::planner_->getRobotModelPtr()->getPdeterminant();
+        double nominal_p_det = planner_->getRobotModelPtr()->getPdeterminant();
         /* fill ub */
         lb(1) =  p_det_thre_ - nominal_p_det;
 
@@ -106,7 +119,7 @@ namespace differential_kinematics
            TODO: use virutal state (beta) to maximize the flight stability
         ****************************************************************************************/
 
-        Eigen::VectorXd nominal_hovering_f =  Base<motion_planner>::planner_->getRobotModelPtr()->getOptimalHoveringThrust();
+        Eigen::VectorXd nominal_hovering_f =  planner_->getRobotModelPtr()->getOptimalHoveringThrust();
         /* fill the lb/ub */
         lb.segment(2, rotor_num_) = Eigen::VectorXd::Constant(rotor_num_, -force_vel_thre_);
         ub.segment(2, rotor_num_) = Eigen::VectorXd::Constant(rotor_num_, force_vel_thre_);
@@ -120,9 +133,9 @@ namespace differential_kinematics
 
         if(debug)
           {
-            std::cout << "constraint name: " << Base<motion_planner>::constraint_name_ << ", nominal stability margin : \n" << nominal_stability_margin << std::endl;
-            std::cout << "constraint name: " << Base<motion_planner>::constraint_name_ << ", nominal p det : \n" << nominal_p_det << std::endl;
-            std::cout << "constraint name: " << Base<motion_planner>::constraint_name_ << ", nominal f: \n" << nominal_hovering_f.transpose() << std::endl;
+            std::cout << "constraint name: " << constraint_name_ << ", nominal stability margin : \n" << nominal_stability_margin << std::endl;
+            std::cout << "constraint name: " << constraint_name_ << ", nominal p det : \n" << nominal_p_det << std::endl;
+            std::cout << "constraint name: " << constraint_name_ << ", nominal f: \n" << nominal_hovering_f.transpose() << std::endl;
           }
 
         /* update the result */
@@ -135,145 +148,58 @@ namespace differential_kinematics
 
         /* joint */
         double delta_angle = 0.001; // [rad]
-        for(int index = 0; index < Base<motion_planner>::j_ndof_; index++)
+        for(int index = 0; index < planner_->getRobotModelPtr()->getLinkJointIndex().size(); index++)
           {
-            sensor_msgs::JointState actuator_state = Base<motion_planner>::planner_->getTargetActuatorVector();
-            actuator_state.position.at(Base<motion_planner>::planner_->getRobotModelPtr()->getActuatorJointMap().at(index)) += delta_angle;
-            Base<motion_planner>::planner_->getRobotModelPtr()->forwardKinematics(actuator_state);
-            Base<motion_planner>::planner_->getRobotModelPtr()->stabilityMarginCheck();
-            Base<motion_planner>::planner_->getRobotModelPtr()->modelling();
+            KDL::JntArray perturbation_actuator_vector = curr_actuator_vector;
+            perturbation_actuator_vector(planner_->getRobotModelPtr()->getLinkJointIndex().at(index)) += delta_angle;
+            robotModelUpdate(curr_root_att, perturbation_actuator_vector);
 
             /* stability margin */
-            A(0, 6 + index) = (Base<motion_planner>::planner_->getRobotModelPtr()->getStabilityMargin() - nominal_stability_margin) /delta_angle;
+            A(0, 6 + index) = (planner_->getRobotModelPtr()->getStabilityMargin() - nominal_stability_margin) /delta_angle;
             /* singularity */
-            A(1, 6 + index) = (Base<motion_planner>::planner_->getRobotModelPtr()->getPdeterminant() - nominal_p_det) /delta_angle;
+            A(1, 6 + index) = (planner_->getRobotModelPtr()->getPdeterminant() - nominal_p_det) /delta_angle;
             /* hovering thrust */
-            A.block(2, 6 + index, rotor_num_, 1) = (Base<motion_planner>::planner_->getRobotModelPtr()->getOptimalHoveringThrust() - nominal_hovering_f) / delta_angle;
+            A.block(2, 6 + index, rotor_num_, 1) = (planner_->getRobotModelPtr()->getOptimalHoveringThrust() - nominal_hovering_f) / delta_angle;
           }
 
         if(debug)
-          std::cout << "constraint (" << Base<motion_planner>::constraint_name_.c_str()  << "): matrix A: \n" << A << std::endl;
-#if 0
-
-        /* debug */
-        delta_angle = -0.001; // [rad]
-        for(int index = 0; index < Base<motion_planner>::j_ndof_; index++)
-          {
-            sensor_msgs::JointState actuator_state = Base<motion_planner>::planner_->getTargetActuatorVector();
-            actuatorstate.position.at(Base<motion_planner>::planner_->getRobotModelPtr()->getActuatorJointMap().at(index)) += delta_angle;
-            Base<motion_planner>::planner_->getRobotModelPtr()->forwardKinematics(actuatorstate);
-            Base<motion_planner>::planner_->getRobotModelPtr()->stabilityMarginCheck();
-            Base<motion_planner>::planner_->getRobotModelPtr()->modelling();
-
-            /* stability margin */
-            A(0, 6 + index) = (Base<motion_planner>::planner_->getRobotModelPtr()->getStabilityMargin() - stability_margin) /delta_angle;
-            /* singularity */
-            A(1, 6 + index) = (Base<motion_planner>::planner_->getRobotModelPtr()->getPdeterminant() - p_det) /delta_angle;
-            /* hovering thrust */
-            A.block(2, 6 + index, rotor_num_, 1) = (Base<motion_planner>::planner_->getRobotModelPtr()->getOptimalHoveringThrust() - hovering_f) / delta_angle;
-          }
-
-        if(debug)
-          std::cout << "constraint (" << Base<motion_planner>::constraint_name_.c_str()  << "): matrix A: \n" << A << std::endl;
-        delta_angle = 0.001; // revert
-
-#endif
+          std::cout << "constraint (" << constraint_name_.c_str()  << "): matrix A: \n" << A << std::endl;
 
         /* root */
-        sensor_msgs::JointState actuator_state = Base<motion_planner>::planner_->getTargetActuatorVector();
-        KDL::Rotation root_att;
-        tf::quaternionTFToKDL(Base<motion_planner>::planner_->getTargetRootPose().getRotation(), root_att);
         /* roll */
-        Base<motion_planner>::planner_->getRobotModelPtr()->setCogDesireOrientation(root_att * KDL::Rotation::RPY(delta_angle, 0, 0));
-        Base<motion_planner>::planner_->getRobotModelPtr()->forwardKinematics(actuator_state);
-        Base<motion_planner>::planner_->getRobotModelPtr()->stabilityMarginCheck();
-        Base<motion_planner>::planner_->getRobotModelPtr()->modelling();
-
+        robotModelUpdate(curr_root_att * KDL::Rotation::RPY(delta_angle, 0, 0), curr_actuator_vector);
         /* stability margin */
-        A(0, 3) = (Base<motion_planner>::planner_->getRobotModelPtr()->getStabilityMargin() - nominal_stability_margin) / delta_angle;
+        A(0, 3) = (planner_->getRobotModelPtr()->getStabilityMargin() - nominal_stability_margin) / delta_angle;
         /* singularity */
-        A(1, 3) = (Base<motion_planner>::planner_->getRobotModelPtr()->getPdeterminant() - nominal_p_det) / delta_angle;
+        A(1, 3) = (planner_->getRobotModelPtr()->getPdeterminant() - nominal_p_det) / delta_angle;
         /* hovering thrust */
-        A.block(2, 3, rotor_num_, 1) = (Base<motion_planner>::planner_->getRobotModelPtr()->getOptimalHoveringThrust() - nominal_hovering_f) / delta_angle;
+        A.block(2, 3, rotor_num_, 1) = (planner_->getRobotModelPtr()->getOptimalHoveringThrust() - nominal_hovering_f) / delta_angle;
 
         /*  pitch */
-        Base<motion_planner>::planner_->getRobotModelPtr()->setCogDesireOrientation(root_att * KDL::Rotation::RPY(0, delta_angle, 0));
-        Base<motion_planner>::planner_->getRobotModelPtr()->forwardKinematics(actuator_state);
-        Base<motion_planner>::planner_->getRobotModelPtr()->stabilityMarginCheck();
-        Base<motion_planner>::planner_->getRobotModelPtr()->modelling();
-
+        robotModelUpdate(curr_root_att * KDL::Rotation::RPY(0, delta_angle, 0), curr_actuator_vector);
         /* stability margin */
-        A(0, 4) = (Base<motion_planner>::planner_->getRobotModelPtr()->getStabilityMargin() - nominal_stability_margin) / delta_angle;
+        A(0, 4) = (planner_->getRobotModelPtr()->getStabilityMargin() - nominal_stability_margin) / delta_angle;
         /* singularity */
-        A(1, 4) = (Base<motion_planner>::planner_->getRobotModelPtr()->getPdeterminant() - nominal_p_det) / delta_angle;
+        A(1, 4) = (planner_->getRobotModelPtr()->getPdeterminant() - nominal_p_det) / delta_angle;
         /* hovering thrust */
-        A.block(2, 4, rotor_num_, 1) = (Base<motion_planner>::planner_->getRobotModelPtr()->getOptimalHoveringThrust() - nominal_hovering_f) / delta_angle;
+        A.block(2, 4, rotor_num_, 1) = (planner_->getRobotModelPtr()->getOptimalHoveringThrust() - nominal_hovering_f) / delta_angle;
 
         /* yaw */
-        Base<motion_planner>::planner_->getRobotModelPtr()->setCogDesireOrientation(root_att * KDL::Rotation::RPY(0, 0, delta_angle));
-        Base<motion_planner>::planner_->getRobotModelPtr()->forwardKinematics(actuator_state);
-        Base<motion_planner>::planner_->getRobotModelPtr()->stabilityMarginCheck();
-        Base<motion_planner>::planner_->getRobotModelPtr()->modelling();
+        robotModelUpdate(curr_root_att * KDL::Rotation::RPY(0, 0, delta_angle), curr_actuator_vector);
 
         /* stability margin */
-        A(0, 5) = (Base<motion_planner>::planner_->getRobotModelPtr()->getStabilityMargin() - nominal_stability_margin) / delta_angle;
+        A(0, 5) = (planner_->getRobotModelPtr()->getStabilityMargin() - nominal_stability_margin) / delta_angle;
         /* singularity */
-        A(1, 5) = (Base<motion_planner>::planner_->getRobotModelPtr()->getPdeterminant() - nominal_p_det) / delta_angle;
+        A(1, 5) = (planner_->getRobotModelPtr()->getPdeterminant() - nominal_p_det) / delta_angle;
         /* hovering thrust */
-        A.block(2, 5, rotor_num_, 1) = (Base<motion_planner>::planner_->getRobotModelPtr()->getOptimalHoveringThrust() - nominal_hovering_f) / delta_angle;
+        A.block(2, 5, rotor_num_, 1) = (planner_->getRobotModelPtr()->getOptimalHoveringThrust() - nominal_hovering_f) / delta_angle;
 
         if(debug)
-          std::cout << "constraint (" << Base<motion_planner>::constraint_name_.c_str()  << "): matrix A: \n" << A << std::endl;
-
-#if 0
-        delta_angle = -0.001;
-        /* roll */
-        Base<motion_planner>::planner_->getRobotModelPtr()->setCogDesireOrientation(root_att * KDL::Rotation::RPY(delta_angle, 0, 0));
-        Base<motion_planner>::planner_->getRobotModelPtr()->forwardKinematics(actuator_state);
-        Base<motion_planner>::planner_->getRobotModelPtr()->stabilityMarginCheck();
-        Base<motion_planner>::planner_->getRobotModelPtr()->modelling();
-
-        /* stability margin */
-        A(0, 0) = (Base<motion_planner>::planner_->getRobotModelPtr()->getStabilityMargin() - nominal_stability_margin) / delta_angle;
-        /* singularity */
-        A(1, 0) = (Base<motion_planner>::planner_->getRobotModelPtr()->getPdeterminant() - nominal_p_det) / delta_angle;
-        /* hovering thrust */
-        A.block(2, 0, rotor_num_, 1) = (Base<motion_planner>::planner_->getRobotModelPtr()->getOptimalHoveringThrust() - nominal_hovering_f) / delta_angle;
-
-        /*  pitch */
-        Base<motion_planner>::planner_->getRobotModelPtr()->setCogDesireOrientation(root_att * KDL::Rotation::RPY(0, delta_angle, 0));
-        Base<motion_planner>::planner_->getRobotModelPtr()->forwardKinematics(actuator_state);
-        Base<motion_planner>::planner_->getRobotModelPtr()->stabilityMarginCheck();
-        Base<motion_planner>::planner_->getRobotModelPtr()->modelling();
-
-        /* stability margin */
-        A(0, 1) = (Base<motion_planner>::planner_->getRobotModelPtr()->getStabilityMargin() - nominal_stability_margin) / delta_angle;
-        /* singularity */
-        A(1, 1) = (Base<motion_planner>::planner_->getRobotModelPtr()->getPdeterminant() - nominal_p_det) / delta_angle;
-        /* hovering thrust */
-        A.block(2, 1, rotor_num_, 1) = (Base<motion_planner>::planner_->getRobotModelPtr()->getOptimalHoveringThrust() - nominal_hovering_f) / delta_angle;
-
-        /* yaw */
-        Base<motion_planner>::planner_->getRobotModelPtr()->setCogDesireOrientation(root_att * KDL::Rotation::RPY(0, 0, delta_angle));
-        Base<motion_planner>::planner_->getRobotModelPtr()->forwardKinematics(actuator_state);
-        Base<motion_planner>::planner_->getRobotModelPtr()->stabilityMarginCheck();
-        Base<motion_planner>::planner_->getRobotModelPtr()->modelling();
-
-        /* stability margin */
-        A(0, 5) = (Base<motion_planner>::planner_->getRobotModelPtr()->getStabilityMargin() - nominal_stability_margin) / delta_angle;
-        /* singularity */
-        A(1, 5) = (Base<motion_planner>::planner_->getRobotModelPtr()->getPdeterminant() - nominal_p_det) / delta_angle;
-        /* hovering thrust */
-        A.block(2, 5, rotor_num_, 1) = (Base<motion_planner>::planner_->getRobotModelPtr()->getOptimalHoveringThrust() - nominal_hovering_f) / delta_angle;
-
-        if(debug)
-          std::cout << "constraint (" << Base<motion_planner>::constraint_name_.c_str()  << "): matrix A: \n" << A << std::endl;
-
-#endif
+          std::cout << "constraint (" << constraint_name_.c_str()  << "): matrix A: \n" << A << std::endl;
         if(debug)
           {
-            std::cout << "constraint name: " << Base<motion_planner>::constraint_name_ << ", lb: \n" << lb.transpose() << std::endl;
-            std::cout << "constraint name: " << Base<motion_planner>::constraint_name_ << ", ub: \n" << ub.transpose() << std::endl;
+            std::cout << "constraint name: " << constraint_name_ << ", lb: \n" << lb.transpose() << std::endl;
+            std::cout << "constraint name: " << constraint_name_ << ", ub: \n" << ub.transpose() << std::endl;
           }
 
         return true;
@@ -281,7 +207,7 @@ namespace differential_kinematics
 
       void result()
       {
-        std::cout << Base<motion_planner>::constraint_name_
+        std::cout << constraint_name_
                   << "min p determinant: " << result_p_det_min_ << "\n"
                   << "min stability margin: " << result_stability_margin_min_ << "\n"
                   << "min f: " << result_f_min_ << " at rotor" << result_f_min_rotor_ << "\n"
@@ -304,7 +230,6 @@ namespace differential_kinematics
       double stability_margin_constraint_range_;
       double stability_margin_forbidden_range_;
 
-
       double result_f_min_;
       double result_f_max_;
       Eigen::MatrixXd::Index result_f_min_rotor_;
@@ -317,6 +242,5 @@ namespace differential_kinematics
 };
 
 #include <pluginlib/class_list_macros.h>
-#include <differential_kinematics/planner_core.h>
-PLUGINLIB_EXPORT_CLASS(differential_kinematics::constraint::Stability<differential_kinematics::Planner>, differential_kinematics::constraint::Base<differential_kinematics::Planner>);
+PLUGINLIB_EXPORT_CLASS(differential_kinematics::constraint::Stability, differential_kinematics::constraint::Base);
 
