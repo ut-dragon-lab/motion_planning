@@ -33,8 +33,8 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *********************************************************************/
 
-#ifndef SE2_MOTION_PLANNING_H_
-#define SE2_MOTION_PLANNING_H_
+#ifndef MOTION_PLANNING_H_
+#define MOTION_PLANNING_H_
 
 /* ros */
 #include <ros/ros.h>
@@ -60,6 +60,7 @@
 #include <ompl/control/SpaceInformation.h>
 #include <ompl/base/StateStorage.h>
 #include <ompl/base/spaces/SE2StateSpace.h>
+#include <ompl/base/spaces/SE3StateSpace.h>
 #include <ompl/control/spaces/RealVectorControlSpace.h>
 #include <ompl/control/SimpleSetup.h>
 #include <ompl/config.h>
@@ -79,9 +80,7 @@
 
 namespace sampling_base
 {
-  namespace se2
-  {
-    class MotionPlanning
+  class MotionPlanning
     {
 
     public:
@@ -96,13 +95,18 @@ namespace sampling_base
       inline int getPathSize(){return  path_.size();}
       inline double getMotionCost(){return best_cost_;}
       inline float getPlanningTime(){return calculation_time_;}
-      inline float getMinVar() {return  min_var_; }
-      inline int  getMinVarStateIndex() {return min_var_state_;}
 
+      inline double getMinForce() {return  min_force_; }
+      inline int  getMinForcetateIndex() {return min_force_state_index_;}
+      inline double getMaxForce() {return  max_force_; }
+      inline int  getMaxForcetateIndex() {return max_force_state_index_;}
+      inline double getMinVar() {return  min_var_; }
+      inline int  getMinVarStateIndex() {return min_var_state_index_;}
+
+      void setScene(const moveit_msgs::CollisionObject& collision_object);
       bool plan();
       bool loadPath();
       void motionSequence();
-      //void visualizeRobotState(const MultilinkState& state);
       bool checkCollision(const MultilinkState& state);
 
     protected:
@@ -123,19 +127,9 @@ namespace sampling_base
       moveit_msgs::PlanningScene planning_scene_msg_;
       collision_detection::AllowedCollisionMatrix acm_;
 
-      /* gap env */
-      double gap_left_x_, gap_left_y_;
-      double gap_x_offset_;
-      double gap_y_offset_;
-      double gap_left_width_;
-      double gap_right_width_;
-      tf::Vector3 left_half_corner;
-      tf::Vector3 right_half_corner;
-
       /* robot */
-      std::string base_link_;
-      tf::Quaternion baselink_desired_att_;
-      boost::shared_ptr<HydrusRobotModel> robot_model_ptr_;
+      boost::shared_ptr<HydrusRobotModel> robot_model_ptr_; //TODO change to RobotModel
+      std::string baselink_name_;
 
       /* path */
       MultilinkState start_state_;
@@ -151,15 +145,10 @@ namespace sampling_base
       ompl::base::StateSpacePtr config_space_;
       ompl::base::SpaceInformationPtr space_information_;
       ompl::base::ProblemDefinitionPtr pdef_;
-      double x_low_bound_;
-      double x_high_bound_;
-      double y_low_bound_;
-      double y_high_bound_;
-      double joint_low_bound_;
-      double joint_high_bound_;
+      std::array<double,3> position_lower_limits_, position_upper_limits_;
+      std::vector<double> joint_lower_limits_, joint_upper_limits_;
 
       double calculation_time_;
-      bool real_odom_flag_;
       double state_validity_check_res_;
       int valid_segment_count_factor_;
       double solving_time_limit_;
@@ -167,8 +156,10 @@ namespace sampling_base
       double length_cost_thre_;
       double best_cost_;
       int planning_mode_;
-      float min_var_;
-      int min_var_state_;
+      double min_var_;
+      int min_var_state_index_;
+      double max_force_, min_force_;
+      int max_force_state_index_, min_force_state_index_;
 
       void sceneInit();
 
@@ -181,16 +172,13 @@ namespace sampling_base
 
       void addState(MultilinkState state) { path_.push_back(state); }
 
-      virtual void planInit();
+      virtual bool planInit();
       virtual bool isStateValid(const ompl::base::State *state);
       virtual void savePath();
 
       virtual void rosParamInit();
-      virtual void robotInit();
-      virtual void gapEnvInit();
+
       virtual void addState(ompl::base::State *ompl_state);
     };
-
-  };
 };
 #endif

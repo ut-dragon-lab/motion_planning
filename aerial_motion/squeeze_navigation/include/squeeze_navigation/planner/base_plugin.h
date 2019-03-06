@@ -55,9 +55,7 @@ namespace squeeze_motion_planner
       nhp_ = nhp;
 
       robot_model_ptr_ = robot_model_ptr;
-
-      /* important: link1(root) should be base link */
-      robot_model_ptr_->setBaselinkName(std::string("link1"));
+      baselink_name_ = robot_model_ptr_->getBaselinkName();
     }
 
     virtual bool plan(bool debug = false) = 0;
@@ -67,12 +65,16 @@ namespace squeeze_motion_planner
     virtual void visualizeFunc() = 0;
     virtual void checkCollision(MultilinkState state) = 0;
 
+    static const uint8_t HORIZONTAL_GAP = 0;
+    static const uint8_t VERTICAL_GAP = 1;
+
   protected:
 
     ros::NodeHandle nh_;
     ros::NodeHandle nhp_;
 
     boost::shared_ptr<HydrusRobotModel> robot_model_ptr_;
+    std::string baselink_name_;
   };
 };
 

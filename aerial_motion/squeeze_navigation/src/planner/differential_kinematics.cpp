@@ -74,6 +74,7 @@ namespace squeeze_motion_planner
       /* setup the planner core */
       planner_core_ptr_ = boost::shared_ptr<Planner> (new Planner(nh, nhp, robot_model_ptr_));
       planner_core_ptr_->registerUpdateFunc(std::bind(&DifferentialKinematics::updatePinchPoint, this));
+      baselink_name_ = robot_model_ptr_->getBaselinkName();
 
       /* base vars */
       phase_ = CASE1;
@@ -167,6 +168,7 @@ namespace squeeze_motion_planner
           nhp_.param("openning_height", openning_height, 0.8);
           nhp_.param("ceiling_offset", ceiling_offset, 0.6);
           nhp_.param("env_width", env_width, 6.0);
+
           /* openning side wall(s) */
           visualization_msgs::Marker wall;
           wall.type = visualization_msgs::Marker::CUBE;
@@ -294,9 +296,7 @@ namespace squeeze_motion_planner
       if(planner_core_ptr_->solver(cost_container, constraint_container, debug))
         {
           /* set the correct base link ( which is not root_link = link1), to be suitable for the control system */
-          std::string base_link;
-          nhp_.param("baselink", base_link, std::string("link1"));
-          robot_model_ptr_->setBaselinkName(base_link);
+          robot_model_ptr_->setBaselinkName(baselink_name_);
 
           for(int index = 0; index < planner_core_ptr_->getRootPoseSequence().size(); index++)
             {

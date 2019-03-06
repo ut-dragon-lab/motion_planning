@@ -108,11 +108,6 @@ namespace differential_kinematics
 
   bool Planner::solver(CostContainer cost_container, ConstraintContainer constraint_container, bool debug)
   {
-    target_actuator_vector_sequence_.resize(0);
-    target_root_pose_sequence_.resize(0);
-    sequence_ = 0;
-    double start_time = ros::Time::now().toSec();
-
     auto modelUpdate = [this]()
       {
         KDL::Rotation root_att;
@@ -151,9 +146,14 @@ namespace differential_kinematics
         target_actuator_vector_sequence_.push_back(target_actuator_vector_);
       };
 
+    robot_model_ptr_->setBaselinkName(std::string("link1"));
+
+    target_actuator_vector_sequence_.resize(0);
+    target_root_pose_sequence_.resize(0);
+    sequence_ = 0;
+    double start_time = ros::Time::now().toSec();
     int total_nc = 0;
     for(auto itr: constraint_container) if(!itr->directConstraint()) total_nc += itr->getNc(); //for qpOases
-
     if(total_nc == 0)
       {
         ROS_ERROR("no propoer constraint for QP (qp oases), because the constraints number is zero (excluding the state range)");
@@ -342,18 +342,6 @@ namespace differential_kinematics
   {
     update_func_vector_.push_back(new_func);
   }
-
-  /*
-  const Eigen::VectorXd Planner::getTargetJointVector()
-  {
-    Eigen::VectorXd target_joint_vector = Eigen::VectorXd::Zero(robot_model_ptr_->getActuatorJointMap().size());
-    for(size_t i = 0; i < target_joint_vector.size(); i++)
-      {
-        target_joint_vector(i) = target_joint_vector_.position.at(robot_model_ptr_->getActuatorJointMap().at(i));
-      }
-    return target_joint_vector;
-  }
-  */
 
   void Planner::motionFunc(const ros::TimerEvent & e)
   {
