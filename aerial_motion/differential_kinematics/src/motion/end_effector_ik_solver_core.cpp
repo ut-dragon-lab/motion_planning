@@ -91,7 +91,6 @@ void EndEffectorIKSolverCore::envCollision(const visualization_msgs::MarkerArray
 
 bool EndEffectorIKSolverCore::inverseKinematics(const tf::Transform& target_ee_pose, const sensor_msgs::JointState& init_actuator_vector, const tf::Transform& init_root_pose, bool orientation, bool full_body, bool collision_avoidance, bool debug)
 {
-
   /* declare the differential kinemtiacs const */
   pluginlib::ClassLoader<cost::Base>  cost_plugin_loader("differential_kinematics", "differential_kinematics::cost::Base");
   CostContainer cost_container;

@@ -59,8 +59,6 @@ namespace differential_kinematics
       {
         Base::initialize(nh, nhp, planner, constraint_name, orientation, full_body);
 
-        rotor_num_ = planner_->getRobotModelPtr()->getRotorNum();
-
         nc_ = 1; // temporary, using one dimension
 
         nhp_.param ("overlap_change_vel_thre", overlap_change_vel_thre_, 0.05);
@@ -198,8 +196,6 @@ namespace differential_kinematics
       bool directConstraint(){return false;}
 
     protected:
-      double rotor_num_;
-
       double overlap_change_vel_thre_;
       double overlap_constraint_range_;
       double overlap_forbidden_range_;

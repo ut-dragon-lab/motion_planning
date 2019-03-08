@@ -76,7 +76,6 @@ public:
             joint_name.find("pitch") != std::string::npos) &&
            tree_itr.second.segment.getJoint().getType() != KDL::Joint::JointType::None)
           {
-            ROS_WARN("multilink: has gimbal module");
             gimbal_module_flag_ = true;
             break;
           }

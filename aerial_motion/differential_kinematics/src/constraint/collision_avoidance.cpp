@@ -376,6 +376,3 @@ namespace differential_kinematics
 
 #include <pluginlib/class_list_macros.h>
 PLUGINLIB_EXPORT_CLASS(differential_kinematics::constraint::CollisionAvoidance, differential_kinematics::constraint::Base);
-
-
-

@@ -71,14 +71,17 @@ namespace differential_kinematics
 
         /* assign the joint name */
         chain_joint_index_.resize(0);
+
+        auto joint_names = planner_->getRobotModelPtr()->getLinkJointNames();
+
         for(auto seg : chain_.segments)
           {
             if(seg.getJoint().getType() !=  KDL::Joint::JointType::None)
               {
-                ROS_INFO("%s", seg.getJoint().getName().c_str()); //debug
-                auto itr = std::find(planner_->getRobotModelPtr()->getLinkJointNames().begin(), planner_->getRobotModelPtr()->getLinkJointNames().end(), seg.getJoint().getName());
-                assert(itr != planner_->getRobotModelPtr()->getLinkJointNames().end());
-                chain_joint_index_.push_back(planner_->getRobotModelPtr()->getLinkJointIndex().at(std::distance(planner_->getRobotModelPtr()->getLinkJointNames().begin(), itr)));
+                //ROS_INFO("%s", seg.getJoint().getName().c_str()); //debug
+                auto itr = std::find(joint_names.begin(), joint_names.end(), seg.getJoint().getName());
+                assert(itr != joint_names.end());
+                chain_joint_index_.push_back(planner_->getRobotModelPtr()->getLinkJointIndex().at(std::distance(joint_names.begin(), itr)));
               }
           }
       }

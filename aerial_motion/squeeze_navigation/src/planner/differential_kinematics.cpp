@@ -93,7 +93,8 @@ namespace squeeze_motion_planner
       nhp_.param("start_state_pitch", p, 0.0);
       nhp_.param("start_state_yaw", y, 0.0);
       pose.orientation = tf::createQuaternionMsgFromRollPitchYaw(r,p,y);
-      KDL::JntArray actuator_state(robot_model_ptr_->getActuatorMap().size());
+      /* getTree().getNrOfJoints() = link_joint + gimbal + rotor */
+      KDL::JntArray actuator_state(robot_model_ptr_->getTree().getNrOfJoints());
       for(int i = 0; i < robot_model_ptr_->getLinkJointNames().size(); i++)
         nhp_.param(std::string("start_") + robot_model_ptr_->getLinkJointNames().at(i), actuator_state(robot_model_ptr_->getLinkJointIndex().at(i)), 0.0);
       start_state_.setStatesFromRoot(robot_model_ptr_, pose, actuator_state);
@@ -109,7 +110,6 @@ namespace squeeze_motion_planner
       for(int i = 0; i < robot_model_ptr_->getLinkJointNames().size(); i++)
         nhp_.param(std::string("goal_") + robot_model_ptr_->getLinkJointNames().at(i), actuator_state(robot_model_ptr_->getLinkJointIndex().at(i)), 0.0);
       goal_state_.setStatesFromRoot(robot_model_ptr_, pose, actuator_state);
-
       ROS_WARN("model: %d", planner_core_ptr_->getMultilinkType());
 
       /* hard-coding to set env */
@@ -233,7 +233,8 @@ namespace squeeze_motion_planner
       /* 2. reference point cartesian error constraint (cost) */
       cost_container.push_back(cost_plugin_loader.createInstance("differential_kinematics_cost/cartesian_constraint"));
       cost_container.back()->initialize(nh_, nhp_, planner_core_ptr_, "differential_kinematics_cost/cartesian_constraint", false /* orientation */, true /* full_body */);
-      cartersian_constraint_ = boost::dynamic_pointer_cast<cost::CartersianConstraint>(cost_container.back());
+      //cartersian_constraint_ = boost::dynamic_pointer_cast<cost::CartersianConstraint>(cost_container.back());
+      cartersian_constraint_ = reinterpret_cast<cost::CartersianConstraint*>(cost_container.back().get());
       /* defualt reference point is the openning center */
       tf::Transform target_frame = openning_center_frame_;
       target_frame.setOrigin(target_frame.getOrigin() + openning_center_frame_.getBasis() * tf::Vector3(0, 0, delta_pinch_length_));
@@ -253,7 +254,8 @@ namespace squeeze_motion_planner
       /* 3. collision avoidance */
       constraint_container.push_back(constraint_plugin_loader.createInstance("differential_kinematics_constraint/collision_avoidance"));
       constraint_container.back()->initialize(nh_, nhp_, planner_core_ptr_, "differential_kinematics_constraint/collision_avoidance", true /* orientation */, true /* full_body */);
-      boost::dynamic_pointer_cast<constraint::CollisionAvoidance>(constraint_container.back())->setEnv(env_collision_);
+      //boost::dynamic_pointer_cast<constraint::CollisionAvoidance>(constraint_container.back())->setEnv(env_collision_);
+      reinterpret_cast<constraint::CollisionAvoidance*>(constraint_container.back().get())->setEnv(env_collision_);
 
       /* 4. additional plugins for cost and constraint, if necessary */
       auto pattern_match = [&](std::string &pl, std::string &pl_candidate) -> bool
@@ -354,7 +356,8 @@ namespace squeeze_motion_planner
     Phase phase_;
     double reference_point_ratio_;
 
-    boost::shared_ptr<cost::CartersianConstraint> cartersian_constraint_;
+    //boost::shared_ptr<cost::CartersianConstraint> cartersian_constraint_;
+    cost::CartersianConstraint* cartersian_constraint_;
 
     visualization_msgs::MarkerArray env_collision_;
 

@@ -54,7 +54,7 @@ namespace differential_kinematics
     class Base
     {
     public:
-      Base() {}
+      Base():nc_(0), rotor_num_(0) {}
       ~Base(){}
 
       void virtual initialize(ros::NodeHandle nh, ros::NodeHandle nhp,
@@ -63,9 +63,11 @@ namespace differential_kinematics
       {
         nh_ = ros::NodeHandle(nh, constraint_name);
         nhp_ = ros::NodeHandle(nhp, constraint_name);
+        nhp_.param("verbose", verbose_, false);
 
         planner_ = planner;
-        nhp_.param("verbose", verbose_, false);
+        rotor_num_ = planner->getRobotModelPtr()->getRotorNum();
+
 
         constraint_name_ = constraint_name;
         orientation_ = orientation;
@@ -88,6 +90,7 @@ namespace differential_kinematics
       bool verbose_;
       std::string constraint_name_;
       int nc_;
+      int rotor_num_;
 
       bool orientation_;
       bool full_body_;

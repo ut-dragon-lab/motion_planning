@@ -56,7 +56,7 @@ namespace differential_kinematics
                               bool orientation, bool full_body)
       {
         Base::initialize(nh, nhp, planner, constraint_name, orientation, full_body);
-        rotor_num_ = planner_->getRobotModelPtr()->getRotorNum();
+
         nc_ = 2 + rotor_num_;
 
         stability_margin_thre_ = planner_->getRobotModelPtr()->getStabilityMaginThresh();
@@ -217,7 +217,6 @@ namespace differential_kinematics
       bool directConstraint(){return false;}
 
     protected:
-      double rotor_num_;
       double stability_margin_thre_;
       double p_det_thre_;
       double f_min_, f_max_;

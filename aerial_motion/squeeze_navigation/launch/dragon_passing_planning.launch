@@ -24,7 +24,7 @@
     </include >
 
     <node name="rviz" pkg="rviz" type="rviz"
-          args="-d $(find sampling_based_method)/config/planning.rviz" respawn="false" />
+    args="-d $(find sampling_based_method)/config/planning.rviz" respawn="false" />
   </group>
 
   ########## Sampling based method (Moveit) ###########

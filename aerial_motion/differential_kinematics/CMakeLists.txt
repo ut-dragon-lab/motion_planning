@@ -51,7 +51,7 @@ generate_messages(
 
 catkin_package(
   INCLUDE_DIRS include fcl/include ${CMAKE_CURRENT_BINARY_DIR}/fcl/include ${CMAKE_CURRENT_BINARY_DIR}/qpOASES/qpOASES-3.0/include
-  LIBRARIES  differential_kinematics_planner_core end_effector_ik_solver_core fcl
+  LIBRARIES  differential_kinematics_planner_core end_effector_ik_solver_core fcl #differential_kinematics_cost_pluginlib differential_kinematics_constraint_pluginlib
   CATKIN_DEPENDS hydrus dragon
 )
 

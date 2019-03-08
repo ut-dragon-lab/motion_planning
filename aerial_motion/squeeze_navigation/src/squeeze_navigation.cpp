@@ -94,7 +94,6 @@ SqueezeNavigation::SqueezeNavigation(ros::NodeHandle nh, ros::NodeHandle nhp):
   nhp_.param("discrete_path_search_method_name", discrete_path_search_method_name, std::string("none"));
   discrete_path_planner_ = plugin_loader.createInstance(discrete_path_search_method_name);
   discrete_path_planner_->initialize(nh_, nhp_, robot_model_ptr_);
-
   /* continous path generator */
   /* e.g.: bspline */
   bspline_ptr_ = boost::shared_ptr<TinysplineInterface>(new TinysplineInterface(nh_, nhp_));
@@ -156,7 +155,7 @@ void SqueezeNavigation::planStartCallback(const std_msgs::Empty msg)
     }
   else
     {
-      if(!discrete_path_planner_->plan()) return;
+      if(!discrete_path_planner_->plan(debug_verbose_)) return;
     }
 
   /* low path filter */

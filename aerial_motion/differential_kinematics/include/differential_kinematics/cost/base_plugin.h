@@ -54,7 +54,7 @@ namespace differential_kinematics
     class Base
     {
     public:
-      Base() {}
+      Base(): rotor_num_(0) {}
       ~Base(){}
 
       void virtual initialize(ros::NodeHandle nh, ros::NodeHandle nhp,
@@ -65,6 +65,7 @@ namespace differential_kinematics
         nhp_ = ros::NodeHandle(nhp, cost_name);
 
         planner_ = planner;
+        rotor_num_ = planner->getRobotModelPtr()->getRotorNum();
 
         nhp_.param("verbose", verbose_, false);
 
@@ -82,6 +83,8 @@ namespace differential_kinematics
       ros::NodeHandle nhp_;
 
       boost::shared_ptr<differential_kinematics::Planner> planner_;
+
+      int rotor_num_;
 
       bool verbose_;
       std::string cost_name_;

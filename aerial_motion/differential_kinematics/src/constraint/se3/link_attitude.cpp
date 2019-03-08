@@ -64,8 +64,6 @@ namespace differential_kinematics
                               bool orientation, bool full_body)
       {
         Base::initialize(nh, nhp, planner, constraint_name, orientation, full_body);
-        rotor_num_ = planner_->getRobotModelPtr()->getRotorNum();
-
         nc_ = 2 * rotor_num_; //roll + pitch
 
         nhp_.param ("roll_angle_thre", roll_angle_thre_, 1.0);
@@ -198,8 +196,6 @@ namespace differential_kinematics
       bool directConstraint(){return false;}
 
     protected:
-      double rotor_num_;
-
       double roll_angle_thre_;
       double pitch_angle_thre_;
       double attitude_change_vel_thre_;

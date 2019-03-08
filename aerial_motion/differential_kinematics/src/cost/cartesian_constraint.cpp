@@ -38,7 +38,7 @@ namespace differential_kinematics
       KDL::Frame end_frame;
       KDL::ChainFkSolverPos_recursive fk_solver(chain_);
       KDL::JntArray joint_positions(chain_.getNrOfJoints());
-      //joint_positions.data = planner_->getTargetJointVector().head(chain_.getNrOfJoints());
+
       // TODO: check the validity
       for(int i = 0; i < chain_joint_index_.size(); i++)
         joint_positions(i) = planner_->getTargetActuatorVector<KDL::JntArray>()(chain_joint_index_.at(i));

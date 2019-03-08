@@ -12,6 +12,7 @@ find_package(catkin REQUIRED COMPONENTS
   sampling_based_method
   differential_kinematics
   pluginlib
+  moveit_msgs
 )
 
 ## System dependencies are found with CMake's conventions

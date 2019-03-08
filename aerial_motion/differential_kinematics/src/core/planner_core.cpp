@@ -58,7 +58,6 @@ namespace differential_kinematics
             if(tree_itr.second.segment.getJoint().JointAxis().z() == 0)
               {
                 multilink_type_ = motion_type::SE3;
-                ROS_ERROR("multilink_type: %d", multilink_type_);
               }
           }
 
@@ -67,7 +66,6 @@ namespace differential_kinematics
             joint_name.find("pitch") != std::string::npos) &&
            tree_itr.second.segment.getJoint().getType() != KDL::Joint::JointType::None)
           {
-            ROS_ERROR("has gimbal module");
             gimbal_module_flag_ = true;
           }
       }
@@ -114,12 +112,10 @@ namespace differential_kinematics
         tf::quaternionTFToKDL(target_root_pose_.getRotation(), root_att);
         robot_model_ptr_->setCogDesireOrientation(root_att);
         robot_model_ptr_->updateRobotModel(target_actuator_vector_);
-
         /* special check */
         if(!robot_model_ptr_->stabilityMarginCheck()) ROS_ERROR("[differential kinematics] update modelling, bad stability margin: %f", robot_model_ptr_->getStabilityMargin());
         if(!robot_model_ptr_->modelling()) ROS_ERROR("[differential kinematics] update modelling, bad stability from force");
         if(!robot_model_ptr_->overlapCheck()) ROS_ERROR("[differential kinematics] update overlap check, detect overlap with this form");
-
         /* update each cost or constraint (e.g. changable ik), if necessary */
         for(auto func_itr = update_func_vector_.begin(); func_itr != update_func_vector_.end(); func_itr++)
           {
@@ -134,7 +130,6 @@ namespace differential_kinematics
         /* special process for model which has gimbal module (e.g. dragon) */
         if(gimbal_module_flag_)
           {
-            ROS_INFO("debug: get gimbal module");
             auto dragon_model_ptr = boost::dynamic_pointer_cast<DragonRobotModel>(robot_model_ptr_);
             assert(target_actuator_vector_.rows() == dragon_model_ptr->getGimbalProcessedJoint<KDL::JntArray>().rows());
             target_actuator_vector_ = dragon_model_ptr->getGimbalProcessedJoint<KDL::JntArray>();
@@ -192,9 +187,7 @@ namespace differential_kinematics
 
         // if(debug) std::cout << "the init qp lb is: \n" << qp_lb << std::endl;
         // if(debug) std::cout << "the init qp ub is: \n" << qp_ub << std::endl;
-
         if(l == 0) modelUpdate(); // store the init state
-
         /* step2: check convergence & update Hessian and Gradient */
         bool convergence = true;
         for(auto itr = cost_container.begin(); itr != cost_container.end(); itr++)
@@ -206,7 +199,6 @@ namespace differential_kinematics
             (*itr)->getHessianGradient(single_convergence, single_H, single_g, debug);
             qp_H += single_H;
             qp_g += single_g;
-
             convergence &= single_convergence;
           }
 
@@ -232,6 +224,7 @@ namespace differential_kinematics
                 return false;
               }
 
+            /* for qpoasese */
             if((*itr)->directConstraint()) /* without constraint matrix */
               {
                 if(qp_solver->getNV() != (*itr)->getNc())
