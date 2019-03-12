@@ -85,6 +85,8 @@ namespace differential_kinematics
     const std::vector<tf::Transform>& getRootPoseSequence() const {return target_root_pose_sequence_;}
     const std::vector<KDL::JntArray>& getActuatorStateSequence() const {return target_actuator_vector_sequence_;}
 
+    /* special for gimbal model */
+    const bool getGimbalModuleFlag() const { return gimbal_module_flag_; }
   private:
     ros::NodeHandle nh_;
     ros::NodeHandle nhp_;
