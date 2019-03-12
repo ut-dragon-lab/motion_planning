@@ -4,50 +4,51 @@ namespace differential_kinematics
 {
   namespace cost
   {
-    template <class motion_planner>
-    void CartersianConstraint<motion_planner>::initialize(ros::NodeHandle nh,
+    void CartersianConstraint::initialize(ros::NodeHandle nh,
                                                           ros::NodeHandle nhp,
-                                                          boost::shared_ptr<motion_planner> planner,
+                                                          boost::shared_ptr<differential_kinematics::Planner> planner,
                                                           std::string cost_name,
                                                           bool orientation, bool full_body)
     {
-      Base<motion_planner>::initialize(nh, nhp, planner, cost_name, orientation, full_body);
+      Base::initialize(nh, nhp, planner, cost_name, orientation, full_body);
 
-      Base<motion_planner>::nhp_.param ("pos_convergence_thre", pos_convergence_thre_, 0.001); //[m]
-      if(Base<motion_planner>::verbose_) std::cout << "pos_convergence_thre: " << std::setprecision(3) << pos_convergence_thre_ << std::endl;
-      Base<motion_planner>::nhp_.param ("rot_convergence_thre", rot_convergence_thre_, 0.017); //[rad]
-      if(Base<motion_planner>::verbose_) std::cout << "rot_convergence_thre: " << std::setprecision(3) << rot_convergence_thre_ << std::endl;
-      Base<motion_planner>::nhp_.param ("pos_err_max", pos_err_max_, 0.1); //[m]
-      if(Base<motion_planner>::verbose_) std::cout << "pos_err_max: " << std::setprecision(3) << pos_err_max_ << std::endl;
-      Base<motion_planner>::nhp_.param ("rot_err_max", rot_err_max_, 0.17); //[rad]
-      if(Base<motion_planner>::verbose_) std::cout << "rot_err_max: " << std::setprecision(3) << rot_err_max_ << std::endl;
-      Base<motion_planner>::nhp_.param ("w_pos_err_constraint", w_pos_err_constraint_, 1.0);
-      if(Base<motion_planner>::verbose_) std::cout << "w_pos_err_constraint: " << std::setprecision(3) << w_pos_err_constraint_ << std::endl;
-      Base<motion_planner>::nhp_.param ("w_att_err_constraint", w_att_err_constraint_, 1.0);
-      if(Base<motion_planner>::verbose_) std::cout << "w_att_err_constraint: " << std::setprecision(3) << w_att_err_constraint_ << std::endl;
+      nhp_.param ("pos_convergence_thre", pos_convergence_thre_, 0.001); //[m]
+      if(verbose_) std::cout << "pos_convergence_thre: " << std::setprecision(3) << pos_convergence_thre_ << std::endl;
+      nhp_.param ("rot_convergence_thre", rot_convergence_thre_, 0.017); //[rad]
+      if(verbose_) std::cout << "rot_convergence_thre: " << std::setprecision(3) << rot_convergence_thre_ << std::endl;
+      nhp_.param ("pos_err_max", pos_err_max_, 0.1); //[m]
+      if(verbose_) std::cout << "pos_err_max: " << std::setprecision(3) << pos_err_max_ << std::endl;
+      nhp_.param ("rot_err_max", rot_err_max_, 0.17); //[rad]
+      if(verbose_) std::cout << "rot_err_max: " << std::setprecision(3) << rot_err_max_ << std::endl;
+      nhp_.param ("w_pos_err_constraint", w_pos_err_constraint_, 1.0);
+      if(verbose_) std::cout << "w_pos_err_constraint: " << std::setprecision(3) << w_pos_err_constraint_ << std::endl;
+      nhp_.param ("w_att_err_constraint", w_att_err_constraint_, 1.0);
+      if(verbose_) std::cout << "w_att_err_constraint: " << std::setprecision(3) << w_att_err_constraint_ << std::endl;
 
       W_cartesian_err_constraint_ = Eigen::MatrixXd::Identity(6, 6);
       W_cartesian_err_constraint_.block(0, 0, 3, 3) *=  w_pos_err_constraint_;
-      if(Base<motion_planner>::orientation_) W_cartesian_err_constraint_.block(3, 3, 3, 3) *= w_att_err_constraint_;
+      if(orientation_) W_cartesian_err_constraint_.block(3, 3, 3, 3) *= w_att_err_constraint_;
       else W_cartesian_err_constraint_.block(3, 3, 3, 3) = Eigen::MatrixXd::Zero(3, 3);
     }
 
-    template <class motion_planner>
-    bool CartersianConstraint<motion_planner>::getHessianGradient(bool& convergence, Eigen::MatrixXd& H, Eigen::VectorXd& g, bool debug)
+    bool CartersianConstraint::getHessianGradient(bool& convergence, Eigen::MatrixXd& H, Eigen::VectorXd& g, bool debug)
     {
       convergence = false;
 
       KDL::Frame end_frame;
       KDL::ChainFkSolverPos_recursive fk_solver(chain_);
       KDL::JntArray joint_positions(chain_.getNrOfJoints());
-      joint_positions.data = Base<motion_planner>::planner_->getTargetJointVector().head(chain_.getNrOfJoints());
+
+      // TODO: check the validity
+      for(int i = 0; i < chain_joint_index_.size(); i++)
+        joint_positions(i) = planner_->getTargetActuatorVector<KDL::JntArray>()(chain_joint_index_.at(i));
       fk_solver.JntToCart(joint_positions, end_frame);
 
       tf::Transform end_tf;
       tf::transformKDLToTF(end_frame, end_tf);
       if(debug)
         ROS_WARN("end x: %f,  y: %f, yaw: %f, target end  [%f, %f, %f], yaw: %f", end_tf.getOrigin().x(), end_tf.getOrigin().y(), tf::getYaw(end_tf.getRotation()), target_reference_frame_.getOrigin().x(), target_reference_frame_.getOrigin().y(), target_reference_frame_.getOrigin().z(), tf::getYaw(target_reference_frame_.getRotation()));
-      tf::Transform tf_err =  (Base<motion_planner>::planner_->getTargetRootPose() * end_tf).inverse() * target_reference_frame_;
+      tf::Transform tf_err =  (planner_->getTargetRootPose() * end_tf).inverse() * target_reference_frame_;
       //tf::Transform tf_err =  end_tf.inverse() * target_reference_frame_;
       double pos_err = tf_err.getOrigin().length();
       double rot_err = fabs(tf_err.getRotation().getAngleShortestPath());
@@ -58,7 +59,7 @@ namespace differential_kinematics
       /* check convergence */
       if(pos_err < pos_convergence_thre_ ) /* position convergence */
         {
-          if(!Base<motion_planner>::orientation_)  convergence = true;
+          if(!orientation_)  convergence = true;
           else
             if(rot_err < rot_convergence_thre_) convergence = true;
         }
@@ -77,14 +78,14 @@ namespace differential_kinematics
       tf::vectorTFToEigen(target_rot_err_root_link, temp_vec);
       delta_cartesian.tail(3) = temp_vec;
 
-      if(Base<motion_planner>::planner_->getMultilinkType() == motion_type::SE2)
+      if(planner_->getMultilinkType() == motion_type::SE2)
         {
-          if(!Base<motion_planner>::orientation_) delta_cartesian.segment(2, 4) = Eigen::VectorXd::Zero(4);
+          if(!orientation_) delta_cartesian.segment(2, 4) = Eigen::VectorXd::Zero(4);
           else delta_cartesian.segment(2, 3) = Eigen::VectorXd::Zero(3);
         }
       else
         {
-          if(!Base<motion_planner>::orientation_) delta_cartesian.segment(3, 3) = Eigen::VectorXd::Zero(3);
+          if(!orientation_) delta_cartesian.segment(3, 3) = Eigen::VectorXd::Zero(3);
         }
 
       if(debug) std::cout << "delta cartesian: \n" << delta_cartesian.transpose() << std::endl;
@@ -104,21 +105,23 @@ namespace differential_kinematics
       if(debug)
         {
           std::cout << "the Weight Matrix of cartesian_err constraint: \n" << W_cartesian_err_constraint_ << std::endl;
-          std::cout << "cost name: " << Base<motion_planner>::cost_name_ << ", H: \n" << H << std::endl;
-          std::cout << "cost name: " << Base<motion_planner>::cost_name_ << ", g: \n" << g.transpose() << std::endl;
+          std::cout << "cost name: " << cost_name_ << ", H: \n" << H << std::endl;
+          std::cout << "cost name: " << cost_name_ << ", g: \n" << g.transpose() << std::endl;
         }
 
       return true;
     }
 
-    template <class motion_planner>
-    bool CartersianConstraint<motion_planner>::calcJointJacobian(Eigen::MatrixXd& jacobian, bool debug)
+    bool CartersianConstraint::calcJointJacobian(Eigen::MatrixXd& jacobian, bool debug)
     {
-      jacobian = Eigen::MatrixXd::Zero(6, Base<motion_planner>::j_ndof_ + 6);
+      jacobian = Eigen::MatrixXd::Zero(6, planner_->getRobotModelPtr()->getLinkJointIndex().size() + 6);
 
       /* fill the joint state */
       KDL::JntArray joint_positions(chain_.getNrOfJoints());
-      joint_positions.data = (Base<motion_planner>::planner_->getTargetJointVector()).head(chain_.getNrOfJoints());
+      //joint_positions.data = planner_->getTargetJointVector().head(chain_.getNrOfJoints());
+      // TODO: check the validity
+      for(int i = 0; i < chain_joint_index_.size(); i++)
+        joint_positions(i) = planner_->getTargetActuatorVector<KDL::JntArray>()(chain_joint_index_.at(i));
 
       if(chain_.getNrOfJoints() > 0 )
         {
@@ -132,12 +135,12 @@ namespace differential_kinematics
             }
           else
             {
-              ROS_WARN("cost (%s) can not calculate the jacobian", Base<motion_planner>::cost_name_.c_str());
+              ROS_WARN("cost (%s) can not calculate the jacobian", cost_name_.c_str());
               return false;
             }
         }
 
-      if(Base<motion_planner>::full_body_)
+      if(full_body_)
         {
           /* consider root is attached with a 6Dof free joint */
 
@@ -157,16 +160,16 @@ namespace differential_kinematics
         }
 
       /* special */
-      if(Base<motion_planner>::planner_->getMultilinkType() == motion_type::SE2)
+      if(planner_->getMultilinkType() == motion_type::SE2)
         {
-          if(!Base<motion_planner>::orientation_)
+          if(!orientation_)
             jacobian.block(2, 0, 4, jacobian.cols()) = Eigen::MatrixXd::Zero(4, jacobian.cols());
           else
             jacobian.block(2, 0, 3, jacobian.cols()) = Eigen::MatrixXd::Zero(3, jacobian.cols());
         }
       else
         {
-          if(!Base<motion_planner>::orientation_)
+          if(!orientation_)
             jacobian.block(3, 0, 3, jacobian.cols()) = Eigen::MatrixXd::Zero(3, jacobian.cols());
         }
 
@@ -177,5 +180,4 @@ namespace differential_kinematics
 };
 
 #include <pluginlib/class_list_macros.h>
-#include <differential_kinematics/planner_core.h>
-PLUGINLIB_EXPORT_CLASS(differential_kinematics::cost::CartersianConstraint<differential_kinematics::Planner>, differential_kinematics::cost::Base<differential_kinematics::Planner>);
+PLUGINLIB_EXPORT_CLASS(differential_kinematics::cost::CartersianConstraint, differential_kinematics::cost::Base);

@@ -39,50 +39,60 @@ namespace differential_kinematics
 {
   namespace constraint
   {
-    template <class motion_planner>
-    class StateLimit :public Base<motion_planner>
+    class StateLimit :public Base
     {
     public:
       StateLimit() {}
       ~StateLimit(){}
 
       void virtual initialize(ros::NodeHandle nh, ros::NodeHandle nhp,
-                              boost::shared_ptr<motion_planner> planner, std::string constraint_name,
+                              boost::shared_ptr<differential_kinematics::Planner> planner,
+                              std::string constraint_name,
                               bool orientation, bool full_body)
       {
-        Base<motion_planner>::initialize(nh, nhp, planner, constraint_name, orientation, full_body);
-        Base<motion_planner>::nc_ = 6 + Base<motion_planner>::j_ndof_;
+        Base::initialize(nh, nhp, planner, constraint_name, orientation, full_body);
+        nc_ = 6 + planner_->getRobotModelPtr()->getLinkJointIndex().size();
 
-        joint_angle_min_ = Base<motion_planner>::planner_->getRobotModelPtr()->joint_angle_min_;
-        joint_angle_max_ = Base<motion_planner>::planner_->getRobotModelPtr()->joint_angle_max_;
+        nhp_.param ("root_translational_vel_thre", root_translational_vel_thre_, 0.05);
+        if(verbose_) std::cout << "root_translational_vel_thre: " << std::setprecision(3) << root_translational_vel_thre_ << std::endl;
+        nhp_.param ("root_rotational_vel_thre", root_rotational_vel_thre_, 0.1);
+        if(verbose_) std::cout << "root_rotational_vel_thre: " << std::setprecision(3) << root_rotational_vel_thre_ << std::endl;
+        nhp_.param ("joint_vel_thre", joint_vel_thre_, 0.1);
+        if(verbose_) std::cout << "joint_vel_thre: " << std::setprecision(3) << joint_vel_thre_ << std::endl;
+        nhp_.param ("joint_vel_constraint_range", joint_vel_constraint_range_, 0.2);
+        if(verbose_) std::cout << "joint_vel_constraint_range: " << std::setprecision(3) << joint_vel_constraint_range_ << std::endl;
+        nhp_.param ("joint_vel_forbidden_range", joint_vel_forbidden_range_, 0.1);
+        if(verbose_) std::cout << "joint_vel_forbidden_range: " << std::setprecision(3) << joint_vel_forbidden_range_ << std::endl;
 
-        Base<motion_planner>::nhp_.param ("root_translational_vel_thre", root_translational_vel_thre_, 0.05);
-        if(Base<motion_planner>::verbose_) std::cout << "root_translational_vel_thre: " << std::setprecision(3) << root_translational_vel_thre_ << std::endl;
-        Base<motion_planner>::nhp_.param ("root_rotational_vel_thre", root_rotational_vel_thre_, 0.1);
-        if(Base<motion_planner>::verbose_) std::cout << "root_rotational_vel_thre: " << std::setprecision(3) << root_rotational_vel_thre_ << std::endl;
-        Base<motion_planner>::nhp_.param ("joint_vel_thre", joint_vel_thre_, 0.1);
-        if(Base<motion_planner>::verbose_) std::cout << "joint_vel_thre: " << std::setprecision(3) << joint_vel_thre_ << std::endl;
-        Base<motion_planner>::nhp_.param ("joint_vel_constraint_range", joint_vel_constraint_range_, 0.2);
-        if(Base<motion_planner>::verbose_) std::cout << "joint_vel_constraint_range: " << std::setprecision(3) << joint_vel_constraint_range_ << std::endl;
-        Base<motion_planner>::nhp_.param ("joint_vel_forbidden_range", joint_vel_forbidden_range_, 0.1);
-        if(Base<motion_planner>::verbose_) std::cout << "joint_vel_forbidden_range: " << std::setprecision(3) << joint_vel_forbidden_range_ << std::endl;
+        auto robot_model_ptr = planner_->getRobotModelPtr();
+        joint_lower_limits_.resize(robot_model_ptr->getLinkJointNames().size());
+        joint_upper_limits_.resize(robot_model_ptr->getLinkJointNames().size());
+        for(int i = 0; i < robot_model_ptr->getLinkJointNames().size(); i++)
+          {
+            nhp_.param(robot_model_ptr->getLinkJointNames().at(i) + std::string("_lower_limit"), joint_lower_limits_.at(i), robot_model_ptr->getLinkJointLowerLimits().at(i));
+            nhp_.param(robot_model_ptr->getLinkJointNames().at(i) + std::string("_upper_limit"), joint_upper_limits_.at(i), robot_model_ptr->getLinkJointUpperLimits().at(i));
+
+            if(verbose_) std::cout << robot_model_ptr->getLinkJointNames().at(i) + std::string("_lower_limit") << ": " << std::setprecision(3) << robot_model_ptr->getLinkJointLowerLimits().at(i) << std::endl;
+            if(verbose_) std::cout << robot_model_ptr->getLinkJointNames().at(i) + std::string("_upper_limit") << ": " << std::setprecision(3) << robot_model_ptr->getLinkJointUpperLimits().at(i) << std::endl;
+          }
       }
 
       bool getConstraint(Eigen::MatrixXd& A, Eigen::VectorXd& lb, Eigen::VectorXd& ub, bool debug = false)
       {
-        A = Eigen::MatrixXd::Zero(Base<motion_planner>::nc_, Base<motion_planner>::j_ndof_ + 6);
-        lb = Eigen::VectorXd::Constant(Base<motion_planner>::nc_, 1);
-        ub = Eigen::VectorXd::Constant(Base<motion_planner>::nc_, 1);
+        int j_ndof = planner_->getRobotModelPtr()->getLinkJointIndex().size();
+        A = Eigen::MatrixXd::Zero(nc_, j_ndof + 6);
+        lb = Eigen::VectorXd::Constant(nc_, 1);
+        ub = Eigen::VectorXd::Constant(nc_, 1);
 
         /* root */
-        if(Base<motion_planner>::full_body_)
+        if(full_body_)
           {
             lb.segment(0, 3) *= -root_translational_vel_thre_;
             ub.segment(0, 3) *= root_translational_vel_thre_;
             lb.segment(3, 3) *= -root_rotational_vel_thre_;
             ub.segment(3, 3) *= root_rotational_vel_thre_;
 
-            if(Base<motion_planner>::planner_->getMultilinkType() == motion_type::SE2)
+            if(planner_->getMultilinkType() == motion_type::SE2)
               {
                 lb.segment(2, 3) *= 0;
                 ub.segment(2, 3) *= 0;
@@ -95,25 +105,27 @@ namespace differential_kinematics
           }
 
         /* joint */
-        Eigen::VectorXd joint_vector = Base<motion_planner>::planner_->getTargetJointVector();
+        auto actuator_vector = planner_->getTargetActuatorVector<KDL::JntArray>();
 
-        lb.tail(Base<motion_planner>::j_ndof_) *= -joint_vel_thre_;
-        ub.tail(Base<motion_planner>::j_ndof_) *= joint_vel_thre_;
-        for(int i = 0; i < Base<motion_planner>::j_ndof_; i ++)
+        lb.tail(j_ndof) *= -joint_vel_thre_;
+        ub.tail(j_ndof) *= joint_vel_thre_;
+        for(int i = 0; i < j_ndof; i ++)
           {
+            auto index = planner_->getRobotModelPtr()->getLinkJointIndex().at(i);
+
             /* min */
-            if(joint_vector(i) - joint_angle_min_ < joint_vel_constraint_range_)
-              lb(i + 6) *= (joint_vector(i) - joint_angle_min_ - joint_vel_forbidden_range_) / (joint_vel_constraint_range_ - joint_vel_forbidden_range_);
+            if(actuator_vector(index) - planner_->getRobotModelPtr()->getLinkJointLowerLimits().at(i) < joint_vel_constraint_range_)
+              lb(i + 6) *= (actuator_vector(index) - planner_->getRobotModelPtr()->getLinkJointLowerLimits().at(i) - joint_vel_forbidden_range_) / (joint_vel_constraint_range_ - joint_vel_forbidden_range_);
+
             /* max */
-            if(joint_angle_max_ - joint_vector(i)  < joint_vel_constraint_range_)
-              ub(i + 6) *=
-                (joint_angle_max_ - joint_vector(i) - joint_vel_forbidden_range_) / (joint_vel_constraint_range_ - joint_vel_forbidden_range_);
+            if(planner_->getRobotModelPtr()->getLinkJointUpperLimits().at(i) - actuator_vector(index)  < joint_vel_constraint_range_)
+              ub(i + 6) *= (planner_->getRobotModelPtr()->getLinkJointUpperLimits().at(i) - actuator_vector(index) - joint_vel_forbidden_range_) / (joint_vel_constraint_range_ - joint_vel_forbidden_range_);
           }
 
         if(debug)
           {
-            std::cout << "constraint name: " << Base<motion_planner>::constraint_name_ << ", lb: \n" << lb.transpose() << std::endl;
-            std::cout << "constraint name: " << Base<motion_planner>::constraint_name_ << ", ub: \n" << ub.transpose() << std::endl;
+            std::cout << "constraint name: " << constraint_name_ << ", lb: \n" << lb.transpose() << std::endl;
+            std::cout << "constraint name: " << constraint_name_ << ", ub: \n" << ub.transpose() << std::endl;
           }
         return true;
       }
@@ -128,15 +140,14 @@ namespace differential_kinematics
       double joint_vel_thre_;
       double joint_vel_constraint_range_;
       double joint_vel_forbidden_range_;
-      double joint_angle_min_;
-      double joint_angle_max_;
+
+      std::vector<double> joint_lower_limits_, joint_upper_limits_;
     };
   };
 };
 
 #include <pluginlib/class_list_macros.h>
-#include <differential_kinematics/planner_core.h>
-PLUGINLIB_EXPORT_CLASS(differential_kinematics::constraint::StateLimit<differential_kinematics::Planner>, differential_kinematics::constraint::Base<differential_kinematics::Planner>);
+PLUGINLIB_EXPORT_CLASS(differential_kinematics::constraint::StateLimit, differential_kinematics::constraint::Base);
 
 
 

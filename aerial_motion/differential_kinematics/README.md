@@ -1,14 +1,14 @@
 # Samples
 
-### 1. End-effector IK
+### Sample1: End-effector IK
 
-#### Hydrus
+#### Hydrus (SE2 model)
 1. start ``` $ roscore```
 2.  create the environment obstacle. following command will create a simple cylinder in the environment.
 ```$ rosrun differential_kinematics simple_collision.py _position_x:=0.3 _position_y:=0.3 _scale_x:=0.1 _scale_y:=0.1 _scale_z:=0.3```
 
 3. launch the IK solver
-``` $ roslaunch differential_kinematics end_effector_ik.launch headless:=false ```
+``` $ roslaunch  differential_kinematics  hydrus_end_effector_ik.launch ```
 
 4. send the IK target point to this solver via rosservice.
 ```
@@ -22,6 +22,8 @@ debug: false"
 
 *Note*: You should confirm the animation in rviz, which the end-effector (attached at the 4th link) moves to the target point [-0.6, 0.6] and yaw: -3.14 gradually without colliding into the red cylinder
 
-### 2. Gap (Opening) Passing:
+#### Dragon (SE3 model)
 
-move the code to [squeeze_navigation](https://github.com/tongtybj/motion_planning/tree/master/aerial_motion/squeeze_navigation)
+### Sample2: Gap (Opening) Passing
+
+Refer to [squeeze_navigation](https://github.com/tongtybj/motion_planning/tree/master/aerial_motion/squeeze_navigation)

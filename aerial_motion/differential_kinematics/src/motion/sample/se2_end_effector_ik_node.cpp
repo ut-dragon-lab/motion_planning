@@ -34,7 +34,6 @@
  *********************************************************************/
 
 #include <differential_kinematics/motion/end_effector_ik_solver_core.h>
-#include <hydrus/transform_control.h>
 
 int main(int argc, char **argv)
 {
@@ -42,7 +41,9 @@ int main(int argc, char **argv)
 
   ros::NodeHandle nh;
   ros::NodeHandle nhp("~");
-  EndEffectorIKSolverCore *ik_solver = new EndEffectorIKSolverCore(nh,nhp, boost::shared_ptr<TransformController>(new TransformController(nh, nhp, false)));
+
+  EndEffectorIKSolverCore *ik_solver = new EndEffectorIKSolverCore(nh, nhp, boost::shared_ptr<HydrusRobotModel>(new HydrusRobotModel(true)));
+
   ros::spin();
 
   ros::shutdown();

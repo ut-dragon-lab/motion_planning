@@ -34,7 +34,7 @@
  *********************************************************************/
 
 #include <squeeze_navigation/planner/base_plugin.h>
-#include <sampling_based_method/se3/motion_planning.h>
+#include <sampling_based_method/motion_planning.h>
 
 namespace squeeze_motion_planner
 {
@@ -44,31 +44,181 @@ namespace squeeze_motion_planner
     SamplingBasedMethod(){}
     ~SamplingBasedMethod() {}
 
-    void initialize(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<TransformController> robot_model_ptr)
+    void initialize(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<HydrusRobotModel> robot_model_ptr)
     {
       Base::initialize(nh, nhp, robot_model_ptr);
-      int motion_type;
-      nhp_.param("motion_type", motion_type, 0);
-      if (motion_type == motion_type::SE2) //SE2
-        planner_core_ = boost::shared_ptr<sampling_base::se2::MotionPlanning>(new sampling_base::se2::MotionPlanning(nh, nhp, robot_model_ptr_));
-      else // Se3
-        planner_core_ = boost::shared_ptr<sampling_base::se2::MotionPlanning>(new sampling_base::se3::MotionPlanning(nh, nhp, robot_model_ptr_));
+
+      planner_core_ = boost::shared_ptr<sampling_base::MotionPlanning>(new sampling_base::MotionPlanning(nh, nhp, robot_model_ptr_));
+
+      planner_core_->setScene(setCollisionWorld());
     };
 
+    const moveit_msgs::CollisionObject& setCollisionWorld()
+    {
+      moveit_msgs::CollisionObject collision_object;
+
+      /* set env */
+      collision_object.header.frame_id = "world";
+      collision_object.id = "box";
+
+      geometry_msgs::Pose wall_pose;
+      wall_pose.orientation.w = 1.0;
+      wall_pose.position.z = 0.0;
+      shape_msgs::SolidPrimitive wall_primitive;
+      wall_primitive.type = wall_primitive.BOX;
+      wall_primitive.dimensions.resize(3);
+
+      /* gap type 1: vertical gap */
+      int gap_type ;
+      nhp_.param("gap_type", gap_type, 0); //Type0: vertical; Type1: horizontal
+      if(gap_type == HORIZONTAL_GAP)
+        {
+          double gap_left_x;
+          double gap_x_offset;
+          double gap_y_offset;
+          double gap_left_width;
+          double gap_right_width;
+
+          nhp_.param("gap_left_x", gap_left_x, 0.0);
+          nhp_.param("gap_y_offset", gap_y_offset, 0.6); //minus: overlap
+          nhp_.param("gap_left_width", gap_left_width, 0.3); //minus: bandwidth
+          nhp_.param("gap_right_width", gap_right_width, 0.3); //minus: bandwidth
+
+          wall_primitive.dimensions[2] = 10;
+
+          wall_pose.position.x = gap_left_x + gap_left_width /2;
+          wall_pose.position.y =  (2.5 + gap_y_offset) /2;
+          wall_primitive.dimensions[0] = gap_left_width;
+          wall_primitive.dimensions[1] = 2.5;
+          collision_object.primitives.push_back(wall_primitive);
+          collision_object.primitive_poses.push_back(wall_pose);
+
+          wall_pose.position.x = gap_left_x + gap_right_width /2;
+          wall_pose.position.y = - (2.5 + gap_y_offset) /2;
+          collision_object.primitives.push_back(wall_primitive);
+          collision_object.primitive_poses.push_back(wall_pose);
+
+          wall_pose.position.x = 1.0;
+          wall_pose.position.y = 2.5;
+          wall_primitive.dimensions[0] = 8;
+          wall_primitive.dimensions[1] = 0.6;
+          collision_object.primitives.push_back(wall_primitive);
+          collision_object.primitive_poses.push_back(wall_pose);
+
+          wall_pose.position.y = -2.5;
+          collision_object.primitives.push_back(wall_primitive);
+          collision_object.primitive_poses.push_back(wall_pose);
+        }
+      if(gap_type == VERTICAL_GAP)
+        {
+          double gap_x_width, gap_y_width, gap_height;
+          double wall_length = 10;
+
+          nhp_.param("gap_x_width", gap_x_width, 1.0);
+          nhp_.param("gap_y_width", gap_y_width, 1.0);
+          nhp_.param("gap_height", gap_height, 0.3);
+
+          /* gap */
+          wall_pose.position.x = gap_x_width / 2 + wall_length / 2;
+          wall_pose.position.y = 0;
+          wall_pose.position.z = gap_height;
+          wall_primitive.dimensions[0] = wall_length;
+          wall_primitive.dimensions[1] = wall_length;
+          wall_primitive.dimensions[2] = 0.05;
+          collision_object.primitives.push_back(wall_primitive);
+          collision_object.primitive_poses.push_back(wall_pose);
+
+          wall_pose.position.x = 0;
+          wall_pose.position.y = gap_y_width / 2 + wall_length / 2;
+          collision_object.primitives.push_back(wall_primitive);
+          collision_object.primitive_poses.push_back(wall_pose);
+
+          wall_pose.position.x = -gap_x_width / 2 - wall_length / 2;
+          wall_pose.position.y = 0;
+          collision_object.primitives.push_back(wall_primitive);
+          collision_object.primitive_poses.push_back(wall_pose);
+
+          wall_pose.position.x = 0;
+          wall_pose.position.y = -gap_y_width / 2 - wall_length / 2;
+          collision_object.primitives.push_back(wall_primitive);
+          collision_object.primitive_poses.push_back(wall_pose);
+
+          bool load_path_flag;
+          nhp_.param("load_path_flag", load_path_flag, false);
+          if(!load_path_flag)
+            {
+              double ceiling_offset, side_wall_width;
+              nhp_.param("ceiling_offset", ceiling_offset, 0.6);
+              nhp_.param("side_wall_width", side_wall_width, 2.0);
+
+              /* planning mode */
+              /* ceil */
+              wall_pose.position.x = 0;
+              wall_pose.position.y = 0;
+              wall_pose.position.z = ceiling_offset + gap_height;
+              wall_primitive.dimensions[0] = wall_length;
+              wall_primitive.dimensions[1] = wall_length;
+              wall_primitive.dimensions[2] = 0.05;
+              collision_object.primitives.push_back(wall_primitive);
+              collision_object.primitive_poses.push_back(wall_pose);
+
+              /* ground */
+              wall_pose.position.z = 0;
+              collision_object.primitives.push_back(wall_primitive);
+              collision_object.primitive_poses.push_back(wall_pose);
+
+              /* side wall */
+              wall_pose.position.x = side_wall_width / 2;
+              wall_pose.position.y = 0;
+              wall_pose.position.z = gap_height / 2;
+              wall_primitive.dimensions[0] = 0.05;
+              wall_primitive.dimensions[1] = side_wall_width;
+              wall_primitive.dimensions[2] = gap_height;
+              collision_object.primitives.push_back(wall_primitive);
+              collision_object.primitive_poses.push_back(wall_pose);
+
+              wall_pose.position.x = - side_wall_width / 2;
+              collision_object.primitives.push_back(wall_primitive);
+              collision_object.primitive_poses.push_back(wall_pose);
+
+              wall_pose.position.x = 0;
+              wall_pose.position.y = side_wall_width / 2;
+              wall_primitive.dimensions[0] = side_wall_width;
+              wall_primitive.dimensions[1] = 0.05;
+              collision_object.primitives.push_back(wall_primitive);
+              collision_object.primitive_poses.push_back(wall_pose);
+
+              wall_pose.position.x = 0;
+              wall_pose.position.y = -side_wall_width / 2;
+              collision_object.primitives.push_back(wall_primitive);
+              collision_object.primitive_poses.push_back(wall_pose);
+            }
+        }
+      collision_object.operation = collision_object.ADD;
+    }
+
     const std::vector<MultilinkState>& getPathConst() const
-    { planner_core_->getPathConst(); }
+    {
+      planner_core_->getPathConst();
+    }
 
     const MultilinkState& getStateConst(int index) const
-    { planner_core_->getStateConst(index); }
+    {
+      planner_core_->getStateConst(index);
+    }
 
-    bool plan (bool debug) {return planner_core_->plan();}
+    bool plan (bool debug)
+    {
+      return planner_core_->plan();
+    }
+
     bool loadPath() { return planner_core_->loadPath();}
 
     void visualizeFunc() {}
     void checkCollision(MultilinkState state) { planner_core_->checkCollision(state); }
 
   private:
-    boost::shared_ptr<sampling_base::se2::MotionPlanning> planner_core_;
+    boost::shared_ptr<sampling_base::MotionPlanning> planner_core_;
   };
 };
 

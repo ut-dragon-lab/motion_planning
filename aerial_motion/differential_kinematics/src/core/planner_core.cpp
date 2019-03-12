@@ -35,23 +35,44 @@
 
 #include <differential_kinematics/planner_core.h>
 
+/* cost & constraint */
+#include <differential_kinematics/cost/base_plugin.h>
+#include <differential_kinematics/constraint/base_plugin.h>
+
+
 namespace differential_kinematics
 {
-  using RobotModel = TransformController;
-  using CostContainer = std::vector<boost::shared_ptr<cost::Base<Planner> > >;
-  using ConstraintContainer = std::vector<boost::shared_ptr<constraint::Base<Planner> > >;
+  /* pre-definition */
+  using CostContainer = std::vector<boost::shared_ptr<cost::Base> >;
+  using ConstraintContainer = std::vector<boost::shared_ptr<constraint::Base> >;
 
-  Planner::Planner(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<RobotModel> robot_model_ptr): nh_(nh), nhp_(nhp), robot_model_ptr_(robot_model_ptr), multilink_type_(motion_type::SE2), motion_func_vector_(), solved_(false)
+  Planner::Planner(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<HydrusRobotModel> robot_model_ptr): nh_(nh), nhp_(nhp), robot_model_ptr_(robot_model_ptr), multilink_type_(motion_type::SE2), gimbal_module_flag_(false), motion_func_vector_(), solved_(false)
   {
-    for(auto itr = robot_model_ptr_->getRobotModel().joints_.begin(); itr != robot_model_ptr_->getRobotModel().joints_.end(); itr++)
+    target_actuator_vector_.resize(robot_model_ptr_->getTree().getNrOfJoints());
+    for(auto tree_itr : robot_model_ptr_->getTree().getSegments())
       {
-        if(itr->second->type != urdf::Joint::FIXED && itr->second->axis.z == 0)
-          multilink_type_ = motion_type::SE3;
-      }
+        std::string joint_name = tree_itr.second.segment.getJoint().getName();
+        if(joint_name.find("joint") == 0 &&
+           tree_itr.second.segment.getJoint().getType() != KDL::Joint::JointType::None)
+          {
+            if(tree_itr.second.segment.getJoint().JointAxis().z() == 0)
+              {
+                multilink_type_ = motion_type::SE3;
+              }
+          }
 
+        if(joint_name.find("gimbal") == 0 &&
+           (joint_name.find("roll") != std::string::npos ||
+            joint_name.find("pitch") != std::string::npos) &&
+           tree_itr.second.segment.getJoint().getType() != KDL::Joint::JointType::None)
+          {
+            gimbal_module_flag_ = true;
+          }
+      }
+    target_actuator_vector_.resize(robot_model_ptr_->getTree().getNrOfJoints());
     nhp_.param ("differential_kinematics_count", differential_kinematics_count_, 100);
 
-    /* publisher for joint(actuator) steate */
+    /* publisher for joint(actuator) state */
     std::string actuator_state_pub_name;
     nhp_.param("actuator_state_pub_name", actuator_state_pub_name, std::string("joint_state"));
     actuator_state_pub_ = nh_.advertise<sensor_msgs::JointState>(actuator_state_pub_name, 1);
@@ -63,22 +84,74 @@ namespace differential_kinematics
       motion_timer_ = nhp_.createTimer(ros::Duration(1.0 / rate), &Planner::motionFunc, this);
   }
 
+  template<> const sensor_msgs::JointState Planner::getTargetActuatorVector() const
+  {
+    return robot_model_ptr_->kdlJointToMsg(target_actuator_vector_);
+  }
+
+  template<> const KDL::JntArray Planner::getTargetActuatorVector() const
+  {
+    return target_actuator_vector_;
+  }
+
+  template<> void Planner::setTargetActuatorVector(const KDL::JntArray& target_actuator_vector)
+  {
+    target_actuator_vector_ = target_actuator_vector;
+  }
+
+  template<> void Planner::setTargetActuatorVector(const sensor_msgs::JointState& target_actuator_vector)
+  {
+    target_actuator_vector_ = robot_model_ptr_->jointMsgToKdl(target_actuator_vector);
+  }
+
   bool Planner::solver(CostContainer cost_container, ConstraintContainer constraint_container, bool debug)
   {
+    auto modelUpdate = [this]()
+      {
+        KDL::Rotation root_att;
+        tf::quaternionTFToKDL(target_root_pose_.getRotation(), root_att);
+        robot_model_ptr_->setCogDesireOrientation(root_att);
+        robot_model_ptr_->updateRobotModel(target_actuator_vector_);
+        /* special check */
+        if(!robot_model_ptr_->stabilityMarginCheck()) ROS_ERROR("[differential kinematics] update modelling, bad stability margin: %f", robot_model_ptr_->getStabilityMargin());
+        if(!robot_model_ptr_->modelling()) ROS_ERROR("[differential kinematics] update modelling, bad stability from force");
+        if(!robot_model_ptr_->overlapCheck()) ROS_ERROR("[differential kinematics] update overlap check, detect overlap with this form");
+        /* update each cost or constraint (e.g. changable ik), if necessary */
+        for(auto func_itr = update_func_vector_.begin(); func_itr != update_func_vector_.end(); func_itr++)
+          {
+          if(!(*func_itr)())
+            {
+              ROS_ERROR("update function fail");
+              //solved_ = true; //debug
+              return false;
+            }
+          }
+
+        /* special process for model which has gimbal module (e.g. dragon) */
+        if(gimbal_module_flag_)
+          {
+            auto dragon_model_ptr = boost::dynamic_pointer_cast<DragonRobotModel>(robot_model_ptr_);
+            assert(target_actuator_vector_.rows() == dragon_model_ptr->getGimbalProcessedJoint<KDL::JntArray>().rows());
+            target_actuator_vector_ = dragon_model_ptr->getGimbalProcessedJoint<KDL::JntArray>();
+          }
+
+        /* considering the non-joint modules such as gimbal are updated after forward-kinemtics */
+        /* the correct target_actuator vector should be added here */
+        target_root_pose_sequence_.push_back(target_root_pose_);
+        target_actuator_vector_sequence_.push_back(target_actuator_vector_);
+      };
+
+    robot_model_ptr_->setBaselinkName(std::string("link1"));
+
     target_actuator_vector_sequence_.resize(0);
     target_root_pose_sequence_.resize(0);
     sequence_ = 0;
     double start_time = ros::Time::now().toSec();
-
     int total_nc = 0;
-    for(auto itr = constraint_container.begin(); itr != constraint_container.end(); itr ++)
-      {
-        if(!(*itr)->directConstraint()) total_nc += (*itr)->getNc();
-      }
-
+    for(auto itr: constraint_container) if(!itr->directConstraint()) total_nc += itr->getNc(); //for qpOases
     if(total_nc == 0)
       {
-        ROS_ERROR("no propoer consttaint for QP, since total_nc = 0");
+        ROS_ERROR("no propoer constraint for QP (qp oases), because the constraints number is zero (excluding the state range)");
         return false;
       }
 
@@ -90,7 +163,7 @@ namespace differential_kinematics
       3. the matrix in Eigen library is colunm-major, so use transpose to get row-major data.
       Plus, (A.transpose()).data is still column-mojar, please assign to a new matrix
     */
-    boost::shared_ptr<SQProblem> qp_solver(new SQProblem(6 + robot_model_ptr_->getActuatorJointMap().size(), total_nc));
+    boost::shared_ptr<SQProblem> qp_solver(new SQProblem(6 + robot_model_ptr_->getLinkJointIndex().size(), total_nc));
     bool qp_init_flag = true;
 
     int n_wsr = 100;
@@ -114,21 +187,7 @@ namespace differential_kinematics
 
         // if(debug) std::cout << "the init qp lb is: \n" << qp_lb << std::endl;
         // if(debug) std::cout << "the init qp ub is: \n" << qp_ub << std::endl;
-
-        /* step1: update the kinematics by forward kinemtiacs, along with the modelling with current kinematics  */
-        KDL::Rotation root_att;
-        tf::quaternionTFToKDL(target_root_pose_.getRotation(), root_att);
-        robot_model_ptr_->setCogDesireOrientation(root_att);
-        robot_model_ptr_->forwardKinematics(target_actuator_vector_);
-        if(!robot_model_ptr_->stabilityMarginCheck()) ROS_ERROR("[differential kinematics] update modelling, bad stability margin: %f (thre: %f)", robot_model_ptr_->getStabilityMargin(), robot_model_ptr_->stability_margin_thre_);
-        if(!robot_model_ptr_->modelling()) ROS_ERROR("[differential kinematics] update modelling, bad stability from force");
-        if(!robot_model_ptr_->overlapCheck()) ROS_ERROR("[differential kinematics] update overlap check, detect overlap with this form");
-
-        /* considering the non-joint modules such as gimbal are updated after forward-kinemtics */
-        /* the correct target_actuator vector should be added here */
-        target_root_pose_sequence_.push_back(target_root_pose_);
-        target_actuator_vector_sequence_.push_back(target_actuator_vector_);
-
+        if(l == 0) modelUpdate(); // store the init state
         /* step2: check convergence & update Hessian and Gradient */
         bool convergence = true;
         for(auto itr = cost_container.begin(); itr != cost_container.end(); itr++)
@@ -140,7 +199,6 @@ namespace differential_kinematics
             (*itr)->getHessianGradient(single_convergence, single_H, single_g, debug);
             qp_H += single_H;
             qp_g += single_g;
-
             convergence &= single_convergence;
           }
 
@@ -166,6 +224,7 @@ namespace differential_kinematics
                 return false;
               }
 
+            /* for qpoasese */
             if((*itr)->directConstraint()) /* without constraint matrix */
               {
                 if(qp_solver->getNV() != (*itr)->getNc())
@@ -246,24 +305,19 @@ namespace differential_kinematics
           target_root_pose_ *= tf::Transform(tf::Quaternion(delta_rot_from_root_link, delta_rot_from_root_link.length()), delta_pos_from_root_link);
 
         /* udpate the joint angles */
-        for(size_t i = 0; i < robot_model_ptr_->getActuatorJointMap().size(); i++)
-          target_actuator_vector_.position.at(robot_model_ptr_->getActuatorJointMap().at(i)) += delta_state_vector(i + 6);
+        for(size_t i = 0; i < robot_model_ptr_->getLinkJointIndex().size(); i++) target_actuator_vector_(robot_model_ptr_->getLinkJointIndex().at(i)) += delta_state_vector(i + 6);
 
-        /* step6: update each cost or constraint (e.g. changable ik), if necessary */
-        for(auto func_itr = update_func_vector_.begin(); func_itr != update_func_vector_.end(); func_itr++)
-          {
-          if(!(*func_itr)())
-            {
-              ROS_ERROR("update function fail");
-              //solved_ = true; //debug
-              return false;
-            }
-          }
+        /* step6: update the kinematics by forward kinemtiacs, along with the modelling with current kinematics  */
+        modelUpdate();
 
         if(debug)
           {
             ROS_WARN("finish loop %d", l);
-            std::cout << "target joint vector: \n" << getTargetJointVector() << std::endl;
+            auto target_actuator_state = getTargetActuatorVector<sensor_msgs::JointState>();
+            std::cout << "target joint vector: ";
+            for(int i = 0 ; i < target_actuator_state.name.size(); i++)
+              std::cout << "[" << target_actuator_state.name.at(i) << ", " << target_actuator_state.position.at(i) << "], " << std::endl;
+            std::cout << std::endl;
           }
       }
 
@@ -282,32 +336,23 @@ namespace differential_kinematics
     update_func_vector_.push_back(new_func);
   }
 
-  const Eigen::VectorXd Planner::getTargetJointVector()
-  {
-    Eigen::VectorXd target_joint_vector = Eigen::VectorXd::Zero(robot_model_ptr_->getActuatorJointMap().size());
-    for(size_t i = 0; i < target_joint_vector.size(); i++)
-      {
-        target_joint_vector(i) = target_actuator_vector_.position.at(robot_model_ptr_->getActuatorJointMap().at(i));
-      }
-    return target_joint_vector;
-  }
-
   void Planner::motionFunc(const ros::TimerEvent & e)
   {
     if(solved_)
       {
         /* publish joint angle and root tf */
         ros::Time now_time = ros::Time::now();
+        sensor_msgs::JointState joint_msg = robot_model_ptr_->kdlJointToMsg(target_actuator_vector_sequence_.at(sequence_));
+        joint_msg.header.stamp = now_time;
+
         br_.sendTransform(tf::StampedTransform(target_root_pose_sequence_.at(sequence_), now_time, "world", "root"));
-        target_actuator_vector_sequence_.at(sequence_).header.stamp = now_time;
-        actuator_state_pub_.publish(target_actuator_vector_sequence_.at(sequence_));
+        actuator_state_pub_.publish(joint_msg);
         sequence_++;
         if(sequence_ == target_actuator_vector_sequence_.size()) sequence_ = 0;
 
         /* additional function from external module */
         for(auto func_itr = motion_func_vector_.begin(); func_itr != motion_func_vector_.end(); func_itr++)
           (*func_itr)();
-
       }
   }
 

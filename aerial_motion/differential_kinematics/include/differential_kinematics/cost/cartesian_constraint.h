@@ -51,15 +51,14 @@ namespace differential_kinematics
 {
   namespace cost
   {
-    template <class motion_planner>
-    class CartersianConstraint :public Base<motion_planner>
+    class CartersianConstraint :public Base
     {
     public:
-      CartersianConstraint() {}
+      CartersianConstraint(): chain_joint_index_(0) {}
       ~CartersianConstraint(){}
 
       void initialize(ros::NodeHandle nh, ros::NodeHandle nhp,
-                      boost::shared_ptr<motion_planner>, std::string cost_name,
+                      boost::shared_ptr<differential_kinematics::Planner> planner, std::string cost_name,
                       bool orientation, bool full_body);
 
       bool getHessianGradient(bool& convergence, Eigen::MatrixXd& H, Eigen::VectorXd& g, bool debug = false);
@@ -67,11 +66,27 @@ namespace differential_kinematics
       /* special process */
       void updateChain(std::string root_link, std::string parent_link, KDL::Segment referece_frame)
       {
-        Base<motion_planner>::planner_->getRobotModelPtr()->getModelTree().getChain(root_link, parent_link, chain_);
+        planner_->getRobotModelPtr()->getTree().getChain(root_link, parent_link, chain_);
         chain_.addSegment(referece_frame);
+
+        /* assign the joint name */
+        chain_joint_index_.resize(0);
+
+        auto joint_names = planner_->getRobotModelPtr()->getLinkJointNames();
+
+        for(auto seg : chain_.segments)
+          {
+            if(seg.getJoint().getType() !=  KDL::Joint::JointType::None)
+              {
+                //ROS_INFO("%s", seg.getJoint().getName().c_str()); //debug
+                auto itr = std::find(joint_names.begin(), joint_names.end(), seg.getJoint().getName());
+                assert(itr != joint_names.end());
+                chain_joint_index_.push_back(planner_->getRobotModelPtr()->getLinkJointIndex().at(std::distance(joint_names.begin(), itr)));
+              }
+          }
       }
 
-      void updateTargetFrame(tf::Transform target_reference_frame)
+      void updateTargetFrame(const tf::Transform& target_reference_frame)
       {
         target_reference_frame_ = target_reference_frame;
       }
@@ -87,6 +102,8 @@ namespace differential_kinematics
       KDL::Chain chain_;
       Eigen::MatrixXd W_cartesian_err_constraint_;
       tf::Transform target_reference_frame_;
+
+      std::vector<int> chain_joint_index_;
 
       bool calcJointJacobian(Eigen::MatrixXd& jacobian, bool debug);
     };

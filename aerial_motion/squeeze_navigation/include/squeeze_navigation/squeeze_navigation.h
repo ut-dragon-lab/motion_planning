@@ -49,14 +49,14 @@
 #include <moveit_msgs/DisplayRobotState.h>
 
 /* robot model */
-#include <dragon/transform_control.h>
+#include <dragon/dragon_robot_model.h>
 
 /* discrete path search */
 #include <pluginlib/class_loader.h>
 #include <squeeze_navigation/planner/base_plugin.h>
 
 /* continous path generator */
-#include <kalman_filter/digital_filter.h>
+#include <kalman_filter/lpf_filter.h>
 #include <bspline_generator/tinyspline_interface.h>
 
 /* utils */
@@ -66,8 +66,6 @@
 #include <iostream>
 #include <vector>
 #include <boost/algorithm/clamp.hpp>
-
-
 
 class SqueezeNavigation{
 public:
@@ -102,9 +100,13 @@ private:
   bool load_path_flag_;
   int motion_type_;
 
+  IirFilter states_lpf_;
+
   /* continuous path */
   int bspline_degree_;
   double trajectory_period_;
+  std::vector<double> angle_min_vec_;
+  std::vector<double> angle_max_vec_;
 
   /* navigation */
   ros::Timer navigate_timer_;
@@ -115,8 +117,7 @@ private:
   double return_delay_;
 
   /* robot model */
-  boost::shared_ptr<TransformController> robot_model_ptr_;
-  int joint_num_;
+  boost::shared_ptr<HydrusRobotModel> robot_model_ptr_;
 
   /* discrete path search */
   boost::shared_ptr<squeeze_motion_planner::Base> discrete_path_planner_;

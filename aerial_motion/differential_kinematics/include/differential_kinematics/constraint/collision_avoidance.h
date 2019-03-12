@@ -59,15 +59,14 @@ namespace differential_kinematics
 {
   namespace constraint
   {
-    template <class motion_planner>
-    class CollisionAvoidance :public Base<motion_planner>
+    class CollisionAvoidance :public Base
     {
     public:
       CollisionAvoidance();
       ~CollisionAvoidance() {}
 
       void virtual initialize(ros::NodeHandle nh, ros::NodeHandle nhp,
-                              boost::shared_ptr<motion_planner> planner, std::string constraint_name,
+                              boost::shared_ptr<differential_kinematics::Planner> planner, std::string constraint_name,
                               bool orientation, bool full_body);
 
 
@@ -154,10 +153,6 @@ namespace differential_kinematics
       double collision_distance_forbidden_range_;
 
       bool getJacobian(Eigen::MatrixXd& jacobian, KDL::JntArray joint_positions, std::string parent_link_name, KDL::Frame f_parent_link, KDL::Vector contact_offset, bool debug = false);
-
-
-      /* not good varible */
-      std::vector<int> joint_map_;
 
       /* result */
       double min_dist_;

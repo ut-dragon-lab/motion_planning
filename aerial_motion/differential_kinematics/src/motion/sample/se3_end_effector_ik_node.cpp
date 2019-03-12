@@ -34,7 +34,6 @@
  *********************************************************************/
 
 #include <differential_kinematics/motion/end_effector_ik_solver_core.h>
-#include <dragon/transform_control.h>
 
 int main(int argc, char **argv)
 {
@@ -42,7 +41,7 @@ int main(int argc, char **argv)
 
   ros::NodeHandle nh;
   ros::NodeHandle nhp("~");
-  EndEffectorIKSolverCore *ik_solver = new EndEffectorIKSolverCore(nh,nhp, boost::shared_ptr<TransformController>(new DragonTransformController(nh, nhp, false)));
+  EndEffectorIKSolverCore *ik_solver = new EndEffectorIKSolverCore(nh, nhp, boost::shared_ptr<DragonRobotModel>(new DragonRobotModel(true)));
   ros::spin();
 
   ros::shutdown();
