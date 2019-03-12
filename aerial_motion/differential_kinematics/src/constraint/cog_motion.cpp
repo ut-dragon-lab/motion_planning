@@ -115,22 +115,23 @@ namespace differential_kinematics
         // get the approximated jacobian, becuase we do not consider the change of gimbal angles by joint angles.
         if(!calcCOGJacobian(A, debug)) return false;
 
-#if 0 // debug by linear approximation, but we cannot calculate angular momentum
+
+#if 0 // debug by linear approximation for cog velocity 
         KDL::Rotation curr_root_att;
         tf::quaternionTFToKDL(planner_->getTargetRootPose().getRotation(), curr_root_att);
         auto curr_actuator_vector =  planner_->getTargetActuatorVector<KDL::JntArray>();
-        Eigen::MatrixXd test_jacobian = Eigen::MatrixXd::Zero(3, planner_->getRobotModelPtr()->getLinkJointIndex().size() + 6);
+        Eigen::MatrixXd test_jacobian = Eigen::MatrixXd::Zero(6, planner_->getRobotModelPtr()->getLinkJointIndex().size() + 6);
+        auto curr_segments_tf = planner_->getRobotModelPtr()->getSegmentsTf();
 
         auto robotModelUpdate = [this](KDL::Rotation root_att, KDL::JntArray actuator_vector)
           {
             planner_->getRobotModelPtr()->setCogDesireOrientation(root_att);
             planner_->getRobotModelPtr()->updateRobotModel(actuator_vector);
-            planner_->getRobotModelPtr()->stabilityMarginCheck();
-            planner_->getRobotModelPtr()->modelling();
           };
 
         /* CoG velocity */
         Eigen::Vector3d nominal_cog = planner_->getRobotModelPtr()->getCog<Eigen::Affine3d>().translation();
+        KDL::Vector nominal_cog_kdl = planner_->getRobotModelPtr()->getCog<KDL::Frame>().p;
 
         /* joint */
         double delta_angle = 0.001; // [rad]
@@ -140,7 +141,18 @@ namespace differential_kinematics
             perturbation_actuator_vector(planner_->getRobotModelPtr()->getLinkJointIndex().at(index)) += delta_angle;
             robotModelUpdate(curr_root_att, perturbation_actuator_vector);
 
-            test_jacobian.block(0, 6 + index, 3, 1) =  aerial_robot_model::kdlToEigen(curr_root_att) * (planner_->getRobotModelPtr()->getCog<Eigen::Affine3d>().translation() - nominal_cog) /delta_angle;
+            /* linear cog velocity */
+            test_jacobian.block(0, 6 + index, 3, 1) = aerial_robot_model::kdlToEigen(curr_root_att) * (planner_->getRobotModelPtr()->getCog<Eigen::Affine3d>().translation() - nominal_cog) / delta_angle;
+            /* angular momentum */
+            for(const auto& seg_inertia : planner_->getRobotModelPtr()->getInertiaMap())
+              {
+                /* translational momentum part */
+                Eigen::Vector3d seg_momentum_jacobian = aerial_robot_model::kdlToEigen(curr_root_att * (planner_->getRobotModelPtr()->getSegmentsTf().at(seg_inertia.first) * seg_inertia.second.getCOG() - curr_segments_tf.at(seg_inertia.first) * seg_inertia.second.getCOG())) * seg_inertia.second.getMass() / delta_angle;
+                test_jacobian.block(3, 6 + index, 3, 1) += aerial_robot_model::kdlToEigen(curr_root_att * (curr_segments_tf.at(seg_inertia.first) * seg_inertia.second.getCOG() - nominal_cog_kdl)).cross(seg_momentum_jacobian);
+                /* inertial part */
+                KDL::RigidBodyInertia inertial_temp = seg_inertia.second;
+                test_jacobian.block(3, 6 + index, 3, 1) += aerial_robot_model::kdlToEigen(curr_root_att * curr_segments_tf.at(seg_inertia.first).M * (inertial_temp.RefPoint(seg_inertia.second.getCOG()).getRotationalInertia() * (curr_segments_tf.at(seg_inertia.first).M.Inverse() * planner_->getRobotModelPtr()->getSegmentsTf().at(seg_inertia.first).M).GetRot()) / delta_angle);
+              }
           }
 
         /* root */
@@ -148,15 +160,54 @@ namespace differential_kinematics
         test_jacobian.block(0, 0, 3, 3) =  aerial_robot_model::kdlToEigen(curr_root_att);
         /* roll */
         robotModelUpdate(curr_root_att * KDL::Rotation::RPY(delta_angle, 0, 0), curr_actuator_vector);
-        test_jacobian.block(0, 3, 3, 1) = (aerial_robot_model::kdlToEigen(curr_root_att * KDL::Rotation::RPY(delta_angle, 0, 0)) * planner_->getRobotModelPtr()->getCog<Eigen::Affine3d>().translation() -  aerial_robot_model::kdlToEigen(curr_root_att) * nominal_cog) / delta_angle;
+        /* -- linear cog velocity */
+        Eigen::Vector3d momentum_jacobian = (aerial_robot_model::kdlToEigen(curr_root_att * KDL::Rotation::RPY(delta_angle, 0, 0)) * planner_->getRobotModelPtr()->getCog<Eigen::Affine3d>().translation() -  aerial_robot_model::kdlToEigen(curr_root_att) * nominal_cog) / delta_angle;
+        test_jacobian.block(0, 3, 3, 1) = momentum_jacobian;
+        /* -- bad: angular momentum */
+        for(const auto& seg_inertia : planner_->getRobotModelPtr()->getInertiaMap())
+          {
+            /* translational momentum part */
+            Eigen::Vector3d seg_momentum_jacobian = aerial_robot_model::kdlToEigen(curr_root_att * KDL::Rotation::RPY(delta_angle, 0, 0) * (planner_->getRobotModelPtr()->getSegmentsTf().at(seg_inertia.first) * seg_inertia.second.getCOG()) - curr_root_att * (curr_segments_tf.at(seg_inertia.first) * seg_inertia.second.getCOG())) * seg_inertia.second.getMass() / delta_angle;
+            test_jacobian.block(3, 3, 3, 1) += aerial_robot_model::kdlToEigen(curr_root_att * (curr_segments_tf.at(seg_inertia.first) * seg_inertia.second.getCOG() - nominal_cog_kdl)).cross(seg_momentum_jacobian);
+            /* inertial part */
+            KDL::RigidBodyInertia inertial_temp = seg_inertia.second;
+            test_jacobian.block(3, 3, 3, 1) += aerial_robot_model::kdlToEigen(curr_root_att * curr_segments_tf.at(seg_inertia.first).M * (inertial_temp.RefPoint(seg_inertia.second.getCOG()).getRotationalInertia() * (curr_segments_tf.at(seg_inertia.first).M.Inverse() * KDL::Rotation::RPY(delta_angle, 0, 0) * planner_->getRobotModelPtr()->getSegmentsTf().at(seg_inertia.first).M).GetRot()) / delta_angle);
+          }
 
         /*  pitch */
         robotModelUpdate(curr_root_att * KDL::Rotation::RPY(0, delta_angle, 0), curr_actuator_vector);
+        /* -- linear cog velocity */
         test_jacobian.block(0, 4, 3, 1) = (aerial_robot_model::kdlToEigen(curr_root_att * KDL::Rotation::RPY(0, delta_angle, 0)) * planner_->getRobotModelPtr()->getCog<Eigen::Affine3d>().translation() -  aerial_robot_model::kdlToEigen(curr_root_att) * nominal_cog) / delta_angle;
+        /* -- bad: angular momentum */
+        Eigen::Vector3d momentum_part = Eigen::Vector3d::Zero();
+        Eigen::Vector3d inertial_part = Eigen::Vector3d::Zero();
+
+        for(const auto& seg_inertia : planner_->getRobotModelPtr()->getInertiaMap())
+          {
+            /* translational momentum part */
+            Eigen::Vector3d seg_momentum_jacobian = aerial_robot_model::kdlToEigen(curr_root_att * KDL::Rotation::RPY(0, delta_angle, 0) * (planner_->getRobotModelPtr()->getSegmentsTf().at(seg_inertia.first) * seg_inertia.second.getCOG()) - curr_root_att * (curr_segments_tf.at(seg_inertia.first) * seg_inertia.second.getCOG())) * seg_inertia.second.getMass() / delta_angle;
+            test_jacobian.block(3, 4, 3, 1) += aerial_robot_model::kdlToEigen(curr_root_att * (curr_segments_tf.at(seg_inertia.first) * seg_inertia.second.getCOG() - nominal_cog_kdl)).cross(seg_momentum_jacobian);
+
+            /* inertial part */
+            KDL::RigidBodyInertia inertial_temp = seg_inertia.second;
+            test_jacobian.block(3, 4, 3, 1) += aerial_robot_model::kdlToEigen(curr_root_att * curr_segments_tf.at(seg_inertia.first).M * (inertial_temp.RefPoint(seg_inertia.second.getCOG()).getRotationalInertia() * (curr_segments_tf.at(seg_inertia.first).M.Inverse() * KDL::Rotation::RPY(0, delta_angle, 0) * planner_->getRobotModelPtr()->getSegmentsTf().at(seg_inertia.first).M).GetRot()) / delta_angle);
+          }
+
 
         /* yaw */
         robotModelUpdate(curr_root_att * KDL::Rotation::RPY(0, 0, delta_angle), curr_actuator_vector);
+        /* -- linear cog velocity */
         test_jacobian.block(0, 5, 3, 1) = (aerial_robot_model::kdlToEigen(curr_root_att * KDL::Rotation::RPY(0, 0, delta_angle)) * planner_->getRobotModelPtr()->getCog<Eigen::Affine3d>().translation() -  aerial_robot_model::kdlToEigen(curr_root_att) * nominal_cog) / delta_angle;
+        /* -- bad: angular momentum */
+        for(const auto& seg_inertia : planner_->getRobotModelPtr()->getInertiaMap())
+          {
+            /* translational momentum part */
+            Eigen::Vector3d seg_momentum_jacobian = aerial_robot_model::kdlToEigen(curr_root_att * KDL::Rotation::RPY(0, 0, delta_angle) * (planner_->getRobotModelPtr()->getSegmentsTf().at(seg_inertia.first) * seg_inertia.second.getCOG()) - curr_root_att * (curr_segments_tf.at(seg_inertia.first) * seg_inertia.second.getCOG())) * seg_inertia.second.getMass() / delta_angle;
+            test_jacobian.block(3, 5, 3, 1) += aerial_robot_model::kdlToEigen(curr_root_att * (curr_segments_tf.at(seg_inertia.first) * seg_inertia.second.getCOG() - nominal_cog_kdl)).cross(seg_momentum_jacobian);
+            /* inertial part */
+            KDL::RigidBodyInertia inertial_temp = seg_inertia.second;
+            test_jacobian.block(3, 5, 3, 1) += aerial_robot_model::kdlToEigen(curr_root_att * curr_segments_tf.at(seg_inertia.first).M * (inertial_temp.RefPoint(seg_inertia.second.getCOG()).getRotationalInertia() * (curr_segments_tf.at(seg_inertia.first).M.Inverse() * KDL::Rotation::RPY(0, 0, delta_angle) * planner_->getRobotModelPtr()->getSegmentsTf().at(seg_inertia.first).M).GetRot()) / delta_angle);
+          }
 
 
         if(debug)
@@ -284,9 +335,9 @@ namespace differential_kinematics
             KDL::Vector c = inertia.getCOG();
             double m = inertia.getMass();
             KDL::Vector momentum_jacobian_col = a * (c - r) * m;
-            KDL::Vector angular_jacobian_col = (c - total_cog) * momentum_jacobian_col + inertia.getRotationalInertia() * a;
+            KDL::Vector angular_jacobian_col = (c - total_cog) * momentum_jacobian_col + inertia.RefPoint(c).getRotationalInertia() * a;
             cog_velocity_jacobian.col(col_index) = aerial_robot_model::kdlToEigen(curr_root_att * momentum_jacobian_col  / mass_all);
-            cog_angular_jacobian.col(col_index) = aerial_robot_model::kdlToEigen(curr_root_att * angular_jacobian_col); // R{root_link} => R{cog} = R{world}
+            cog_angular_jacobian.col(col_index) = aerial_robot_model::kdlToEigen(curr_root_att * angular_jacobian_col); // R{root_link} => R{world}
           }
 
         /* extract the jacobian directly connected with link joint */
@@ -305,9 +356,19 @@ namespace differential_kinematics
             jacobian.block(0, 4, 3, 1) = aerial_robot_model::kdlToEigen(curr_root_att) * (Eigen::Vector3d(0, 1, 0)).cross(aerial_robot_model::kdlToEigen(total_cog));
             jacobian.block(0, 5, 3, 1) = aerial_robot_model::kdlToEigen(curr_root_att) * (Eigen::Vector3d(0, 0, 1)).cross(aerial_robot_model::kdlToEigen(total_cog));
 
-            /* - angular momentum */
+
+            /*
+            KDL::RigidBodyInertia link_inertia = KDL::RigidBodyInertia::Zero();
+            for(const auto& inertia : inertia_map)
+              {
+                KDL::Frame f = seg_frames.at(inertia.first);
+                link_inertia = link_inertia + f * inertia.second;
+              }
+            jacobian.block(3, 3, 3, 3) = aerial_robot_model::kdlToEigen((curr_root_att * link_inertia.RefPoint(link_inertia.getCOG())).getRotationalInertia());
+            */
             jacobian.block(3, 3, 3, 3) = planner_->getRobotModelPtr()->getInertia<Eigen::Matrix3d>();
           }
+
         if(debug) std::cout << "jacobian with only joint: \n " <<  jacobian << std::endl; //debug
 
         /* calculate the jacobian from link joint to gimbal angles at each link */
