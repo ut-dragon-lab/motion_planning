@@ -5,12 +5,15 @@ differential_kinematics_count: 1000
 actuator_state_sub_name: /dragon/joint_states
 actuator_state_pub_name: /dragon/joint_states
 
-# discrete path filter
+# gap target offset
+delta_pinch_length: 0.02
+
+# discrete path smoothing filter
 discrete_path_filter_flag: true
-cutoff_freq: 30.0
+filter_rate: 1 # no filtering
 
 # discrete path resampling
-resampling_flag: false # true
+resampling_flag: true
 
 debug: false
 start_state_x: 0.0
@@ -22,7 +25,7 @@ start_state_yaw: 0.0
 
 ## joint init and goal
 start_joint1_pitch: 0.0
-start_joint1_yaw: 1.57  
+start_joint1_yaw: 1.57
 start_joint2_pitch: 0.0
 start_joint2_yaw: 1.57
 start_joint3_pitch: 0.0
@@ -41,16 +44,16 @@ differential_kinematics_cost:
         state_vel:
                 verbose: true
                 w_joint_vel: 0.001
-                w_root_translational_vel: 0.005 #0.001
-                w_root_rotational_vel: 0.005 #0.001
+                w_root_translational_vel: 0.001 #0.005
+                w_root_rotational_vel: 0.001 #0.005
 
 # constraint
 differential_kinematics_constraint:
         state_limit:
                 verbose: true
-                joint_vel_thre: 0.005 # 0.17
-                root_translational_vel_thre: 0.005 # 0.1
-                root_rotational_vel_thre: 0.005 #0.17
+                joint_vel_thre: 0.05 #0.02: good, 0.05: best, 0.005: old
+                root_translational_vel_thre: 0.01
+                root_rotational_vel_thre: 0.1
                 joint_vel_constraint_range: 0.11
                 joint_vel_forbidden_range: 0.02
                 vebose: true
@@ -66,9 +69,18 @@ differential_kinematics_constraint:
                 pitch_angle_thre: 1.0
         overlap:
                 verbose: true
+        cog_motion:
+                verbose: true
+                cog_omega_limit_flag: false
+                #joint_vel_limit: 0.02 cog_velocity_limit: [0.01, 0.01, 0.01]  # [x,y,z] (m) in world frame
+                #joint_vel_limit: 0.02 cog_angular_limit: [0.01, 0.01, 0.05]  # [x,y,z] (rad) in world frame
+                cog_velocity_limit: [0.01, 0.01, 0.01]  # [x,y,z] (m) in world frame
+                cog_angular_limit: [0.04, 0.04, 0.04]  # [x,y,z] (rad) in world frame, 0.03 is also OK!
+
 additional_constraint_list:
         - differential_kinematics_constraint/link_attitude
         - differential_kinematics_constraint/overlap
+        - differential_kinematics_constraint/cog_motion
 stability_margin_thre: 0.3
 f_max: 22.0
 f_min: 10.0
