@@ -100,7 +100,8 @@ private:
   bool load_path_flag_;
   int motion_type_;
 
-  IirFilter states_lpf_;
+  FirFilter states_lpf1_;
+  FirFilterQuaternion states_lpf2_;
 
   /* continuous path */
   int bspline_degree_;

@@ -160,58 +160,59 @@ void SqueezeNavigation::planStartCallback(const std_msgs::Empty msg)
 
   /* low path filter */
   int joint_num = robot_model_ptr_->getLinkJointIndex().size();
-  double sample_freq, cutoff_freq;
-  nhp_.param("sample_freq", sample_freq, 100.0);
-  nhp_.param("cutoff_freq", cutoff_freq, 20.0);
-  states_lpf_ = IirFilter(sample_freq, cutoff_freq, 6 + joint_num); //root_pose(pos+euler) + joint_num
+  double filter_rate;
+  nhp_.param("filter_rate", filter_rate, 0.1);
+
+  states_lpf1_ = FirFilter(filter_rate, 3 + joint_num); //root position + joint_num
+  states_lpf2_ = FirFilterQuaternion(filter_rate); //root orientation
+
   filtered_path_.clear();
 
   /* init state */
   auto init_state = discrete_path_planner_->getStateConst(0);
-  Eigen::VectorXd init_state_vec = Eigen::VectorXd::Zero(6 + joint_num);
+  Eigen::VectorXd init_state_vec = Eigen::VectorXd::Zero(3 + joint_num);
   init_state_vec.head(3) = Eigen::Vector3d(init_state.getRootPoseConst().position.x,
                                            init_state.getRootPoseConst().position.y,
                                            init_state.getRootPoseConst().position.z);
-  double r,p,y;
-  tf::Quaternion q;
-  tf::quaternionMsgToTF(init_state.getRootPoseConst().orientation, q);
-  tf::Matrix3x3(q).getRPY(r,p,y);
-  init_state_vec.segment(3, 3) = Eigen::Vector3d(r,p,y);
-
   for(int j = 0; j < joint_num; j++)
-    init_state_vec(6 + j) = init_state.getActuatorStateConst()(robot_model_ptr_->getLinkJointIndex().at(j));
+    init_state_vec(3 + j) = init_state.getActuatorStateConst()(robot_model_ptr_->getLinkJointIndex().at(j));
+  states_lpf1_.setInitValues(init_state_vec); //init filter with the first value
 
-  states_lpf_.setInitValues(init_state_vec); //init pos filter with the first value
+  tf::Quaternion init_q;
+  tf::quaternionMsgToTF(init_state.getRootPoseConst().orientation, init_q);
+  states_lpf2_.setInitValues(init_q); //init filter with the first value
 
   /* do filtering */
-  for(auto state_itr: discrete_path_planner_->getPathConst())
+  for(int index = 0; index < discrete_path_planner_->getPathConst().size() + 1 / states_lpf1_.getFilterFactor(); index++)
     {
-      Eigen::VectorXd state_vec = Eigen::VectorXd::Zero(6 + joint_num);
+      auto state_itr = discrete_path_planner_->getPathConst().back();
+      if(index < discrete_path_planner_->getPathConst().size())
+        state_itr = discrete_path_planner_->getPathConst().at(index);
+
+      Eigen::VectorXd state_vec = Eigen::VectorXd::Zero(3 + joint_num);
       state_vec.head(3) = Eigen::Vector3d(state_itr.getRootPoseConst().position.x,
                                           state_itr.getRootPoseConst().position.y,
                                           state_itr.getRootPoseConst().position.z);
-      double r,p,y;
-      tf::Quaternion q;
-      tf::quaternionMsgToTF(state_itr.getRootPoseConst().orientation, q);
-      tf::Matrix3x3(q).getRPY(r,p,y);
-      state_vec.segment(3, 3) = Eigen::Vector3d(r,p,y);
 
       for(int j = 0; j < joint_num; j++)
-        state_vec(6 + j) = state_itr.getActuatorStateConst()(robot_model_ptr_->getLinkJointIndex().at(j));
+        state_vec(3 + j) = state_itr.getActuatorStateConst()(robot_model_ptr_->getLinkJointIndex().at(j));
+      Eigen::VectorXd filtered_state =  states_lpf1_.filterFunction(state_vec);
 
-      Eigen::VectorXd filtered_state =  states_lpf_.filterFunction(state_vec);
+      /* joint */
+      auto filtered_actuator_vector = state_itr.getActuatorStateConst();
+      for(int j = 0; j < joint_num; j++)
+        filtered_actuator_vector(robot_model_ptr_->getLinkJointIndex().at(j)) = filtered_state(3 + j);
 
+      /* root position */
       geometry_msgs::Pose filtered_root_pose;
       filtered_root_pose.position.x = filtered_state(0);
       filtered_root_pose.position.y = filtered_state(1);
       filtered_root_pose.position.z = filtered_state(2);
-      filtered_root_pose.orientation = tf::createQuaternionMsgFromRollPitchYaw(filtered_state(3),
-                                                                               filtered_state(4),
-                                                                               filtered_state(5));
 
-      auto filtered_actuator_vector = state_itr.getActuatorStateConst();
-      for(int j = 0; j < joint_num; j++)
-        filtered_actuator_vector(robot_model_ptr_->getLinkJointIndex().at(j)) = filtered_state(6 + j);
+      /* root orientation */
+      tf::Quaternion raw_q;
+      tf::quaternionMsgToTF(state_itr.getRootPoseConst().orientation, raw_q);
+      tf::quaternionTFToMsg(states_lpf2_.filterFunction(raw_q), filtered_root_pose.orientation);
 
       filtered_path_.push_back(MultilinkState(robot_model_ptr_, filtered_root_pose, filtered_actuator_vector));
     }
@@ -264,13 +265,19 @@ void SqueezeNavigation::planStartCallback(const std_msgs::Empty msg)
               not_enough = false;
             }
 
-          ROS_INFO("ref point [%f, %f, %f]", resampling_path.back().getCogPoseConst().position.x, resampling_path.back().getCogPoseConst().position.y ,resampling_path.back().getCogPoseConst().position.z);
-          std::cout << "new point vs resample ref point: [" << i << ", " << resampling_path.size() << "], inrce vs delta_trans vs ave: [" << (ref_p - new_p).length() << ", " << delta_trans << ", " << ave_delta_trans << "]. ";
+          if(debug_verbose_)
+            {
+              ROS_INFO("ref point [%f, %f, %f]", resampling_path.back().getCogPoseConst().position.x, resampling_path.back().getCogPoseConst().position.y ,resampling_path.back().getCogPoseConst().position.z);
+              std::cout << "new point vs resample ref point: [" << i << ", " << resampling_path.size() << "], inrce vs delta_trans vs ave: [" << (ref_p - new_p).length() << ", " << delta_trans << ", " << ave_delta_trans << "]. ";
+            }
 
           if( fabs(delta_trans - ave_delta_trans) < resmapling_seg_diff_thresh * ave_delta_trans)
             {
-              std::cout << "add unsampling state directly since convergence. rate: " << fabs(delta_trans - ave_delta_trans) / ave_delta_trans << ". " << std::endl;
-              ROS_WARN("delta_trans: %f", delta_trans);
+              if(debug_verbose_)
+                {
+                  std::cout << "add unsampling state directly since convergence. rate: " << fabs(delta_trans - ave_delta_trans) / ave_delta_trans << ". " << std::endl;
+                  ROS_WARN("delta_trans: %f", delta_trans);
+                }
               resampling_path.push_back(unsampling_path.at(i));
               delta_trans = 0;
               i++;
@@ -279,7 +286,8 @@ void SqueezeNavigation::planStartCallback(const std_msgs::Empty msg)
             {
               // interpolation
               double interpolate_rate = (1 - (delta_trans - ave_delta_trans) / (prev_p - new_p).length());
-              std::cout << " interpolation since too big delta trans. interpolate rate: " << interpolate_rate << ". "  << std::endl;
+              if(debug_verbose_)
+                std::cout << " interpolation since too big delta trans. interpolate rate: " << interpolate_rate << ". "  << std::endl;
 
 
               /* joint */
@@ -291,12 +299,14 @@ void SqueezeNavigation::planStartCallback(const std_msgs::Empty msg)
               /* cog pose */
               geometry_msgs::Pose cog_pose;
               tf::pointTFToMsg(prev_p * (1 - interpolate_rate) + new_p * interpolate_rate, cog_pose.position);
+              cog_pose.orientation.w = 1;
+
               /* baselink attitude and  root pose */
-              tf::Quaternion baselink_q = unsampling_path.at(i - 1).getBaselinkDesiredAttConst().slerp(unsampling_path.at(i).getBaselinkDesiredAttConst(), interpolate_rate);
-              double r,p,y;
-              tf::Matrix3x3(baselink_q).getRPY(r, p, y);
-              tf::Quaternion desired_baselink_q = tf::createQuaternionFromRPY(r, p, 0);
-              cog_pose.orientation = tf::createQuaternionMsgFromYaw(y); /* special: only get yaw angle */
+              tf::Quaternion desired_baselink_q = unsampling_path.at(i - 1).getBaselinkDesiredAttConst().slerp(unsampling_path.at(i).getBaselinkDesiredAttConst(), interpolate_rate);
+              //double r,p,y;
+              //tf::Matrix3x3(baselink_q).getRPY(r, p, y);
+              //desired_baselink_q = tf::createQuaternionFromRPY(r, p, 0);
+              //cog_pose.orientation = tf::createQuaternionMsgFromYaw(y); /* special: only get yaw angle */
 
               resampling_path.push_back(MultilinkState(robot_model_ptr_,
                                                        desired_baselink_q, cog_pose,
@@ -305,13 +315,13 @@ void SqueezeNavigation::planStartCallback(const std_msgs::Empty msg)
               tf::pointMsgToTF(resampling_path.back().getCogPoseConst().position, new_ref_p);
               delta_trans = (new_ref_p - new_p).length();
 
-              ROS_WARN("delta_trans: %f", delta_trans);
+              if(debug_verbose_) ROS_WARN("delta_trans: %f", delta_trans);
             }
           else
             {
               not_enough = true;
               i++;
-              std::cout << "  not enough delta trans. "  << std::endl;
+              if(debug_verbose_) std::cout << "  not enough delta trans. "  << std::endl;
             }
         }
 
