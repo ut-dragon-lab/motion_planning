@@ -76,6 +76,11 @@ namespace squeeze_motion_planner
       planner_core_ptr_->registerUpdateFunc(std::bind(&DifferentialKinematics::updatePinchPoint, this));
       baselink_name_ = robot_model_ptr_->getBaselinkName();
 
+      /* heuristic: serial model from link1 to linkN */
+      /* CAUTION: getChain() doesn't include root_segment, please set the parent of root_segment */
+      robot_model_ptr_->getTree().getChain(std::string("root"), std::string("link") + std::to_string(robot_model_ptr_->getRotorNum()), squeeze_chain_);
+      //for(const auto& it: squeeze_chain_.segments) ROS_WARN("%s", it.getName().c_str());
+
       /* base vars */
       phase_ = CASE1;
       reference_point_ratio_ = 1.0;
@@ -356,6 +361,8 @@ namespace squeeze_motion_planner
     Phase phase_;
     double reference_point_ratio_;
 
+    KDL::Chain squeeze_chain_;
+
     //boost::shared_ptr<cost::CartersianConstraint> cartersian_constraint_;
     cost::CartersianConstraint* cartersian_constraint_;
 
@@ -363,6 +370,7 @@ namespace squeeze_motion_planner
 
     bool updatePinchPoint()
     {
+      if(debug_) ROS_INFO("update the pinch point ");
       /* case 1: total not pass: use the head */
       /* case 2: half pass: calcualte the pass point */
       /* case 3: final phase: the root link is close to the openning_center gap => finish */
@@ -393,15 +401,17 @@ namespace squeeze_motion_planner
       /* fullFK */
       auto full_fk_result = planner_core_ptr_->getRobotModelPtr()->fullForwardKinematics(planner_core_ptr_->getTargetActuatorVector<KDL::JntArray>());
 
-      tf::Transform previous_link_tf = planner_core_ptr_->getTargetRootPose();
-      double previous_z;
-
-      for(int index = 1; index <= robot_model_ptr_->getRotorNum(); index++)
+      /* check the cross situation: case2-2 */
+      tf::Transform prev_seg_tf;
+      double prev_seg_z;
+      std::string prev_seg_name = squeeze_chain_.segments.front().getName();
+      //for(int index = 1; index <= robot_model_ptr_->getRotorNum(); index++)
+      for(const auto& segment: squeeze_chain_.segments)
         {
-          tf::Transform current_link_tf;
-          tf::transformKDLToTF(full_fk_result.at(std::string("link") + std::to_string(index)), current_link_tf);
-          double current_z = (openning_center_frame_.inverse() * planner_core_ptr_->getTargetRootPose() * current_link_tf).getOrigin().z();
-          if(current_z > 0)
+          tf::Transform curr_seg_tf;
+          tf::transformKDLToTF(full_fk_result.at(segment.getName()), curr_seg_tf);
+          double curr_seg_z = (openning_center_frame_.inverse() * planner_core_ptr_->getTargetRootPose() * curr_seg_tf).getOrigin().z();
+          if(curr_seg_z > 0)
             {
               /* case 2.2 */
               if(phase_ > CASE2_2 || phase_ == CASE1)
@@ -412,52 +422,56 @@ namespace squeeze_motion_planner
 
               if(phase_ == CASE2_1) reference_point_ratio_ = 1;
               phase_ = CASE2_2;
-              //if(debug_) ROS_INFO("case 2.2");
-              assert(index > 1);
 
-              double new_ratio = fabs(previous_z) / (fabs(previous_z) + current_z);
-              if(debug_) ROS_INFO("case 2.2, current_z: %f, previous_z: %f, new_ratio: %f, reference_point_ratio_: %f", current_z, previous_z, new_ratio, reference_point_ratio_);
-              if(new_ratio < reference_point_ratio_) reference_point_ratio_ = new_ratio;
+              double ref_point_ratio = fabs(prev_seg_z) / (fabs(prev_seg_z) + curr_seg_z);
+              if(ref_point_ratio < reference_point_ratio_) reference_point_ratio_ = ref_point_ratio;
+              double seg_length = (curr_seg_tf.getOrigin() - prev_seg_tf.getOrigin()).length();
+              if(debug_) ROS_INFO("case 2.2, upper seg: %s, cross seg: %s, upper point z: %f, lower point_z: %f, ref_point_ratio: %f, seg_length: %f, reference_point_ratio_: %f", segment.getName().c_str(), prev_seg_name.c_str(), curr_seg_z, prev_seg_z, ref_point_ratio, seg_length, reference_point_ratio_);
 
-              cartersian_constraint_->updateChain("root", std::string("link") + std::to_string(index-1), KDL::Segment(std::string("pinch_point"), KDL::Joint(KDL::Joint::None), KDL::Frame(KDL::Vector(robot_model_ptr_->getLinkLength() * new_ratio , 0, 0))));
-              //if(debug_) ROS_WARN("under: link%d, z: %f; upper: link%d, z: %f", index -1, previous_z, index, current_z);
+              assert(segment.getName() !=  prev_seg_name);
+
+              cartersian_constraint_->updateChain("root", prev_seg_name, KDL::Segment(std::string("pinch_point"), KDL::Joint(KDL::Joint::None), KDL::Frame(KDL::Vector(seg_length * ref_point_ratio , 0, 0))));
+
               return true;
             }
-          previous_link_tf = current_link_tf;
-          previous_z = current_z;
+
+          prev_seg_tf = curr_seg_tf;
+          prev_seg_z = curr_seg_z;
+          prev_seg_name = segment.getName();
         }
 
       /* head of the robot */
-      tf::Transform head_tf; head_tf.setOrigin(tf::Vector3(robot_model_ptr_->getLinkLength(), 0, 0));
-      double head_z = (openning_center_frame_.inverse() * planner_core_ptr_->getTargetRootPose() * previous_link_tf * head_tf).getOrigin().z();
+      tf::Transform tail_seg_tf;
+      tf::transformKDLToTF(full_fk_result.at(squeeze_chain_.segments.back().getName()),tail_seg_tf);
+      tf::Vector3 tail_pos_in_root_link; tail_pos_in_root_link = tail_seg_tf * tf::Vector3(robot_model_ptr_->getLinkLength(), 0, 0);
+      double tail_z = (openning_center_frame_.inverse() * planner_core_ptr_->getTargetRootPose() *  tail_pos_in_root_link).z();
 
-      //if(debug_) ROS_INFO("head_z: %f", head_z);
-
-      if (head_z < 0)  /* case 1 */
+      if (tail_z < 0)  /* case 1 */
         {
           if(phase_ > CASE1)
             {
-              ROS_ERROR("CurrentPhase: %d, wrong phase:%d, ", phase_, CASE1);
+              ROS_ERROR("CurrentPhase: %d, wrong phase:%d", phase_, CASE1);
               return false;
             }
-          if(debug_) ROS_INFO("case 1, the head does not pass");
+          if(debug_) ROS_INFO("case 1, the tail does not pass");
 
-          cartersian_constraint_->updateChain("root", std::string("link") + std::to_string(robot_model_ptr_->getRotorNum()), KDL::Segment(std::string("pinch_point"), KDL::Joint(KDL::Joint::None), KDL::Frame(KDL::Vector(robot_model_ptr_->getLinkLength(), 0, 0))));
+          cartersian_constraint_->updateChain("root", squeeze_chain_.segments.back().getName(), KDL::Segment(std::string("pinch_point"), KDL::Joint(KDL::Joint::None), KDL::Frame(KDL::Vector(robot_model_ptr_->getLinkLength(), 0, 0))));
+
         }
       else /* case 2.1 */
         {
           if(phase_ > CASE2_1)
             {
-              ROS_ERROR("CurrentPhase: %d, wrong phase:%d, ", phase_, CASE1);
+              ROS_ERROR("CurrentPhase: %d, wrong phase:%d", phase_, CASE1);
               return false;
             }
           phase_ = CASE2_1;
 
-          double new_ratio = fabs(previous_z) / (fabs(previous_z) + head_z);
-          if(debug_) ROS_INFO("case 2.1, head_z: %f, previous_z: %f, new_ratio: %f, reference_point_ratio_: %f", head_z, previous_z, new_ratio, reference_point_ratio_);
-          if(new_ratio < reference_point_ratio_) reference_point_ratio_ = new_ratio;
+          double ref_point_ratio = fabs(prev_seg_z) / (fabs(prev_seg_z) + tail_z);
+          if(debug_) ROS_INFO("case 2.1, tail_z: %f, previous_z: %f, new_ratio: %f, reference_point_ratio_: %f", tail_z, prev_seg_z, ref_point_ratio, reference_point_ratio_);
+          if(ref_point_ratio < reference_point_ratio_) reference_point_ratio_ = ref_point_ratio;
 
-          cartersian_constraint_->updateChain("root", std::string("link") + std::to_string(robot_model_ptr_->getRotorNum()), KDL::Segment(std::string("pinch_point"), KDL::Joint(KDL::Joint::None), KDL::Frame(KDL::Vector(robot_model_ptr_->getLinkLength() * reference_point_ratio_, 0, 0))));
+          cartersian_constraint_->updateChain("root", squeeze_chain_.segments.back().getName(), KDL::Segment(std::string("pinch_point"), KDL::Joint(KDL::Joint::None), KDL::Frame(KDL::Vector(robot_model_ptr_->getLinkLength() * reference_point_ratio_, 0, 0))));
         }
 
       return true;
