@@ -90,16 +90,15 @@ namespace differential_kinematics
             planner_->getRobotModelPtr()->modelling();
           };
 
+        KDL::Rotation curr_root_att;
+        tf::quaternionTFToKDL(planner_->getTargetRootPose().getRotation(), curr_root_att);
+        auto curr_actuator_vector =  planner_->getTargetActuatorVector<KDL::JntArray>();
+
+
         //debug = true;
         A = Eigen::MatrixXd::Zero(nc_, planner_->getRobotModelPtr()->getLinkJointIndex().size() + 6);
         lb = Eigen::VectorXd::Constant(nc_, -0.1);
         ub = Eigen::VectorXd::Constant(nc_, 0.1);
-
-        /* 0. udpate the robot model with current state */
-        KDL::Rotation curr_root_att;
-        tf::quaternionTFToKDL(planner_->getTargetRootPose().getRotation(), curr_root_att);
-        auto curr_actuator_vector =  planner_->getTargetActuatorVector<KDL::JntArray>();
-        robotModelUpdate(curr_root_att, curr_actuator_vector);
 
         /* 1. stability margin */
         double nominal_stability_margin = planner_->getRobotModelPtr()->getStabilityMargin();
@@ -165,34 +164,40 @@ namespace differential_kinematics
         if(debug)
           std::cout << "constraint (" << constraint_name_.c_str()  << "): matrix A: \n" << A << std::endl;
 
-        /* root */
-        /* roll */
-        robotModelUpdate(curr_root_att * KDL::Rotation::RPY(delta_angle, 0, 0), curr_actuator_vector);
-        /* stability margin */
-        A(0, 3) = (planner_->getRobotModelPtr()->getStabilityMargin() - nominal_stability_margin) / delta_angle;
-        /* singularity */
-        A(1, 3) = (planner_->getRobotModelPtr()->getPdeterminant() - nominal_p_det) / delta_angle;
-        /* hovering thrust */
-        A.block(2, 3, rotor_num_, 1) = (planner_->getRobotModelPtr()->getOptimalHoveringThrust() - nominal_hovering_f) / delta_angle;
+        if(full_body_)
+          {
+            /* root */
+            /* roll */
+            robotModelUpdate(curr_root_att * KDL::Rotation::RPY(delta_angle, 0, 0), curr_actuator_vector);
+            /* stability margin */
+            A(0, 3) = (planner_->getRobotModelPtr()->getStabilityMargin() - nominal_stability_margin) / delta_angle;
+            /* singularity */
+            A(1, 3) = (planner_->getRobotModelPtr()->getPdeterminant() - nominal_p_det) / delta_angle;
+            /* hovering thrust */
+            A.block(2, 3, rotor_num_, 1) = (planner_->getRobotModelPtr()->getOptimalHoveringThrust() - nominal_hovering_f) / delta_angle;
 
-        /*  pitch */
-        robotModelUpdate(curr_root_att * KDL::Rotation::RPY(0, delta_angle, 0), curr_actuator_vector);
-        /* stability margin */
-        A(0, 4) = (planner_->getRobotModelPtr()->getStabilityMargin() - nominal_stability_margin) / delta_angle;
-        /* singularity */
-        A(1, 4) = (planner_->getRobotModelPtr()->getPdeterminant() - nominal_p_det) / delta_angle;
-        /* hovering thrust */
-        A.block(2, 4, rotor_num_, 1) = (planner_->getRobotModelPtr()->getOptimalHoveringThrust() - nominal_hovering_f) / delta_angle;
+            /*  pitch */
+            robotModelUpdate(curr_root_att * KDL::Rotation::RPY(0, delta_angle, 0), curr_actuator_vector);
+            /* stability margin */
+            A(0, 4) = (planner_->getRobotModelPtr()->getStabilityMargin() - nominal_stability_margin) / delta_angle;
+            /* singularity */
+            A(1, 4) = (planner_->getRobotModelPtr()->getPdeterminant() - nominal_p_det) / delta_angle;
+            /* hovering thrust */
+            A.block(2, 4, rotor_num_, 1) = (planner_->getRobotModelPtr()->getOptimalHoveringThrust() - nominal_hovering_f) / delta_angle;
 
-        /* yaw */
-        robotModelUpdate(curr_root_att * KDL::Rotation::RPY(0, 0, delta_angle), curr_actuator_vector);
+            /* yaw */
+            robotModelUpdate(curr_root_att * KDL::Rotation::RPY(0, 0, delta_angle), curr_actuator_vector);
 
-        /* stability margin */
-        A(0, 5) = (planner_->getRobotModelPtr()->getStabilityMargin() - nominal_stability_margin) / delta_angle;
-        /* singularity */
-        A(1, 5) = (planner_->getRobotModelPtr()->getPdeterminant() - nominal_p_det) / delta_angle;
-        /* hovering thrust */
-        A.block(2, 5, rotor_num_, 1) = (planner_->getRobotModelPtr()->getOptimalHoveringThrust() - nominal_hovering_f) / delta_angle;
+            /* stability margin */
+            A(0, 5) = (planner_->getRobotModelPtr()->getStabilityMargin() - nominal_stability_margin) / delta_angle;
+            /* singularity */
+            A(1, 5) = (planner_->getRobotModelPtr()->getPdeterminant() - nominal_p_det) / delta_angle;
+            /* hovering thrust */
+            A.block(2, 5, rotor_num_, 1) = (planner_->getRobotModelPtr()->getOptimalHoveringThrust() - nominal_hovering_f) / delta_angle;
+          }
+
+        /* 0. revert the robot model with current state */
+        robotModelUpdate(curr_root_att, curr_actuator_vector);
 
         if(debug)
           std::cout << "constraint (" << constraint_name_.c_str()  << "): matrix A: \n" << A << std::endl;

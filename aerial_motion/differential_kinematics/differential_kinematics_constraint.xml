@@ -8,5 +8,8 @@
   <class name="differential_kinematics_constraint/collision_avoidance" type="differential_kinematics::constraint::CollisionAvoidance" base_class_type="differential_kinematics::constraint::Base">
     <description>This is a constraint plugin for  collision avoidance </description>
   </class>
+  <class name="differential_kinematics_constraint/cog_motion" type="differential_kinematics::constraint::CogMotion" base_class_type="differential_kinematics::constraint::Base">
+    <description>This is a constraint plugin for  collision avoidance </description>
+  </class>
 
 </library>

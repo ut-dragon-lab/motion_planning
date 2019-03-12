@@ -47,7 +47,8 @@ namespace differential_kinematics
       tf::Transform end_tf;
       tf::transformKDLToTF(end_frame, end_tf);
       if(debug)
-        ROS_WARN("end x: %f,  y: %f, yaw: %f, target end  [%f, %f, %f], yaw: %f", end_tf.getOrigin().x(), end_tf.getOrigin().y(), tf::getYaw(end_tf.getRotation()), target_reference_frame_.getOrigin().x(), target_reference_frame_.getOrigin().y(), target_reference_frame_.getOrigin().z(), tf::getYaw(target_reference_frame_.getRotation()));
+        ROS_WARN("end [%f, %f, %f], yaw: %f, target end  [%f, %f, %f], yaw: %f", (planner_->getTargetRootPose() * end_tf).getOrigin().x(), (planner_->getTargetRootPose() * end_tf).getOrigin().y(), (planner_->getTargetRootPose() * end_tf).getOrigin().z(), tf::getYaw(end_tf.getRotation()), target_reference_frame_.getOrigin().x(), target_reference_frame_.getOrigin().y(), target_reference_frame_.getOrigin().z(), tf::getYaw(target_reference_frame_.getRotation()));
+
       tf::Transform tf_err =  (planner_->getTargetRootPose() * end_tf).inverse() * target_reference_frame_;
       //tf::Transform tf_err =  end_tf.inverse() * target_reference_frame_;
       double pos_err = tf_err.getOrigin().length();

@@ -83,7 +83,9 @@ target_link_libraries (differential_kinematics_cost_pluginlib ${catkin_LIBRARIES
 add_library (differential_kinematics_constraint_pluginlib
   src/constraint/stability.cpp
   src/constraint/collision_avoidance.cpp
-  src/constraint/state_limit.cpp)
+  src/constraint/state_limit.cpp
+  src/constraint/cog_motion.cpp
+  )
 target_link_libraries (differential_kinematics_constraint_pluginlib ${catkin_LIBRARIES} fcl)
 
 # se3 specified differential kinematics constraints

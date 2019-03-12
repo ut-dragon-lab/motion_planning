@@ -97,13 +97,10 @@ namespace differential_kinematics
         lb = Eigen::VectorXd::Constant(nc_, -overlap_change_vel_thre_);
         ub = Eigen::VectorXd::Constant(nc_, 1e6);
 
-
-
-        /* 0. udpate the robot model with current state */
         KDL::Rotation curr_root_att;
         tf::quaternionTFToKDL(planner_->getTargetRootPose().getRotation(), curr_root_att);
         auto curr_actuator_vector =  planner_->getTargetActuatorVector<KDL::JntArray>();
-        auto edfs_origin_from_cog = robotModelUpdate(curr_root_att, curr_actuator_vector);
+        auto edfs_origin_from_cog = dragon_model_ptr->getEdfsOriginFromCog<Eigen::Vector3d>();
 
         /* Note: we only choose the minimum diff, because it is not feasible for N-multilink */
         double min_dist = 1e6;
@@ -120,6 +117,10 @@ namespace differential_kinematics
                 if(dist < 0)
                   {
                     if(verbose_)ROS_ERROR("constraint: %s, overlap!: %d and %d, dist: %f", constraint_name_.c_str(), i + 1, j + 1, dist);
+
+                    /* revert the robot model with current state */
+                    robotModelUpdate(curr_root_att, curr_actuator_vector);
+
                     return false;
                   }
 
@@ -148,21 +149,23 @@ namespace differential_kinematics
             A(0, 6 + index) = (dist - min_dist) / delta_angle;
           }
 
-        /* roll */
-        edfs_origin_from_cog = robotModelUpdate(curr_root_att * KDL::Rotation::RPY(delta_angle, 0, 0), curr_actuator_vector);
-        auto dist = distCalc(edfs_origin_from_cog, overlap_link1, overlap_link2);
-        A(0, 3) = (dist - min_dist) / delta_angle;
+        if(full_body_)
+          {
+            /* roll */
+            edfs_origin_from_cog = robotModelUpdate(curr_root_att * KDL::Rotation::RPY(delta_angle, 0, 0), curr_actuator_vector);
+            auto dist = distCalc(edfs_origin_from_cog, overlap_link1, overlap_link2);
+            A(0, 3) = (dist - min_dist) / delta_angle;
 
-        /* pitch */
-        edfs_origin_from_cog = robotModelUpdate(curr_root_att * KDL::Rotation::RPY(0, delta_angle, 0), curr_actuator_vector);
-        dist = distCalc(edfs_origin_from_cog, overlap_link1, overlap_link2);
-        A(0, 4) = (dist - min_dist) / delta_angle;
+            /* pitch */
+            edfs_origin_from_cog = robotModelUpdate(curr_root_att * KDL::Rotation::RPY(0, delta_angle, 0), curr_actuator_vector);
+            dist = distCalc(edfs_origin_from_cog, overlap_link1, overlap_link2);
+            A(0, 4) = (dist - min_dist) / delta_angle;
 
-        /* yaw */
-        edfs_origin_from_cog = robotModelUpdate(curr_root_att * KDL::Rotation::RPY(0, 0, delta_angle), curr_actuator_vector);
-        dist = distCalc(edfs_origin_from_cog, overlap_link1, overlap_link2);
-        A(0, 5) = (dist - min_dist) / delta_angle;
-
+            /* yaw */
+            edfs_origin_from_cog = robotModelUpdate(curr_root_att * KDL::Rotation::RPY(0, 0, delta_angle), curr_actuator_vector);
+            dist = distCalc(edfs_origin_from_cog, overlap_link1, overlap_link2);
+            A(0, 5) = (dist - min_dist) / delta_angle;
+          }
         /* set lb */
         if(min_dist < overlap_constraint_range_)
             lb(0) *= ((min_dist - overlap_forbidden_range_) / (overlap_constraint_range_ - overlap_forbidden_range_));
@@ -180,6 +183,9 @@ namespace differential_kinematics
             result_overlap_link1_ = overlap_link1;
             result_overlap_link2_ = overlap_link2;
           }
+
+        /* revert the robot model with current state */
+        robotModelUpdate(curr_root_att, curr_actuator_vector);
 
         return true;
       }
