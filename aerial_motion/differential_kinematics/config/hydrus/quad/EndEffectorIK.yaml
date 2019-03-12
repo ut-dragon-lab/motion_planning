@@ -10,16 +10,16 @@ differential_kinematics_cost:
         state_vel:
                 verbose: true
                 w_joint_vel: 0.001
-                w_root_translational_vel: 0.001
-                w_root_rotational_vel: 0.001
+                w_root_translational_vel: 0 #0.001
+                w_root_rotational_vel: 0 #0.001
 
 # constraint
 differential_kinematics_constraint:
         state_limit:
                 verbose: true
                 joint_vel_thre: 0.01 # 0.17
-                root_translational_vel_thre: 0.01 # 0.1
-                root_rotational_vel_thre: 0.01 #0.17
+                root_translational_vel_thre: 100000 # 0.1
+                root_rotational_vel_thre: 100000 #0.17
                 joint_vel_constraint_range: 0.11
                 joint_vel_forbidden_range: 0.02
                 vebose: true
@@ -29,5 +29,10 @@ differential_kinematics_constraint:
                 verbose: true
                 collision_distance_constraint_range: 0.08 #0.05
                 collision_distance_forbidden_range: 0.05 #0.02
+        cog_motion:
+                verbose: true
+                cog_omega_limit_flag: false
+                cog_velocity_limit: [0.01, 0.01, 0.01] # [x,y,z] (m) in world frame
+                cog_angular_limit: [0.02, 0.02, 0.02] # [x,y,z] (rad) in world frame
 
 #Test(flight stability) f_max: 9.29

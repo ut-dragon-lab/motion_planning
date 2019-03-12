@@ -123,7 +123,10 @@ bool EndEffectorIKSolverCore::inverseKinematics(const tf::Transform& target_ee_p
   /* 2.  stability */
   constraint_container.push_back(constraint_plugin_loader.createInstance("differential_kinematics_constraint/stability"));
   constraint_container.back()->initialize(nh_, nhp_, planner_core_ptr_, "differential_kinematics_constraint/stability", orientation, full_body);
-  /* 3. collision avoidance */
+  /* 3. cog motion */
+  constraint_container.push_back(constraint_plugin_loader.createInstance("differential_kinematics_constraint/cog_motion"));
+  constraint_container.back()->initialize(nh_, nhp_, planner_core_ptr_, "differential_kinematics_constraint/cog_motion", orientation, full_body);
+  /* 4. collision avoidance */
   if(collision_avoidance)
     {
       constraint_container.push_back(constraint_plugin_loader.createInstance("differential_kinematics_constraint/collision_avoidance"));
