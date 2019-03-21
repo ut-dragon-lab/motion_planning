@@ -12,13 +12,17 @@
 
 4. send the IK target point to this solver via rosservice.
 ```
-$ rosservice call /end_effector_ik "target_pos: {x: -0.6, y: 0.6, z: 0.0}
+$
+rosservice call /end_effector_ik "target_pos: {x: -0.6, y: 0.6, z: 0.0}
 target_rot: {x: 0.0, y: 0.0, z: 3.14}
 orientation: true
-full_body: true
-collision_avoidance: true
+full_body: true 
+collision_avoidance: true 
+tran_free_axis: ''
+rot_free_axis: ''
 debug: false"
- ```
+status: False
+```
 
 *Note*: You should confirm the animation in rviz, which the end-effector (attached at the 4th link) moves to the target point [-0.6, 0.6] and yaw: -3.14 gradually without colliding into the red cylinder
 

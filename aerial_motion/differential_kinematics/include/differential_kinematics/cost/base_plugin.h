@@ -77,6 +77,12 @@ namespace differential_kinematics
       virtual bool getHessianGradient(bool& convergence, Eigen::MatrixXd& H, Eigen::VectorXd& g, bool debug = false) = 0;
 
       std::string getCostName() {return cost_name_;}
+
+      inline void setOrientation(const bool& orientation) { orientation_ = orientation; }
+      inline const bool& getOrientation() const {return orientation_; }
+      inline void setFullBody(const bool& full_body) { full_body_ = full_body; }
+      inline const bool& getFullBody() const {return full_body_; }
+
     protected:
 
       ros::NodeHandle nh_;
