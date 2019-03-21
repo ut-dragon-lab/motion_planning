@@ -35,4 +35,4 @@ differential_kinematics_constraint:
                 cog_velocity_limit: [0.01, 0.01, 0.01] # [x,y,z] (m) in world frame
                 cog_angular_limit: [0.02, 0.02, 0.02] # [x,y,z] (rad) in world frame
 
-#Test(flight stability) f_max: 9.29
+stability_margin_thre: 0.35

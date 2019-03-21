@@ -78,7 +78,8 @@ bool EndEffectorIKSolverCore::endEffectorIkCallback(differential_kinematics::Tar
   // init_root_pose.setOrigin(tf::Vector3(0.0, 0.6, 0.0));
 
   if(!inverseKinematics(target_ee_pose_, init_actuator_vector_, init_root_pose,
-                        req.orientation, req.full_body, req.collision_avoidance, req.debug))
+                        req.orientation, req.full_body, req.tran_free_axis, req.rot_free_axis,
+                        req.collision_avoidance, req.debug))
     return false;
 
   return true;
@@ -89,7 +90,7 @@ void EndEffectorIKSolverCore::envCollision(const visualization_msgs::MarkerArray
   env_collision_ = *env_msg;
 }
 
-bool EndEffectorIKSolverCore::inverseKinematics(const tf::Transform& target_ee_pose, const sensor_msgs::JointState& init_actuator_vector, const tf::Transform& init_root_pose, bool orientation, bool full_body, bool collision_avoidance, bool debug)
+bool EndEffectorIKSolverCore::inverseKinematics(const tf::Transform& target_ee_pose, const sensor_msgs::JointState& init_actuator_vector, const tf::Transform& init_root_pose, bool orientation, bool full_body, std::string tran_free_axis, std::string rot_free_axis, bool collision_avoidance, bool debug)
 {
   /* declare the differential kinemtiacs const */
   pluginlib::ClassLoader<cost::Base>  cost_plugin_loader("differential_kinematics", "differential_kinematics::cost::Base");
@@ -111,8 +112,21 @@ bool EndEffectorIKSolverCore::inverseKinematics(const tf::Transform& target_ee_p
   /* TODO: following end effector is not valid for full-body ik solution, can not figure the reason */
   //boost::dynamic_pointer_cast<cost::CartersianConstraint>(cost_container.back())->updateChain("root", std::string("link3"), KDL::Segment(std::string("end_effector"), KDL::Joint(KDL::Joint::None), KDL::Frame(KDL::Vector(planner_core_ptr_->getRobotModelPtr()->getLinkLength(), 0, 0))));
 
+
   //boost::dynamic_pointer_cast<cost::CartersianConstraint>(cost_container.back())->updateTargetFrame(target_ee_pose_);
   reinterpret_cast<cost::CartersianConstraint*>(cost_container.back().get())->updateTargetFrame(target_ee_pose_);
+
+  /* set free axis */
+  std::vector<int> free_axis_list(0);
+  if(tran_free_axis.find("x") != std::string::npos) free_axis_list.push_back(MaskAxis::TRAN_X);
+  if(tran_free_axis.find("y") != std::string::npos) free_axis_list.push_back(MaskAxis::TRAN_Y);
+  if(tran_free_axis.find("z") != std::string::npos) free_axis_list.push_back(MaskAxis::TRAN_Z);
+  if(rot_free_axis == std::string("x")) free_axis_list.push_back(MaskAxis::ROT_X);
+  if(rot_free_axis == std::string("y")) free_axis_list.push_back(MaskAxis::ROT_Y);
+  if(rot_free_axis == std::string("z")) free_axis_list.push_back(MaskAxis::ROT_Z);
+
+  if(free_axis_list.size() > 0)
+    reinterpret_cast<cost::CartersianConstraint*>(cost_container.back().get())->setFreeAxis(free_axis_list);
 
   /* declare the differential kinemtiacs constraint */
   pluginlib::ClassLoader<constraint::Base>  constraint_plugin_loader("differential_kinematics", "differential_kinematics::constraint::Base");

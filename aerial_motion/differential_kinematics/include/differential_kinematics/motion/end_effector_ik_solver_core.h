@@ -74,7 +74,7 @@ private:
   bool collision_avoidance_;
   visualization_msgs::MarkerArray env_collision_;
 
-  bool inverseKinematics(const tf::Transform& target_ee_pose, const sensor_msgs::JointState& init_actuator_vector, const tf::Transform& init_root_pose, bool orientation, bool full_body, bool collision_avoidance, bool debug);
+  bool inverseKinematics(const tf::Transform& target_ee_pose, const sensor_msgs::JointState& init_actuator_vector, const tf::Transform& init_root_pose, bool orientation, bool full_body, std::string tran_free_axis, std::string rot_free_axis, bool collision_avoidance, bool debug);
 
   void actuatorStateCallback(const sensor_msgs::JointStateConstPtr& state);
   bool endEffectorIkCallback(differential_kinematics::TargetPose::Request  &req,

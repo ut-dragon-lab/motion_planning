@@ -47,14 +47,32 @@
 #include <tf_conversions/tf_eigen.h>
 #include <tf/transform_datatypes.h>
 
+namespace MaskAxis
+{
+  enum
+    {
+      TRAN_X,
+      TRAN_Y,
+      TRAN_Z,
+      ROT_X,
+      ROT_Y,
+      ROT_Z,
+    };
+};
+
 namespace differential_kinematics
 {
   namespace cost
   {
     class CartersianConstraint :public Base
     {
+
     public:
-      CartersianConstraint(): chain_joint_index_(0) {}
+      CartersianConstraint(): chain_joint_index_(0)
+      {
+        free_axis_mask_ = Eigen::VectorXd::Ones(6);
+      }
+
       ~CartersianConstraint(){}
 
       void initialize(ros::NodeHandle nh, ros::NodeHandle nhp,
@@ -91,6 +109,37 @@ namespace differential_kinematics
         target_reference_frame_ = target_reference_frame;
       }
 
+      void setFreeAxis(const std::vector<int>& free_axis_list)
+      {
+        resetAxisMask();
+
+        for(const auto& axis: free_axis_list)
+          {
+            if(axis > MaskAxis::ROT_Z)
+              {
+                ROS_ERROR("the free axis index: %d is invalid", axis);
+                return;
+              }
+            free_axis_mask_(axis) = 0;
+          }
+      }
+
+
+      void setFreeAxis(int free_axis)
+      {
+        if(free_axis > MaskAxis::ROT_Z)
+          {
+            ROS_ERROR("the free axis index: %d is invalid", free_axis);
+            return;
+          }
+
+        resetAxisMask();
+
+        free_axis_mask_(free_axis) = 0;
+      }
+
+      void resetAxisMask() { free_axis_mask_ = Eigen::VectorXd::Ones(6); }
+
     protected:
       double pos_convergence_thre_;
       double rot_convergence_thre_;
@@ -102,8 +151,10 @@ namespace differential_kinematics
       KDL::Chain chain_;
       Eigen::MatrixXd W_cartesian_err_constraint_;
       tf::Transform target_reference_frame_;
+      Eigen::VectorXd free_axis_mask_;
 
       std::vector<int> chain_joint_index_;
+
 
       bool calcJointJacobian(Eigen::MatrixXd& jacobian, bool debug);
     };
