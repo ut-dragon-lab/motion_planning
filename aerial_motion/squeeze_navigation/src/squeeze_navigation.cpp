@@ -50,6 +50,8 @@ namespace
   ros::Publisher debug_pub_;
 
   double start_return_time_;
+
+  double max_joint_vel = 0; //debug
 }
 
 SqueezeNavigation::SqueezeNavigation(ros::NodeHandle nh, ros::NodeHandle nhp):
@@ -222,28 +224,35 @@ void SqueezeNavigation::planStartCallback(const std_msgs::Empty msg)
 
 
   /* resampling */
+  double resampling_angular_rate;
+  double resampling_seg_diff_thresh;
+  nhp_.param("resampling_angular_rate", resampling_angular_rate, 1.0);
+  nhp_.param("resampling_seg_diff_thresh", resampling_seg_diff_thresh, 0.2);
   double path_length = 0;
   const std::vector <MultilinkState>& unsampling_path = discrete_path_filter_flag?filtered_path_:discrete_path_planner_->getPathConst();
 
   for(int i = 0; i < unsampling_path.size() - 1; i++)
     {
+      /* translation motion */
       tf::Vector3 p1, p2;
       tf::pointMsgToTF(unsampling_path.at(i).getCogPoseConst().position, p1);
       tf::pointMsgToTF(unsampling_path.at(i + 1).getCogPoseConst().position, p2);
       path_length += (p1-p2).length();
+
+      /* rotational motion */
+      double angle_diff = fabs(unsampling_path.at(i).getBaselinkDesiredAttConst().angleShortestPath(unsampling_path.at(i+1).getBaselinkDesiredAttConst()));
+      path_length += resampling_angular_rate * angle_diff;
+      //ROS_WARN("%d: angle_diff: %f", i, angle_diff);
     }
 
   double ave_delta_trans = path_length / unsampling_path.size();
   ROS_WARN("path length is %f, average delta trans is %f", path_length, ave_delta_trans);
-
   /* do resampling */
   std::vector<MultilinkState> resampling_path;
   bool resampling_flag;
   nhp_.param("resampling_flag", resampling_flag, false);
   double delta_trans = 0;
   bool not_enough = false;
-  double resmapling_seg_diff_thresh;
-  nhp_.param("resmapling_seg_diff_thresh", resmapling_seg_diff_thresh, 0.2);
   resampling_path.push_back(unsampling_path.front());
   if(resampling_flag)
     {
@@ -251,27 +260,30 @@ void SqueezeNavigation::planStartCallback(const std_msgs::Empty msg)
         {
           tf::Vector3 prev_p;
           tf::pointMsgToTF(unsampling_path.at(i - 1).getCogPoseConst().position, prev_p);
-
+          tf::Quaternion prev_q = unsampling_path.at(i - 1).getBaselinkDesiredAttConst();
           tf::Vector3 new_p;
           tf::pointMsgToTF(unsampling_path.at(i).getCogPoseConst().position, new_p);
-
+          tf::Quaternion new_q = unsampling_path.at(i).getBaselinkDesiredAttConst();
           tf::Vector3 ref_p;
           tf::pointMsgToTF(resampling_path.back().getCogPoseConst().position, ref_p);
+          tf::Quaternion ref_q = resampling_path.back().getBaselinkDesiredAttConst();
 
-          if(delta_trans == 0) delta_trans = (ref_p - new_p).length();
+          if(delta_trans == 0) delta_trans = (ref_p - new_p).length() + resampling_angular_rate * fabs(new_q.angleShortestPath(ref_q));
           if(not_enough)
             {
-              delta_trans += (prev_p - new_p).length();
+              delta_trans += ((prev_p - new_p).length() + resampling_angular_rate * fabs(new_q.angleShortestPath(prev_q)));
               not_enough = false;
             }
 
           if(debug_verbose_)
             {
-              ROS_INFO("ref point [%f, %f, %f]", resampling_path.back().getCogPoseConst().position.x, resampling_path.back().getCogPoseConst().position.y ,resampling_path.back().getCogPoseConst().position.z);
-              std::cout << "new point vs resample ref point: [" << i << ", " << resampling_path.size() << "], inrce vs delta_trans vs ave: [" << (ref_p - new_p).length() << ", " << delta_trans << ", " << ave_delta_trans << "]. ";
+              double r,p,y;
+              tf::Matrix3x3(resampling_path.back().getBaselinkDesiredAttConst()).getRPY(r,p,y);
+              ROS_INFO("ref pose [%f, %f, %f] [%f, %f, %f]", ref_p.x(), ref_p.y() ,ref_p.z(), r, p, y);
+              std::cout << "new point vs resample ref point: [" << i << ", " << resampling_path.size() << "], inrcement vs delta_trans vs ave: [" << (ref_p - new_p).length() + resampling_angular_rate * fabs(new_q.angleShortestPath(ref_q)) << ", " << delta_trans << ", " << ave_delta_trans << "]. ";
             }
 
-          if( fabs(delta_trans - ave_delta_trans) < resmapling_seg_diff_thresh * ave_delta_trans)
+          if(fabs(delta_trans - ave_delta_trans) < resampling_seg_diff_thresh * ave_delta_trans)
             {
               if(debug_verbose_)
                 {
@@ -285,7 +297,7 @@ void SqueezeNavigation::planStartCallback(const std_msgs::Empty msg)
           else if (delta_trans >  ave_delta_trans)
             {
               // interpolation
-              double interpolate_rate = (1 - (delta_trans - ave_delta_trans) / (prev_p - new_p).length());
+              double interpolate_rate = 1 - (delta_trans - ave_delta_trans) / ((prev_p - new_p).length() + resampling_angular_rate * fabs(prev_q.angleShortestPath(new_q)));
               if(debug_verbose_)
                 std::cout << " interpolation since too big delta trans. interpolate rate: " << interpolate_rate << ". "  << std::endl;
 
@@ -303,17 +315,14 @@ void SqueezeNavigation::planStartCallback(const std_msgs::Empty msg)
 
               /* baselink attitude and  root pose */
               tf::Quaternion desired_baselink_q = unsampling_path.at(i - 1).getBaselinkDesiredAttConst().slerp(unsampling_path.at(i).getBaselinkDesiredAttConst(), interpolate_rate);
-              //double r,p,y;
-              //tf::Matrix3x3(baselink_q).getRPY(r, p, y);
-              //desired_baselink_q = tf::createQuaternionFromRPY(r, p, 0);
-              //cog_pose.orientation = tf::createQuaternionMsgFromYaw(y); /* special: only get yaw angle */
 
               resampling_path.push_back(MultilinkState(robot_model_ptr_,
                                                        desired_baselink_q, cog_pose,
                                                        actuator_vector));
               tf::Vector3 new_ref_p;
               tf::pointMsgToTF(resampling_path.back().getCogPoseConst().position, new_ref_p);
-              delta_trans = (new_ref_p - new_p).length();
+              tf::Quaternion new_ref_q = resampling_path.back().getBaselinkDesiredAttConst();
+              delta_trans = (new_ref_p - new_p).length() + resampling_angular_rate * fabs(new_q.angleShortestPath(new_ref_q));
 
               if(debug_verbose_) ROS_WARN("delta_trans: %f", delta_trans);
             }
@@ -563,7 +572,14 @@ void SqueezeNavigation::navigate(const ros::TimerEvent& event)
 
     double joint_angle_sum = 0;
     for(int i = 0; i < joint_num; i++)
-      joint_angle_sum += (des_vel[6+i] * des_vel[6+i]);
+      {
+        joint_angle_sum += (des_vel[6+i] * des_vel[6+i]);
+        if(fabs(des_vel[6+i]) > max_joint_vel)
+          {
+            max_joint_vel = fabs(des_vel[6+i]);
+            ROS_WARN("max joint vel: %f", max_joint_vel);
+          }
+      }
     debug_robot_state.state.joint_state.position.push_back(sqrt(joint_angle_sum));
 
     debug_pub_.publish(debug_robot_state);
