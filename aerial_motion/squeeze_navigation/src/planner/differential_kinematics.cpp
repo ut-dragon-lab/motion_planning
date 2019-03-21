@@ -315,12 +315,12 @@ namespace squeeze_motion_planner
 
           /* Temporary: add several extra point after squeezing */
           /* simply only change the target altitude of the CoG frame */
-          for(int i = 1; i <= 10 ; i++) // 5 times
+          for(int i = 1; i <= 5; i++) // 5 times
             {
               MultilinkState robot_state;
               geometry_msgs::Pose root_pose;
               tf::poseTFToMsg(planner_core_ptr_->getRootPoseSequence().back(), root_pose);
-              root_pose.position.z += (0.005 * i); //0.005 [m]
+              root_pose.position.z += (0.01 * i); //0.005 [m]
               robot_state.setStatesFromRoot(robot_model_ptr_, root_pose,
                                             planner_core_ptr_->getActuatorStateSequence().back());
               path_.push_back(robot_state);

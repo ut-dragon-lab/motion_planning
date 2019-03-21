@@ -76,7 +76,7 @@
     <!-- continuous path generator -->
     <!-- bsploine -->
     <param name="bspline_degree" value="5" />
-    <param name="trajectory_period" value="80.0" />
+    <param name="trajectory_period" value="50.0" />
 
     <!-- navigation -->
     <param name="control_frequency" value="40.0" />
