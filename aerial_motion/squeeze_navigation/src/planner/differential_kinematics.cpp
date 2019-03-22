@@ -329,7 +329,9 @@ namespace squeeze_motion_planner
 
           return true;
         }
-      else return false;
+
+      /* cannot solve */
+      return false;
     }
 
     bool loadPath() { return false;}
@@ -476,6 +478,8 @@ namespace squeeze_motion_planner
 
       return true;
     }
+
+    void setInitState(const MultilinkState& state) { start_state_ = state; }
 
   };
 };

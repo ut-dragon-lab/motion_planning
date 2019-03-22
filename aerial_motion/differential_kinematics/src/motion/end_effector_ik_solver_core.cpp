@@ -41,20 +41,23 @@ using CostContainer = std::vector<boost::shared_ptr<cost::Base> >;
 using ConstraintContainer = std::vector<boost::shared_ptr<constraint::Base> >;
 
 
-EndEffectorIKSolverCore::EndEffectorIKSolverCore(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<HydrusRobotModel> robot_model_ptr): nh_(nh), nhp_(nhp)
+EndEffectorIKSolverCore::EndEffectorIKSolverCore(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<HydrusRobotModel> robot_model_ptr, bool simulation): nh_(nh), nhp_(nhp), robot_model_ptr_(robot_model_ptr)
   {
     planner_core_ptr_ = boost::shared_ptr<Planner> (new Planner(nh, nhp, robot_model_ptr));
-    /* important: link1(root) should be base link */
-    planner_core_ptr_->getRobotModelPtr()->setBaselinkName(std::string("link1"));
 
-    planner_core_ptr_->registerMotionFunc(std::bind(&EndEffectorIKSolverCore::motionFunc, this));
+    baselink_name_ = robot_model_ptr_->getBaselinkName();
 
-    std::string actuator_state_sub_name;
-    nhp_.param("actuator_state_sub_name", actuator_state_sub_name, std::string("joint_state"));
+    /* simulation: check the validation of end-effector ik sovler without dynamics */
+    if(simulation)
+      {
+        planner_core_ptr_->registerMotionFunc(std::bind(&EndEffectorIKSolverCore::motionFunc, this));
 
-    end_effector_ik_service_ = nh_.advertiseService("end_effector_ik", &EndEffectorIKSolverCore::endEffectorIkCallback, this);
-    actuator_state_sub_ = nh_.subscribe(actuator_state_sub_name, 1, &EndEffectorIKSolverCore::actuatorStateCallback, this);
-    env_collision_sub_ = nh_.subscribe("/env_collision", 1, &EndEffectorIKSolverCore::envCollision, this);
+        std::string actuator_state_sub_name;
+        nhp_.param("actuator_state_sub_name", actuator_state_sub_name, std::string("joint_state"));
+        actuator_state_sub_ = nh_.subscribe(actuator_state_sub_name, 1, &EndEffectorIKSolverCore::actuatorStateCallback, this);
+        end_effector_ik_service_ = nh_.advertiseService("end_effector_ik", &EndEffectorIKSolverCore::endEffectorIkCallback, this);
+        env_collision_sub_ = nh_.subscribe("/env_collision", 1, &EndEffectorIKSolverCore::envCollision, this);
+      }
   }
 
 bool EndEffectorIKSolverCore::endEffectorIkCallback(differential_kinematics::TargetPose::Request  &req,
@@ -68,16 +71,17 @@ bool EndEffectorIKSolverCore::endEffectorIkCallback(differential_kinematics::Tar
   collision_avoidance_ = req.collision_avoidance;
   /* start IK */
   tf::Quaternion q; q.setRPY(req.target_rot.x, req.target_rot.y, req.target_rot.z);
-  target_ee_pose_ = tf::Transform (q, tf::Vector3(req.target_pos.x, req.target_pos.y, req.target_pos.z));
+  tf::Transform target_ee_pose(q, tf::Vector3(req.target_pos.x, req.target_pos.y, req.target_pos.z));
 
   tf::Transform init_root_pose;
   init_root_pose.setIdentity();
 
-  /* debug */
-  // init_root_pose.setRotation(tf::createQuaternionFromYaw(-M_PI/2));
-  // init_root_pose.setOrigin(tf::Vector3(0.0, 0.6, 0.0));
+  /* set the end effector */
+  setEndEffectorPose(std::string("link") + std::to_string(planner_core_ptr_->getRobotModelPtr()->getRotorNum()),
+                     tf::Transform(tf::createIdentityQuaternion(),
+                                   tf::Vector3(planner_core_ptr_->getRobotModelPtr()->getLinkLength(), 0, 0)));
 
-  if(!inverseKinematics(target_ee_pose_, init_actuator_vector_, init_root_pose,
+  if(!inverseKinematics(target_ee_pose, init_actuator_vector_, init_root_pose,
                         req.orientation, req.full_body, req.tran_free_axis, req.rot_free_axis,
                         req.collision_avoidance, req.debug))
     return false;
@@ -85,13 +89,24 @@ bool EndEffectorIKSolverCore::endEffectorIkCallback(differential_kinematics::Tar
   return true;
 }
 
+void EndEffectorIKSolverCore::setEndEffectorPose(std::string parent_seg, tf::Transform pose)
+{
+  parent_seg_ = parent_seg;
+  end_effector_relative_pose_ = pose;
+}
+
 void EndEffectorIKSolverCore::envCollision(const visualization_msgs::MarkerArrayConstPtr& env_msg)
 {
-  env_collision_ = *env_msg;
+  setCollision(*env_msg);
 }
 
 bool EndEffectorIKSolverCore::inverseKinematics(const tf::Transform& target_ee_pose, const sensor_msgs::JointState& init_actuator_vector, const tf::Transform& init_root_pose, bool orientation, bool full_body, std::string tran_free_axis, std::string rot_free_axis, bool collision_avoidance, bool debug)
 {
+  /* reset path */
+  path_.resize(0);
+  /* important: link1(root) should be base link */
+  planner_core_ptr_->getRobotModelPtr()->setBaselinkName(std::string("link1"));
+
   /* declare the differential kinemtiacs const */
   pluginlib::ClassLoader<cost::Base>  cost_plugin_loader("differential_kinematics", "differential_kinematics::cost::Base");
   CostContainer cost_container;
@@ -106,15 +121,16 @@ bool EndEffectorIKSolverCore::inverseKinematics(const tf::Transform& target_ee_p
   cost_container.back()->initialize(nh_, nhp_, planner_core_ptr_, "differential_kinematics_cost/cartesian_constraint", orientation, full_body);
 
   /* special process: definition of end coords */
-  int rotor_num = planner_core_ptr_->getRobotModelPtr()->getRotorNum();
-  reinterpret_cast<cost::CartersianConstraint*>(cost_container.back().get())->updateChain("root", std::string("link") + std::to_string(rotor_num), KDL::Segment(std::string("end_effector"), KDL::Joint(KDL::Joint::None), KDL::Frame(KDL::Vector(planner_core_ptr_->getRobotModelPtr()->getLinkLength(), 0, 0))));
+  KDL::Frame ee_frame; tf::poseTFToKDL(end_effector_relative_pose_, ee_frame);
+  reinterpret_cast<cost::CartersianConstraint*>(cost_container.back().get())->updateChain("root", parent_seg_, KDL::Segment(std::string("end_effector"), KDL::Joint(KDL::Joint::None), ee_frame));
   //boost::dynamic_pointer_cast<cost::CartersianConstraint>(cost_container.back())->updateChain("root", std::string("link") + std::to_string(rotor_num), KDL::Segment(std::string("end_effector"), KDL::Joint(KDL::Joint::None), KDL::Frame(KDL::Vector(planner_core_ptr_->getRobotModelPtr()->getLinkLength(), 0, 0))));
   /* TODO: following end effector is not valid for full-body ik solution, can not figure the reason */
   //boost::dynamic_pointer_cast<cost::CartersianConstraint>(cost_container.back())->updateChain("root", std::string("link3"), KDL::Segment(std::string("end_effector"), KDL::Joint(KDL::Joint::None), KDL::Frame(KDL::Vector(planner_core_ptr_->getRobotModelPtr()->getLinkLength(), 0, 0))));
 
 
   //boost::dynamic_pointer_cast<cost::CartersianConstraint>(cost_container.back())->updateTargetFrame(target_ee_pose_);
-  reinterpret_cast<cost::CartersianConstraint*>(cost_container.back().get())->updateTargetFrame(target_ee_pose_);
+  target_ee_pose_ = target_ee_pose;
+  reinterpret_cast<cost::CartersianConstraint*>(cost_container.back().get())->updateTargetFrame(target_ee_pose);
 
   /* set free axis */
   std::vector<int> free_axis_list(0);
@@ -154,7 +170,24 @@ bool EndEffectorIKSolverCore::inverseKinematics(const tf::Transform& target_ee_p
   planner_core_ptr_->setTargetActuatorVector(init_actuator_vector);
 
   /* start the planning */
-  return planner_core_ptr_->solver(cost_container, constraint_container, debug);
+  if(planner_core_ptr_->solver(cost_container, constraint_container, debug))
+    {
+      /* revert to the correct base link ( which is not root_link = link1), to be suitable for the control system */
+      robot_model_ptr_->setBaselinkName(baselink_name_);
+
+      for(int index = 0; index < planner_core_ptr_->getRootPoseSequence().size(); index++)
+        {
+          /* insert the result discrete path */
+          geometry_msgs::Pose root_pose;
+          tf::poseTFToMsg(planner_core_ptr_->getRootPoseSequence().at(index), root_pose);
+          path_.push_back(MultilinkState(robot_model_ptr_, root_pose, planner_core_ptr_->getActuatorStateSequence().at(index)));
+        }
+
+      return true;
+    }
+
+  /* cannot solver */
+  return false;
 }
 
 void EndEffectorIKSolverCore::motionFunc()

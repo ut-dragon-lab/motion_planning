@@ -102,6 +102,8 @@ namespace sampling_base
       inline int  getMaxForcetateIndex() {return max_force_state_index_;}
       inline double getMinVar() {return  min_var_; }
       inline int  getMinVarStateIndex() {return min_var_state_index_;}
+      inline void setStartState(const MultilinkState& state) { start_state_ = state;}
+      inline void setGoalState(const MultilinkState& state) { goal_state_ = state;}
 
       void setScene(const moveit_msgs::CollisionObject& collision_object);
       bool plan();

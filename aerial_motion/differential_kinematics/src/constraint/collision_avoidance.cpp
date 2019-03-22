@@ -290,7 +290,11 @@ namespace differential_kinematics
           Eigen::MatrixXd jacobian;
           if(!getJacobian(jacobian, planner_->getTargetActuatorVector<KDL::JntArray>(),
                           link_info.name.c_str(), f_link,
-                          f_collision_obj_offset * p_in_robot_local_frame, debug)) return false;
+                          f_collision_obj_offset * p_in_robot_local_frame, debug))
+            {
+              ROS_ERROR("collision constraint: invalid link: %s", link_info.name.c_str());
+              return false;
+            }
 
           // std::cout << "n_in_root_link_eigen.transpose() * jacobian: \n" << n_in_root_link_eigen.transpose() * jacobian << std::endl;
           // std::cout << "n_in_root_link: \n" << n_in_root_link_eigen.transpose() << std::endl;
@@ -306,6 +310,8 @@ namespace differential_kinematics
           std::cout << "constraint name: " << constraint_name_ << ", lb: \n" << lb << std::endl;
           std::cout << "constraint name: " << constraint_name_ << ", ub: \n" << ub.transpose() << std::endl;
         }
+
+      return true;
     }
 
     bool CollisionAvoidance::defaultDistanceFunction(fcl::CollisionObject<double>* o1, fcl::CollisionObject<double>* o2, void* cdata_, double& dist)

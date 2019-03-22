@@ -52,6 +52,22 @@
 class TinysplineInterface
 {
 public:
+  TinysplineInterface(ros::NodeHandle nh, ros::NodeHandle nhp);
+  ~TinysplineInterface(){}
+
+  const double getStartTime() const {return time_start_;}
+  const double getEndTime() const {return time_end_;}
+
+  void splinePathDisplay();
+  void bsplineParamInput(const bspline_generator::ControlPoints& msg);
+  void getDerive();
+  std::vector<double> evaluate(double t);
+  std::vector<double> evaluateDerive(double t);
+  void controlPolygonDisplay();
+  void controlPolygonDisplayInterface(int mode = 1);
+  void arrayConvertToPoint(int id, geometry_msgs::Point& point);
+
+private:
   boost::shared_ptr<tinyspline::BSpline> spline_ptr_;
   tinyspline::BSpline spline_derive_;
   std::vector<tinyspline::rational> controlpts_;
@@ -61,8 +77,8 @@ public:
   int deg_;
   int dim_;
   bool is_uniform_;
-  float time_start_;
-  float time_end_;
+  double time_start_;
+  double time_end_;
   bool polygon_display_flag_;
   bool debug_;
   std::string path_frame_id_;
@@ -73,16 +89,6 @@ public:
   ros::Publisher pub_spline_path_;
   ros::Publisher pub_reconstructed_path_markers_;
 
-  TinysplineInterface(ros::NodeHandle nh, ros::NodeHandle nhp);
-  ~TinysplineInterface(){}
-  void splinePathDisplay();
-  void bsplineParamInput(boost::shared_ptr<bspline_generator::ControlPoints> msg);
-  void getDerive();
-  std::vector<double> evaluate(double t);
-  std::vector<double> evaluateDerive(double t);
-  void controlPolygonDisplay();
-  void controlPolygonDisplayInterface(int mode = 1);
-  void arrayConvertToPoint(int id, geometry_msgs::Point& point);
 };
 
 #endif

@@ -43,17 +43,17 @@ TinysplineInterface::TinysplineInterface(ros::NodeHandle nh, ros::NodeHandle nhp
   pub_reconstructed_path_markers_ = nh_.advertise<visualization_msgs::MarkerArray>("reconstructed_path_markers", 1);
 }
 
-void TinysplineInterface::bsplineParamInput(boost::shared_ptr<bspline_generator::ControlPoints> msg)
+void TinysplineInterface::bsplineParamInput(const bspline_generator::ControlPoints& msg)
 {
   /* Init */
-  is_uniform_ = msg->is_uniform;
-  deg_ = msg->degree;
-  dim_ = msg->dim;
+  is_uniform_ = msg.is_uniform;
+  deg_ = msg.degree;
+  dim_ = msg.dim;
 
   if (dim_ < 3)
     ROS_WARN("[TinysplineInterface] Input data dimension is less than 3, display function is infeasible.");
 
-  controlpts_num_ = msg->num;
+  controlpts_num_ = msg.num;
   knots_num_ = controlpts_num_ + deg_ + 1;
   if (controlpts_num_ <= deg_){
     ROS_WARN("Control points is LESS than degree!");
@@ -65,15 +65,15 @@ void TinysplineInterface::bsplineParamInput(boost::shared_ptr<bspline_generator:
   else
     spline_ptr_ = boost::shared_ptr<tinyspline::BSpline>(new tinyspline::BSpline(deg_, dim_, controlpts_num_, TS_NONE));
 
-  time_start_ = msg->start_time;
-  time_end_ = msg->end_time;
+  time_start_ = msg.start_time;
+  time_end_ = msg.end_time;
 
   knotpts_ = spline_ptr_->knots();
 
   /* Manually setting knots value is needed if not uniform bspline */
   if (!is_uniform_){
     for (int i = 0; i < knots_num_; ++i){
-      knotpts_[i] = msg->knots.data[i];
+      knotpts_[i] = msg.knots.data[i];
     }
     spline_ptr_->setKnots(knotpts_);
   }
@@ -81,7 +81,7 @@ void TinysplineInterface::bsplineParamInput(boost::shared_ptr<bspline_generator:
   /* Set control points value */
   controlpts_ = spline_ptr_->ctrlp();
   for (int i = 0; i < controlpts_num_ * dim_; ++i)
-    controlpts_.at(i) = msg->control_pts.data.at(i);
+    controlpts_.at(i) = msg.control_pts.data.at(i);
   spline_ptr_->setCtrlp(controlpts_);
 
   if (debug_){
@@ -91,10 +91,10 @@ void TinysplineInterface::bsplineParamInput(boost::shared_ptr<bspline_generator:
     std::cout << "Time region: ["<< time_start_ << ", " << time_end_ << "]\n";
     std::cout << "Start position: ";
     for (int i = 0; i < dim_; ++i)
-      std::cout << msg->control_pts.data[i] << ", ";
+      std::cout << msg.control_pts.data[i] << ", ";
     std::cout << "\nEnd position: ";
     for (int i = 0; i < dim_; ++i)
-      std::cout << msg->control_pts.data[i + (controlpts_num_-1) * dim_] << ", ";
+      std::cout << msg.control_pts.data[i + (controlpts_num_-1) * dim_] << ", ";
     std::cout << "\n[check knots]: \n";
     for (int i = 0; i < knots_num_; ++i)
       std::cout << knotpts_[i] << ", ";

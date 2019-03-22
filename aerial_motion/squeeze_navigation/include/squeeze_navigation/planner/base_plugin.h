@@ -58,6 +58,7 @@ namespace squeeze_motion_planner
       baselink_name_ = robot_model_ptr_->getBaselinkName();
     }
 
+    virtual void setInitState(const MultilinkState& state) = 0;
     virtual bool plan(bool debug = false) = 0;
     virtual bool loadPath() { return false; }
     virtual const std::vector<MultilinkState>& getPathConst() const = 0 ;

@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<launch>
+  ###########  launch config  ###########
+  <arg name="real_machine" default="True" />
+  <arg name="simulation" default="False" />
+  <arg name="control_mode" default="0" />
+  <arg name="estimate_mode"  default= "2" />
+  <arg name="headless" default="True" />
+
+
+  <include file="$(find dragon)/launch/bringup.launch" >
+    <arg name="real_machine" value="$(arg real_machine)" />
+    <arg name="simulation" value="$(arg simulation)" />
+    <arg name="control_mode" value="$(arg control_mode)" />
+    <arg name="estimate_mode"  value= "$(arg estimate_mode)" />
+    <arg name="headless" value="$(arg headless)" />
+
+    <arg name="direct_model" value="True" />
+    <arg name="direct_model_name" value="$(find squeeze_navigation)/robots/dragon/quad.gazebo.xacro" if="$(arg simulation)"/>
+    <arg name="direct_model_name" value="$(find squeeze_navigation)/robots/dragon/quad.urdf.xacro" unless="$(arg simulation)"/>
+  </include>
+</launch>
