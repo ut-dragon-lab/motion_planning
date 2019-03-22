@@ -2,8 +2,8 @@ motion_func_rate: 0
 
 # inverse kinematics
 differential_kinematics_count: 1000
-actuator_state_sub_name: /dragon/joint_states
-actuator_state_pub_name: /dragon/joint_states
+#actuator_state_sub_name: /dragon/joint_states
+#actuator_state_pub_name: /dragon/joint_states
 
 # gap target offset
 delta_pinch_length: 0.02
@@ -13,7 +13,7 @@ discrete_path_filter_flag: true
 filter_rate: 1 # no filtering
 
 # discrete path resampling
-resampling_flag: true
+discrete_path_resampling_flag: true
 
 debug: false
 start_state_x: 0.0

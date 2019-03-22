@@ -43,7 +43,6 @@
 class BsplineRos
 {
 public:
-
   BsplineRos(ros::NodeHandle nh, ros::NodeHandle nhp);
   ~BsplineRos(){}
   bool initialize(bool uniform, double start_time, double end_time, int degree, const  std::vector<std::vector<double> >& control_point_list, const std::vector<double>& knot_point_list = std::vector<double>());

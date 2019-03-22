@@ -53,6 +53,8 @@ namespace squeeze_motion_planner
       planner_core_->setScene(setCollisionWorld());
     };
 
+    void setInitState(const MultilinkState& state)  { planner_core_->setStartState(state); }
+
     const moveit_msgs::CollisionObject& setCollisionWorld()
     {
       moveit_msgs::CollisionObject collision_object;

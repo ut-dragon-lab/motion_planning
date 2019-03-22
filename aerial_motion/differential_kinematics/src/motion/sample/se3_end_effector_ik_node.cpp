@@ -41,7 +41,7 @@ int main(int argc, char **argv)
 
   ros::NodeHandle nh;
   ros::NodeHandle nhp("~");
-  EndEffectorIKSolverCore *ik_solver = new EndEffectorIKSolverCore(nh, nhp, boost::shared_ptr<DragonRobotModel>(new DragonRobotModel(true)));
+  EndEffectorIKSolverCore *ik_solver = new EndEffectorIKSolverCore(nh, nhp, boost::shared_ptr<DragonRobotModel>(new DragonRobotModel(true)), true);
   ros::spin();
 
   ros::shutdown();

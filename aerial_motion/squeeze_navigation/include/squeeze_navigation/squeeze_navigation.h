@@ -47,9 +47,12 @@
 #include <spinal/DesireCoord.h>
 #include <spinal/FlightConfigCmd.h>
 #include <moveit_msgs/DisplayRobotState.h>
+#include <gazebo_msgs/ApplyBodyWrench.h>
+#include <gazebo_msgs/BodyRequest.h>
 
 /* robot model */
 #include <dragon/dragon_robot_model.h>
+#include <aerial_robot_base/flight_navigation.h>
 
 /* discrete path search */
 #include <pluginlib/class_loader.h>
@@ -57,7 +60,7 @@
 
 /* continous path generator */
 #include <kalman_filter/lpf_filter.h>
-#include <bspline_ros/bspline_ros.h>
+#include <bspline_generator/tinyspline_interface.h>
 
 /* utils */
 #include <tf/LinearMath/Transform.h>
@@ -66,6 +69,17 @@
 #include <iostream>
 #include <vector>
 #include <boost/algorithm/clamp.hpp>
+
+enum
+  {
+    PHASE0, // init phase (hovering)
+    PHASE1, // approach under the contact point on the cover (need planning based on differential kinematics)
+    PHASE2, // contact to the cover with external wrench (consider the weight of the cover)
+    PHASE3, // move the cover (need planning based on differential kinematics)
+    PHASE4, // move away from the cover
+    PHASE5, // squeeze (need planning based on differential kinematics)
+  };
+
 
 class SqueezeNavigation{
 public:
@@ -80,9 +94,10 @@ private:
   ros::Subscriber return_flag_sub_;
   ros::Subscriber adjust_initial_state_sub_;
   ros::Subscriber flight_config_sub_;
-
+  ros::Subscriber phase_up_sub_;
   ros::Subscriber robot_baselink_odom_sub_;
   ros::Subscriber robot_joint_states_sub_;
+  ros::Subscriber joy_stick_sub_;
 
   ros::Publisher joints_ctrl_pub_;
   ros::Publisher flight_nav_pub_;
@@ -92,28 +107,25 @@ private:
   bool debug_verbose_;
   bool headless_;
 
+  int motion_phase_;
+  bool first_time_in_new_phase_;
+  bool teleop_flag_;
+
   /* discrete path */
   int discrete_path_search_method_type_;
   bool discrete_path_debug_flag_;
-  bool load_path_flag_;
   int motion_type_;
-
-  FirFilter states_lpf1_;
-  FirFilterQuaternion states_lpf2_;
-
-  std::vector<MultilinkState> discrete_path_;
 
   /* continuous path */
   int bspline_degree_;
-  double trajectory_period_;
   std::vector<double> angle_min_vec_;
   std::vector<double> angle_max_vec_;
 
   /* navigation */
   ros::Timer navigate_timer_;
+  double move_start_time_;
   bool move_start_flag_;
   bool return_flag_;
-  double move_start_time_;
   double controller_freq_;
   double return_delay_;
 
@@ -122,21 +134,45 @@ private:
 
   /* discrete path search */
   boost::shared_ptr<squeeze_motion_planner::Base> discrete_path_planner_;
+  std::vector<MultilinkState> discrete_path_;
 
   /* continuous path generator */
-  boost::shared_ptr<BsplineRos> bspline_ptr_;
+  boost::shared_ptr<TinysplineInterface> bspline_ptr_;
 
   void rosParamInit();
-  void navigate(const ros::TimerEvent& event);
-  void continuousPath(const std::vector<MultilinkState>& discrete_path);
+  void stateMachine(const ros::TimerEvent& event);
+  void pathNavigate();
 
-  void planStartCallback(const std_msgs::Empty msg);
-  void moveStartCallback(const std_msgs::Empty msg);
-  void returnCallback(const std_msgs::Empty msg);
-  void adjustInitalStateCallback(const std_msgs::Empty msg);
-  void flightConfigCallback(const spinal::FlightConfigCmdConstPtr msg);
+  const std::vector<MultilinkState> discretePathSmoothing(const std::vector<MultilinkState>& raw_path) const ;
+  const std::vector<MultilinkState> discretePathResampling(const std::vector<MultilinkState>& raw_path) const;
+  void continuousPath(const std::vector<MultilinkState>& discrete_path, double trajectory_period);
+
+  /* robot real state */
   void robotOdomCallback(const nav_msgs::OdometryConstPtr& msg);
   void robotJointStatesCallback(const sensor_msgs::JointStateConstPtr& joint_msg);
+
+  /* teleop & debug */
+  void moveStartCallback(const std_msgs::Empty msg);
+  void returnCallback(const std_msgs::Empty msg);
+  void phaseUpCallback(const std_msgs::Empty msg);
+  void adjustInitalStateCallback(const std_msgs::Empty msg);
+  void planSqueezeMotionCallback(const std_msgs::Empty msg);
+  void joyStickControl(const sensor_msgs::JoyConstPtr & joy_msg);
+
+  void reset()
+  {
+    move_start_flag_ = false;
+    return_flag_ = false;
+    motion_phase_ = PHASE0;
+    first_time_in_new_phase_ = true;
+    discrete_path_.resize(0);
+  }
+
+  void startNavigate()
+  {
+    move_start_flag_ = true;
+    move_start_time_ = ros::Time::now().toSec();
+  }
 
   double generateContinousEulerAngle(double ang, int id)
   {

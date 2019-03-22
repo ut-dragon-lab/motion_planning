@@ -117,12 +117,37 @@ namespace squeeze_motion_planner
       goal_state_.setStatesFromRoot(robot_model_ptr_, pose, actuator_state);
       ROS_WARN("model: %d", planner_core_ptr_->getMultilinkType());
 
+      /* get opening center frame from rosparam */
+      nhp_.param("openning_pos_x", pose.position.x, 0.0);
+      nhp_.param("openning_pos_y", pose.position.y, 0.0);
+      nhp_.param("openning_pos_z", pose.position.z, 0.0);
+      nhp_.param("openning_roll", r, 0.0);
+      nhp_.param("openning_pitch", p, 0.0);
+      nhp_.param("openning_yaw", y, 0.0);
+
+      tf::pointMsgToTF(pose.position, openning_center_frame_.getOrigin());
+      openning_center_frame_.setRotation(tf::createQuaternionFromRPY(r, p, y));
+
+      env_collision_pub_ = nh_.advertise<visualization_msgs::MarkerArray>("/env_collision", 1);
+    };
+
+    const std::vector<MultilinkState>& getPathConst() const { return path_; }
+    const MultilinkState& getStateConst(int index) const { path_.at(index); }
+
+    const tf::Transform& getOpenningCenterFrame() const { return openning_center_frame_;}
+    void setOpenningCenterFrame(const tf::Transform& openning_center_frame)
+    {
+      ROS_ERROR("set openning center");
+      openning_center_frame_ = openning_center_frame;
+    }
+
+    void setCollisionEnv()
+    {
       /* hard-coding to set env */
       double wall_thickness;
       nhp_.param("wall_thickness", wall_thickness, 0.05);
       if(planner_core_ptr_->getMultilinkType() == motion_type::SE2)
         {
-          ROS_WARN("correct model");
           /* setup env */
           double openning_width, env_width, env_length;
           nhp_.param("openning_width", openning_width, 0.8);
@@ -139,38 +164,42 @@ namespace squeeze_motion_planner
           wall.scale.z = 2;
 
           wall.id = 1;
-          wall.pose.position.x = 0;
-          wall.pose.position.y = -env_width / 2;
+          wall.pose.position.x = openning_center_frame_.getOrigin().x();
+          wall.pose.position.y = openning_center_frame_.getOrigin().y() - env_width / 2;
           wall.pose.position.z = 0;
           wall.scale.x = env_length;
           wall.scale.y = wall_thickness;
           env_collision_.markers.push_back(wall);
 
           wall.id = 2;
-          wall.pose.position.y = env_width / 2;
+          wall.pose.position.y = openning_center_frame_.getOrigin().y() + env_width / 2;
           env_collision_.markers.push_back(wall);
 
           wall.id = 3;
-          wall.pose.position.x = 0;
-          wall.pose.position.y = env_width / 4 + openning_width / 4;
+          wall.pose.position.x = openning_center_frame_.getOrigin().x();
+          wall.pose.position.y = openning_center_frame_.getOrigin().y() + env_width / 4 + openning_width / 4;
           wall.pose.position.z = 0;
           wall.scale.x = wall_thickness;
           wall.scale.y = env_width / 2 - openning_width / 2;
           env_collision_.markers.push_back(wall);
 
           wall.id = 4;
-          wall.pose.position.y = -env_width / 4 - openning_width / 4;
+          wall.pose.position.y = openning_center_frame_.getOrigin().y() - env_width / 4 - openning_width / 4;
           env_collision_.markers.push_back(wall);
 
-          openning_center_frame_.setOrigin(tf::Vector3(0, 0, 0));
-          openning_center_frame_.setRotation(tf::createQuaternionFromRPY(0, M_PI / 2, 0)); // the head should be z axis
+          double r,p,y;
+          openning_center_frame_.getBasis().getRPY(r,p,y);
+          if(fabs(p) != M_PI / 2)
+            {
+              ROS_ERROR("SE2 collision env: the orientation of openinig center frame is invliad: [%f, %f, %f]", r,p,y);
+              env_collision_.markers.clear();
+            }
         }
       else if(planner_core_ptr_->getMultilinkType() == motion_type::SE3)
         {
           /* setup env */
-          double openning_width, openning_height, env_width, env_length, ceiling_offset;
+          double openning_width, env_width, env_length, ceiling_offset;
           nhp_.param("openning_width", openning_width, 0.8);
-          nhp_.param("openning_height", openning_height, 0.8);
           nhp_.param("ceiling_offset", ceiling_offset, 0.6);
           nhp_.param("env_width", env_width, 6.0);
 
@@ -183,46 +212,42 @@ namespace squeeze_motion_planner
           wall.color.a = 1;
           wall.pose.orientation.w = 1;
           wall.scale.z = wall_thickness;
-          wall.pose.position.z = openning_height;
+          wall.pose.position.z = openning_center_frame_.getOrigin().z();
 
           wall.id = 1;
-          wall.pose.position.x = env_width / 4 + openning_width / 4;
-          wall.pose.position.y = 0;
+          wall.pose.position.x = openning_center_frame_.getOrigin().x() + env_width / 4 + openning_width / 4;
+          wall.pose.position.y = openning_center_frame_.getOrigin().y();
           wall.scale.x = env_width / 2 - openning_width / 2;
           wall.scale.y = env_width;
           env_collision_.markers.push_back(wall);
 
           wall.id = 2;
-          wall.pose.position.x = -wall.pose.position.x;
+          wall.pose.position.x = openning_center_frame_.getOrigin().x() - env_width / 4 - openning_width / 4;
           env_collision_.markers.push_back(wall);
 
           wall.id = 3;
-          wall.pose.position.x = 0;
-          wall.pose.position.y = env_width / 4 + openning_width / 4;
+          wall.pose.position.x = openning_center_frame_.getOrigin().x();
+          wall.pose.position.y = openning_center_frame_.getOrigin().y() + env_width / 4 + openning_width / 4;
           wall.scale.x = openning_width;
           wall.scale.y = env_width / 2 - openning_width / 2;
           env_collision_.markers.push_back(wall);
 
           wall.id = 4;
-          wall.pose.position.y = -wall.pose.position.y;
+          wall.pose.position.y = openning_center_frame_.getOrigin().y() - env_width / 4 - openning_width / 4;
           env_collision_.markers.push_back(wall);
 
           wall.id = 5;
-          wall.pose.position.x = 0;
-          wall.pose.position.y = 0;
           wall.scale.x = env_width;
           wall.scale.y = env_width;
-          wall.pose.position.z = openning_height + ceiling_offset; // + 0.5
+          wall.pose.position.x = openning_center_frame_.getOrigin().x();
+          wall.pose.position.y = openning_center_frame_.getOrigin().y();
+          wall.pose.position.z = openning_center_frame_.getOrigin().z() + ceiling_offset; // + 0.5
           env_collision_.markers.push_back(wall);
 
-          openning_center_frame_.setOrigin(tf::Vector3(0, 0, openning_height));
-          openning_center_frame_.setRotation(tf::createQuaternionFromRPY(0, 0, 0));
+          //openning_center_frame_.setOrigin(tf::Vector3(0, 0, openning_height));
+          //openning_center_frame_.setRotation(tf::createQuaternionFromRPY(0, 0, 0));
         }
-      env_collision_pub_ = nh_.advertise<visualization_msgs::MarkerArray>("/env_collision", 1);
-    };
-
-    const std::vector<MultilinkState>& getPathConst() const { return path_; }
-    const MultilinkState& getStateConst(int index) const { path_.at(index); }
+    }
 
     bool plan(bool debug)
     {
@@ -259,6 +284,8 @@ namespace squeeze_motion_planner
       /* 3. collision avoidance */
       constraint_container.push_back(constraint_plugin_loader.createInstance("differential_kinematics_constraint/collision_avoidance"));
       constraint_container.back()->initialize(nh_, nhp_, planner_core_ptr_, "differential_kinematics_constraint/collision_avoidance", true /* orientation */, true /* full_body */);
+      /*-- set collision env --*/
+      setCollisionEnv();
       //boost::dynamic_pointer_cast<constraint::CollisionAvoidance>(constraint_container.back())->setEnv(env_collision_);
       reinterpret_cast<constraint::CollisionAvoidance*>(constraint_container.back().get())->setEnv(env_collision_);
 
@@ -329,7 +356,9 @@ namespace squeeze_motion_planner
 
           return true;
         }
-      else return false;
+
+      /* cannot solve */
+      return false;
     }
 
     bool loadPath() { return false;}
@@ -476,6 +505,8 @@ namespace squeeze_motion_planner
 
       return true;
     }
+
+    void setInitState(const MultilinkState& state) { start_state_ = state; }
 
   };
 };
