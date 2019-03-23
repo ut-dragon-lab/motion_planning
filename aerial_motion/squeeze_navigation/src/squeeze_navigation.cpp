@@ -447,6 +447,18 @@ void SqueezeNavigation::stateMachine(const ros::TimerEvent& event)
             startNavigate();
 
             first_time_in_new_phase_ = false;
+
+            /* TODO:hard-coding */
+            //reset the collision env */
+            double cover_thickness, squeeze_center_offset_x, squeeze_center_offset_y;
+            nhp_.param("cover_thickness", cover_thickness, 0.0);
+            nhp_.param("squeeze_center_offset_x", squeeze_center_offset_x, 0.0);
+            nhp_.param("squeeze_center_offset_y", squeeze_center_offset_y, 0.0);
+            tf::Transform openning_center_frame = discrete_path_planner_->getOpenningCenterFrame();
+            openning_center_frame.getOrigin() += tf::Vector3(squeeze_center_offset_x,
+                                                            squeeze_center_offset_y,
+                                                            cover_thickness /2);
+            discrete_path_planner_->setOpenningCenterFrame(openning_center_frame);
           }
 
         /* finish approach motion */

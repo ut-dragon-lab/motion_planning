@@ -66,6 +66,9 @@ namespace squeeze_motion_planner
     virtual void visualizeFunc() = 0;
     virtual void checkCollision(MultilinkState state) = 0;
 
+    virtual const tf::Transform& getOpenningCenterFrame() const {}
+    virtual void setOpenningCenterFrame(const tf::Transform& openning_center_frame) {}
+
     static const uint8_t HORIZONTAL_GAP = 0;
     static const uint8_t VERTICAL_GAP = 1;
 

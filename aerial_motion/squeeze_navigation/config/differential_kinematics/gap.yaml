@@ -1,6 +1,8 @@
 # horizontal opening
+openning_pos_z: 0.8
+#deprecated: openning_height: 0.8 #default: 0.8,  can be 0.45
+
 openning_width: 0.5 #default: 0.4, can be 0.5
-openning_height: 0.8 #default: 0.8,  can be 0.45
 ceiling_offset: 0.45 #default: 0.45
 wall_thickness: 0.02 #default: 0.45
 

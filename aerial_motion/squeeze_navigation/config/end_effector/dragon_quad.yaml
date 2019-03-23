@@ -2,14 +2,20 @@
 
 end_effector_name: tail_ball
 end_effector_dist: 0 # 0.43 from link4
-contact_point_height: 0.81 #0.8
-contact_vertical_force: -4 # [N]
-move_friction_force: 3 # [N]
+
+contact_point_height: 0.8 #0.8
+contact_vertical_force: -4.5 # [N]
+move_friction_force: 3.5 # [N]
+
+# about the openning planning after moving cover
+cover_thickness: 0.05 # [m]
+squeeze_center_offset_x: 0.0 # [m], since we can not move the cover completly, have to add offset
+squeeze_center_offset_y: 0.05 # [m], since we can not move the cover completly, have to add offset
 
 # phase1:
 approach_trajectory_period: 5.0
 contact_height_offset: -0.05
-first_contact_point: [0, 0.3] # horizontal
+first_contact_point: [0, 0.25] # horizontal, 0.3: real machine exceed
 
 # phase2:
 contact_z_err_thresh: 0.02
