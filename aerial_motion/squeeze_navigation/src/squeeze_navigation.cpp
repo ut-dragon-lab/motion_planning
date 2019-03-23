@@ -478,6 +478,9 @@ void SqueezeNavigation::stateMachine(const ros::TimerEvent& event)
             /* disable the real motion*/
             move_start_flag_ = false;
 
+            bool start_squeeze_path_from_real_state;
+            nhp_.param("start_squeeze_path_from_real_state", start_squeeze_path_from_real_state, false);
+
             /*-- 1. get discrete path for squeezing motion --*/
             bool load_squeeze_path_flag;
             nhp_.param("load_squeeze_path_flag", load_squeeze_path_flag, false);
@@ -493,15 +496,19 @@ void SqueezeNavigation::stateMachine(const ros::TimerEvent& event)
               }
             else
               { /*-- do online planning --*/
-                bool start_squeeze_path_from_real_state;
-                nhp_.param("start_squeeze_path_from_real_state", start_squeeze_path_from_real_state, false);
                 if(discrete_path_debug_flag_) start_squeeze_path_from_real_state = false;
 
                 if(start_squeeze_path_from_real_state)
                   {
-                    geometry_msgs::Pose root_pose;
-                    MultilinkState::convertBaselinkPose2RootPose(robot_model_ptr_, robot_baselink_odom_.pose.pose, actuator_vector_, root_pose);
-                    discrete_path_planner_->setInitState(MultilinkState(robot_model_ptr_, root_pose, actuator_vector_));
+                    /* get from the real state */
+                    if(discrete_path_.size() == 0)
+                      {
+                        geometry_msgs::Pose root_pose;
+                        MultilinkState::convertBaselinkPose2RootPose(robot_model_ptr_, robot_baselink_odom_.pose.pose, actuator_vector_, root_pose);
+                        discrete_path_planner_->setInitState(MultilinkState(robot_model_ptr_, root_pose, actuator_vector_));
+                      }
+                    else
+                      discrete_path_planner_->setInitState(discrete_path_.back()); //get the last target state from last navigation
                   }
 
                 if(!discrete_path_planner_->plan(debug_verbose_))
@@ -529,8 +536,7 @@ void SqueezeNavigation::stateMachine(const ros::TimerEvent& event)
             nhp_.param("squeeze_trajectory_period", squeeze_trajectory_period, 100.0);
             continuousPath(discrete_path_, squeeze_trajectory_period);
 
-            if (!teleop_flag_ || discrete_path_debug_flag_)
-              startNavigate();
+            if (start_squeeze_path_from_real_state) startNavigate();
 
             first_time_in_new_phase_ = false;
           }
