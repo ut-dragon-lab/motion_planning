@@ -77,8 +77,8 @@
     <!-- bspline -->
     <param name="bspline_degree" value="5" />
 
-    <!-- Phase1: first approach -->
-    <rosparam file="$(find squeeze_navigation)/config/end_effector/dragon_$(arg type).yaml" command="load" />
+    <!--<rosparam file="$(find squeeze_navigation)/config/end_effector/dragon_$(arg type).yaml" command="load" /> -->
+    <rosparam file="$(find squeeze_navigation)/config/end_effector/dragon_$(arg type)_horizontal.yaml" command="load" />
     <!-- Phase3: first approach -->
     <param name="approach_trajectory_period" value="5.0" />
 

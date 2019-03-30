@@ -3,31 +3,38 @@
 end_effector_name: tail_ball
 end_effector_dist: 0 # 0.43 from link4
 
-#deprecated, move to first_contact_point: contact_point_height: 0.785 # consider the bend: 0.8 => 0.785
-first_contact_point: [0.08, 0.25, 0.785] # y = 0.3: real machine exceed
-first_contact_normal: [0, 0, -1]
-contact_reaction_force: 4.5 # norm [N], combined with first constact norml
+first_contact_point: [0.09, 0.38, 0.81]
+first_contact_euler: [0.0, 0.78, -1.5708]
+first_contact_normal: [0, 1, 0]
+
+contact_reaction_force: 0 # norm [N]
 move_friction_force: 3.5 # norm [N]
 
 # about the openning planning after moving cover
 cover_thickness: 0.04 # [m], true is 0.05, but we have to consider the bend of the misumi frame (0.8 -> 0.78)
-squeeze_center_offset_x: 0.0 # [m], since we can not move the cover completly, have to add offset
-squeeze_center_offset_y: 0.0 # [m], should be 0.05, but the control offset is big. since we can not move the cover completly, have to add offset
+squeeze_center_offset_x: 0.0 # [m]
+squeeze_center_offset_y: 0.0 # [m]
 
 # phase1:
-approach_trajectory_period: 5.0
-contact_offset: [0, 0, -0.05]
+approach_trajectory_period: 7.0
+contact_offset: [0, 0.05, 0]
 
 # phase2:
 contact_dist_err_thresh: 0.02
 
 # phase3:
-move_trajectory_period: 9.0
-move_end_point: [0.08, -0.3, 0.785]
+move_trajectory_period: 10.0
+move_end_point: [0.09, -0.35, 0.81] # horizontal
+move_end_euler: [0.0, 0.7, -1.5708] # horizontal
 
 # phase4:
 reset_pose_period: 5.0
-reset_end_effector_point: [0, 0, 0.3]
+reset_end_effector_point: [0.0, 0.0, 0.85]
+
+# phase5:
+start_state_z: 1.1
+openning_pitch: 3.14159265359 # reverse
+
 
 end_effector:
   # inverse kinematics
@@ -65,5 +72,5 @@ end_effector:
     cog_motion:
       verbose: true
       cog_omega_limit_flag: false
-      cog_velocity_limit: [0.05, 0.05, 0.01]  # [x,y,z] (m) in world frame
+      cog_velocity_limit: [0.08, 0.08, 0.05]  # [x,y,z] (m) in world frame
       cog_angular_limit: [0.05, 0.05, 0.05]  # [x,y,z] (rad) in world frame

@@ -19,4 +19,8 @@
     <arg name="direct_model_name" value="$(find squeeze_navigation)/robots/dragon/quad.gazebo.xacro" if="$(arg simulation)"/>
     <arg name="direct_model_name" value="$(find squeeze_navigation)/robots/dragon/quad.urdf.xacro" unless="$(arg simulation)"/>
   </include>
+
+  <!-- overwrite the takeoff param -->
+  <param name="/aerial_robot_base_node/navigator/takeoff_height" value="1.1" />
+
 </launch>
