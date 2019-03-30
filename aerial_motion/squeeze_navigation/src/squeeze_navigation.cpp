@@ -51,6 +51,7 @@ namespace
   boost::shared_ptr<EndEffectorIKSolverCore> end_effector_ik_solver_;
 
   nav_msgs::Odometry robot_baselink_odom_;
+  aerial_robot_msgs::FlatnessPid controller_debug_;
   KDL::JntArray actuator_vector_;
   sensor_msgs::JointState joint_state_;
   bool real_odom_flag_ = false;
@@ -94,7 +95,7 @@ SqueezeNavigation::SqueezeNavigation(ros::NodeHandle nh, ros::NodeHandle nhp):
   robot_baselink_odom_sub_ = nh_.subscribe("/uav/baselink/odom", 1, &SqueezeNavigation::robotOdomCallback, this);
   nhp_.param("joint_state_topic_name", topic_name, std::string("joint_states"));
   robot_joint_states_sub_ = nh_.subscribe(topic_name, 1, &SqueezeNavigation::robotJointStatesCallback, this);
-
+  controller_debug_sub_ = nh_.subscribe("/controller/debug", 1, &SqueezeNavigation::controlDebugCallback, this);
 
   /* robot model */
   //////// TODO: temporary //////////////
@@ -232,9 +233,20 @@ void SqueezeNavigation::stateMachine(const ros::TimerEvent& event)
             tf::Transform target_frame(tf::createIdentityQuaternion(),
                                        tf::Vector3(first_contact_point.at(0), first_contact_point.at(1),
                                                    contact_point_height_ + contact_height_offset));
+
             geometry_msgs::Pose root_pose;
             tf::Transform root_tf;
+#if 0 //get init state from real robot state
             MultilinkState::convertBaselinkPose2RootPose(robot_model_ptr_, robot_baselink_odom_.pose.pose, actuator_vector_, root_pose);
+#else //get init state from target state
+            tf::Quaternion desired_att = tf::createQuaternionFromRPY(0, 0, controller_debug_.yaw.target_pos);//CoG roll&pitch is zero, only yaw
+            geometry_msgs::Pose cog_pose;
+            cog_pose.position.x = controller_debug_.pitch.target_pos;
+            cog_pose.position.y = controller_debug_.roll.target_pos;
+            cog_pose.position.z = controller_debug_.throttle.target_pos;
+            cog_pose.orientation.w = 1;
+            MultilinkState::convertCogPose2RootPose(robot_model_ptr_, desired_att, cog_pose, actuator_vector_, root_pose);
+#endif
             tf::poseMsgToTF(root_pose, root_tf);
             if(!end_effector_ik_solver_->inverseKinematics(target_frame, joint_state_, root_tf, false, true, std::string(""), std::string(""), false, false))
               {
@@ -1104,6 +1116,11 @@ void SqueezeNavigation::robotOdomCallback(const nav_msgs::OdometryConstPtr& msg)
   real_odom_flag_ = true;
 }
 
+void SqueezeNavigation::controlDebugCallback(const aerial_robot_msgs::FlatnessPidConstPtr& control_msg)
+{
+  controller_debug_ = *control_msg;
+}
+
 void SqueezeNavigation::robotJointStatesCallback(const sensor_msgs::JointStateConstPtr& joints_msg)
 {
   joint_state_ = *joints_msg;
@@ -1121,6 +1138,8 @@ void SqueezeNavigation::robotJointStatesCallback(const sensor_msgs::JointStateCo
       discrete_path_planner_->checkCollision(MultilinkState(robot_model_ptr_, root_pose, actuator_vector_));
     }
 }
+
+
 
 void SqueezeNavigation::joyStickControl(const sensor_msgs::JoyConstPtr & joy_msg)
 {

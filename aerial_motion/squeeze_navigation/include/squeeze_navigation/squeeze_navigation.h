@@ -44,6 +44,7 @@
 #include <sensor_msgs/JointState.h>
 #include <nav_msgs/Odometry.h>
 #include <aerial_robot_msgs/FlightNav.h>
+#include <aerial_robot_msgs/FlatnessPid.h>
 #include <spinal/DesireCoord.h>
 #include <spinal/FlightConfigCmd.h>
 #include <moveit_msgs/DisplayRobotState.h>
@@ -97,6 +98,7 @@ private:
   ros::Subscriber phase_up_sub_;
   ros::Subscriber robot_baselink_odom_sub_;
   ros::Subscriber robot_joint_states_sub_;
+  ros::Subscriber controller_debug_sub_;
   ros::Subscriber joy_stick_sub_;
 
   ros::Publisher joints_ctrl_pub_;
@@ -150,6 +152,7 @@ private:
   /* robot real state */
   void robotOdomCallback(const nav_msgs::OdometryConstPtr& msg);
   void robotJointStatesCallback(const sensor_msgs::JointStateConstPtr& joint_msg);
+  void controlDebugCallback(const aerial_robot_msgs::FlatnessPidConstPtr& control_msg);
 
   /* teleop & debug */
   void moveStartCallback(const std_msgs::Empty msg);
