@@ -1,6 +1,6 @@
 # horizontal opening
-openning_pos_z: 0.8
-#deprecated: openning_height: 0.8 #default: 0.8,  can be 0.45
+openning_pos_z: 0.775 # consider the bending from 0.8
+
 
 openning_width: 0.5 #default: 0.4, can be 0.5
 ceiling_offset: 0.45 #default: 0.45
