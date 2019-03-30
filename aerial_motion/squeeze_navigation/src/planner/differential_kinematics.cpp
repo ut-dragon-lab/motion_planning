@@ -160,31 +160,35 @@ namespace squeeze_motion_planner
           wall.header.frame_id = "/world";
           wall.color.g = 1;
           wall.color.a = 1;
-          wall.pose.orientation.w = 1;
+
           wall.scale.z = 2;
 
           wall.id = 1;
-          wall.pose.position.x = openning_center_frame_.getOrigin().x();
-          wall.pose.position.y = openning_center_frame_.getOrigin().y() - env_width / 2;
-          wall.pose.position.z = 0;
+          tf::poseTFToMsg(tf::Transform(openning_center_frame_.getRotation(),
+                                         openning_center_frame_ * tf::Vector3(0, -env_width / 2, 0)),
+                           wall.pose);
           wall.scale.x = env_length;
           wall.scale.y = wall_thickness;
           env_collision_.markers.push_back(wall);
 
           wall.id = 2;
-          wall.pose.position.y = openning_center_frame_.getOrigin().y() + env_width / 2;
+          tf::poseTFToMsg(tf::Transform(openning_center_frame_.getRotation(),
+                                         openning_center_frame_ * tf::Vector3(0, env_width / 2, 0)),
+                           wall.pose);
           env_collision_.markers.push_back(wall);
 
           wall.id = 3;
-          wall.pose.position.x = openning_center_frame_.getOrigin().x();
-          wall.pose.position.y = openning_center_frame_.getOrigin().y() + env_width / 4 + openning_width / 4;
-          wall.pose.position.z = 0;
+          tf::poseTFToMsg(tf::Transform(openning_center_frame_.getRotation(),
+                                         openning_center_frame_ * tf::Vector3(0, env_width/4 + openning_width/4, 0)),
+                           wall.pose);
           wall.scale.x = wall_thickness;
           wall.scale.y = env_width / 2 - openning_width / 2;
           env_collision_.markers.push_back(wall);
 
           wall.id = 4;
-          wall.pose.position.y = openning_center_frame_.getOrigin().y() - env_width / 4 - openning_width / 4;
+          tf::poseTFToMsg(tf::Transform(openning_center_frame_.getRotation(),
+                                         openning_center_frame_ * tf::Vector3(0, -env_width/4 - openning_width/4, 0)),
+                           wall.pose);
           env_collision_.markers.push_back(wall);
 
           double r,p,y;
@@ -212,40 +216,42 @@ namespace squeeze_motion_planner
           wall.color.a = 1;
           wall.pose.orientation.w = 1;
           wall.scale.z = wall_thickness;
-          wall.pose.position.z = openning_center_frame_.getOrigin().z();
 
           wall.id = 1;
-          wall.pose.position.x = openning_center_frame_.getOrigin().x() + env_width / 4 + openning_width / 4;
-          wall.pose.position.y = openning_center_frame_.getOrigin().y();
+          tf::poseTFToMsg(tf::Transform(openning_center_frame_.getRotation(),
+                                         openning_center_frame_ * tf::Vector3(env_width/4 + openning_width/4, 0, 0)),
+                           wall.pose);
           wall.scale.x = env_width / 2 - openning_width / 2;
           wall.scale.y = env_width;
           env_collision_.markers.push_back(wall);
 
           wall.id = 2;
-          wall.pose.position.x = openning_center_frame_.getOrigin().x() - env_width / 4 - openning_width / 4;
+          tf::poseTFToMsg(tf::Transform(openning_center_frame_.getRotation(),
+                                         openning_center_frame_ * tf::Vector3(-env_width/4 - openning_width/4, 0, 0)),
+                           wall.pose);
           env_collision_.markers.push_back(wall);
 
           wall.id = 3;
-          wall.pose.position.x = openning_center_frame_.getOrigin().x();
-          wall.pose.position.y = openning_center_frame_.getOrigin().y() + env_width / 4 + openning_width / 4;
+          tf::poseTFToMsg(tf::Transform(openning_center_frame_.getRotation(),
+                                         openning_center_frame_ * tf::Vector3(0, env_width/4 + openning_width/4, 0)),
+                           wall.pose);
           wall.scale.x = openning_width;
           wall.scale.y = env_width / 2 - openning_width / 2;
           env_collision_.markers.push_back(wall);
 
           wall.id = 4;
-          wall.pose.position.y = openning_center_frame_.getOrigin().y() - env_width / 4 - openning_width / 4;
+          tf::poseTFToMsg(tf::Transform(openning_center_frame_.getRotation(),
+                                         openning_center_frame_ * tf::Vector3(0, -env_width/4 - openning_width/4, 0)),
+                           wall.pose);
           env_collision_.markers.push_back(wall);
 
           wall.id = 5;
           wall.scale.x = env_width;
           wall.scale.y = env_width;
-          wall.pose.position.x = openning_center_frame_.getOrigin().x();
-          wall.pose.position.y = openning_center_frame_.getOrigin().y();
-          wall.pose.position.z = openning_center_frame_.getOrigin().z() + ceiling_offset; // + 0.5
+          tf::poseTFToMsg(tf::Transform(openning_center_frame_.getRotation(),
+                                         openning_center_frame_ * tf::Vector3(0, 0, ceiling_offset)),
+                           wall.pose);
           env_collision_.markers.push_back(wall);
-
-          //openning_center_frame_.setOrigin(tf::Vector3(0, 0, openning_height));
-          //openning_center_frame_.setRotation(tf::createQuaternionFromRPY(0, 0, 0));
         }
     }
 
@@ -345,9 +351,11 @@ namespace squeeze_motion_planner
           for(int i = 1; i <= 5; i++) // 5 times
             {
               MultilinkState robot_state;
+              tf::Transform end_state = planner_core_ptr_->getRootPoseSequence().back();
+              end_state.getOrigin() += openning_center_frame_.getBasis() * tf::Vector3(0, 0, 0.01 * i);
               geometry_msgs::Pose root_pose;
-              tf::poseTFToMsg(planner_core_ptr_->getRootPoseSequence().back(), root_pose);
-              root_pose.position.z += (0.01 * i); //0.005 [m]
+              tf::poseTFToMsg(end_state, root_pose);
+
               robot_state.setStatesFromRoot(robot_model_ptr_, root_pose,
                                             planner_core_ptr_->getActuatorStateSequence().back());
               path_.push_back(robot_state);

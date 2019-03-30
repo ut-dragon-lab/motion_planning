@@ -56,11 +56,11 @@ namespace
   sensor_msgs::JointState joint_state_;
   bool real_odom_flag_ = false;
   int state_index_ = 0;
-  double contact_point_height_;
+  tf::Vector3 first_contact_point_, first_contact_normal_;
   std_msgs::ColorRGBA desired_state_color_;
   ros::Publisher debug_pub_;
-  double contact_z_err_thresh_;
-  double contact_vertical_force_;
+  double contact_dist_err_thresh_;
+  double contact_reaction_force_;
   double move_friction_force_;
   double start_return_time_;
 
@@ -141,9 +141,20 @@ void SqueezeNavigation::rosParamInit()
   nhp_.param("debug_verbose", debug_verbose_, false);
 
   // end effector
-  nhp_.param("contact_point_height", contact_point_height_, 0.0);
-  nhp_.param("contact_z_err_thresh", contact_z_err_thresh_, 0.0);
-  nhp_.param("contact_vertical_force", contact_vertical_force_, -5.0);
+  std::vector<double> first_contact_point;
+  nhp_.getParam("first_contact_point", first_contact_point);
+  first_contact_point_.setValue(first_contact_point.at(0),
+                                first_contact_point.at(1),
+                                first_contact_point.at(2));
+  std::vector<double> first_contact_normal;
+  nhp_.getParam("first_contact_normal", first_contact_normal);
+  first_contact_normal_.setValue(first_contact_normal.at(0),
+                                 first_contact_normal.at(1),
+                                 first_contact_normal.at(2));
+
+
+  nhp_.param("contact_dist_err_thresh", contact_dist_err_thresh_, 0.0);
+  nhp_.param("contact_reaction_force", contact_reaction_force_, 0.0);
   nhp_.param("move_friction_force", move_friction_force_, 5.0);
 
   // discrete path
@@ -222,17 +233,35 @@ void SqueezeNavigation::stateMachine(const ros::TimerEvent& event)
       {
         if(first_time_in_new_phase_)
           {
-            double contact_height_offset;
-            nhp_.param("contact_height_offset", contact_height_offset, 0.0);
-            std::vector<double> first_contact_point;
-            nhp_.getParam("first_contact_point", first_contact_point);
-
-            ROS_WARN("Phase1: get first contact point [%f, %f, %f]", first_contact_point.at(0), first_contact_point.at(1), contact_point_height_ + contact_height_offset);
-
             /* plan the end effector IK */
-            tf::Transform target_frame(tf::createIdentityQuaternion(),
-                                       tf::Vector3(first_contact_point.at(0), first_contact_point.at(1),
-                                                   contact_point_height_ + contact_height_offset));
+            tf::Transform target_frame(tf::createIdentityQuaternion(), first_contact_point_);
+
+            /* -- set offset for point -- */
+            std::vector<double> contact_offset;
+            nhp_.getParam("contact_offset", contact_offset);
+            target_frame.getOrigin() +=  tf::Vector3(contact_offset.at(0), contact_offset.at(1), contact_offset.at(2));
+
+            /* -- set orientation -- */
+            bool orientation_flag = false;
+            std::vector<double> first_contact_euler;
+            nhp_.getParam("first_contact_euler", first_contact_euler);
+            if(!first_contact_euler.empty())
+              {
+                orientation_flag = true;
+                target_frame.setRotation(tf::createQuaternionFromRPY(first_contact_euler.at(0),
+                                                                     first_contact_euler.at(1),
+                                                                     first_contact_euler.at(2)));
+                ROS_WARN("Phase1: get first contact euler [%f, %f, %f]",
+                         first_contact_euler.at(0),
+                         first_contact_euler.at(1),
+                         first_contact_euler.at(2));
+              }
+
+            ROS_WARN("Phase1: get first contact point [%f, %f, %f]",
+                     target_frame.getOrigin().x(),
+                     target_frame.getOrigin().y(),
+                     target_frame.getOrigin().z());
+
 
             geometry_msgs::Pose root_pose;
             tf::Transform root_tf;
@@ -248,7 +277,7 @@ void SqueezeNavigation::stateMachine(const ros::TimerEvent& event)
             MultilinkState::convertCogPose2RootPose(robot_model_ptr_, desired_att, cog_pose, actuator_vector_, root_pose);
 #endif
             tf::poseMsgToTF(root_pose, root_tf);
-            if(!end_effector_ik_solver_->inverseKinematics(target_frame, joint_state_, root_tf, false, true, std::string(""), std::string(""), false, false))
+            if(!end_effector_ik_solver_->inverseKinematics(target_frame, joint_state_, root_tf, orientation_flag, true, std::string(""), std::string(""), false, false))
               {
                 ROS_ERROR("squeeze navigation: can not get valid end effector ik pose in phase1");
                 reset();
@@ -296,23 +325,36 @@ void SqueezeNavigation::stateMachine(const ros::TimerEvent& event)
         tf::Transform end_effector_world_frame = fc_pose_world_frame * end_link_fc_frame * end_effector_ik_solver_->getEndEffectorRelativePose();
 
         // debug
-        ROS_INFO("phase2: end effector position [%f, %f, %f]", end_effector_world_frame.getOrigin().x(),
-                 end_effector_world_frame.getOrigin().y(), end_effector_world_frame.getOrigin().z());
+        ROS_INFO("phase2: end effector position [%f, %f, %f]",
+                 end_effector_world_frame.getOrigin().x(),
+                 end_effector_world_frame.getOrigin().y(),
+                 end_effector_world_frame.getOrigin().z());
 
         if(first_time_in_new_phase_)
           {
-            /* ascending */
+            /* second closer approach: only move CoG */
+            /* TODO1: change the joint */
+
+            /* TODO2: diff_vec should be same with contact_offset */
+            tf::Vector3 diff_vec = (first_contact_point_ - end_effector_world_frame.getOrigin()).dot(first_contact_normal_) * first_contact_normal_;
+
             aerial_robot_msgs::FlightNav nav_msg;
             nav_msg.header.frame_id = std::string("/world");
             nav_msg.header.stamp = ros::Time::now();
-            nav_msg.pos_z_nav_mode = nav_msg.VEL_MODE; //send offset
-            nav_msg.target_pos_diff_z = contact_point_height_ - end_effector_world_frame.getOrigin().z();
+            nav_msg.control_frame = nav_msg.WORLD_FRAME;
+            nav_msg.target = nav_msg.COG;
+            nav_msg.pos_xy_nav_mode = nav_msg.POS_MODE;
+            nav_msg.target_pos_x = controller_debug_.pitch.target_pos + diff_vec.x();
+            nav_msg.target_pos_y = controller_debug_.roll.target_pos + diff_vec.y();
+            nav_msg.pos_z_nav_mode = nav_msg.POS_MODE;
+            nav_msg.target_pos_z = controller_debug_.throttle.target_pos + diff_vec.z();
+
             flight_nav_pub_.publish(nav_msg);
 
             first_time_in_new_phase_ = false;
           }
 
-        if(contact_point_height_ - end_effector_world_frame.getOrigin().z() < contact_z_err_thresh_  && once_flag_)
+        if((end_effector_world_frame.getOrigin() - first_contact_point_).dot(first_contact_normal_) < contact_dist_err_thresh_  && once_flag_)
           {
             ROS_WARN("apply vertical force in phase2");
             /* apply external wrench for the vertical contact force */
@@ -322,10 +364,12 @@ void SqueezeNavigation::stateMachine(const ros::TimerEvent& event)
             geometry_msgs::Point reference_point;
             tf::pointTFToMsg(end_effector_ik_solver_->getEndEffectorRelativePose().getOrigin(), reference_point);
             srv.request.reference_point = reference_point;
-            if(!simulation_ && !discrete_path_debug_flag_)
-              srv.request.wrench.force.z = contact_vertical_force_;
+            /* consider the contact narmal */
+            tf::vector3TFToMsg(first_contact_normal_ * contact_reaction_force_,
+                               srv.request.wrench.force);
 
-            client.call(srv);
+            if(!simulation_ && !discrete_path_debug_flag_)
+              client.call(srv);
 
             if(!teleop_flag_ && !move_start_flag_)
               {
@@ -343,18 +387,33 @@ void SqueezeNavigation::stateMachine(const ros::TimerEvent& event)
           {
             std::vector<double> move_end_point;
             nhp_.getParam("move_end_point", move_end_point);
-            ROS_WARN("Phase3: get move end point [%f, %f]", move_end_point.at(0), move_end_point.at(1));
+            ROS_WARN("Phase3: get move end point [%f, %f, %f]", move_end_point.at(0), move_end_point.at(1), move_end_point.at(2));
 
             /* plan the end effector IK */
             tf::Transform target_frame(tf::createIdentityQuaternion(),
                                        tf::Vector3(move_end_point.at(0),
                                                    move_end_point.at(1),
-                                                   contact_point_height_));
+                                                   move_end_point.at(2)));
+
+            /* -- set orientation -- */
+            bool orientation_flag = false;
+            std::vector<double> move_end_euler;
+            nhp_.getParam("move_end_euler", move_end_euler);
+            if(!move_end_euler.empty())
+              {
+                orientation_flag = true;
+                target_frame.setRotation(tf::createQuaternionFromRPY(move_end_euler.at(0),
+                                                                     move_end_euler.at(1),
+                                                                     move_end_euler.at(2)));
+                ROS_WARN("Phase3: get move end euler [%f, %f, %f]",
+                         move_end_euler.at(0), move_end_euler.at(1), move_end_euler.at(2));
+              }
+
             geometry_msgs::Pose root_pose;
             tf::Transform root_tf;
             MultilinkState::convertBaselinkPose2RootPose(robot_model_ptr_, robot_baselink_odom_.pose.pose, actuator_vector_, root_pose);
             tf::poseMsgToTF(root_pose, root_tf);
-            if(!end_effector_ik_solver_->inverseKinematics(target_frame, joint_state_, root_tf, false, true, std::string(""), std::string(""), false, false))
+            if(!end_effector_ik_solver_->inverseKinematics(target_frame, joint_state_, root_tf, orientation_flag, true, std::string(""), std::string(""), false, false))
               {
                 ROS_ERROR("squeeze navigation: can not get valid end effector ik pose in phase3");
                 reset();
@@ -379,24 +438,32 @@ void SqueezeNavigation::stateMachine(const ros::TimerEvent& event)
             tf::pointTFToMsg(end_effector_ik_solver_->getEndEffectorRelativePose().getOrigin(), reference_point);
             srv.request.reference_point = reference_point;
 
-            std::vector<double> first_contact_point;
-            nhp_.getParam("first_contact_point", first_contact_point);
+            tf::Vector3 friction_direction = (first_contact_point_ - target_frame.getOrigin()).normalize(); // opposite to the moveing direction
 
-            double direction = atan2(move_end_point.at(1) - first_contact_point.at(1),
-                                     move_end_point.at(0) - first_contact_point.at(0));
-            if(!simulation_ && !discrete_path_debug_flag_)
-              {
-                srv.request.wrench.force.x = cos(-direction) * move_friction_force_; //friction direction is opposite
-                srv.request.wrench.force.y = sin(-direction) * move_friction_force_; //friction direction is opposite
-                srv.request.wrench.force.z = contact_vertical_force_;
-              }
+            /* assumption, the first_contact_normal_ is orthogonal to the moveing direction */
+            assert(friction_direction.dot(first_contact_normal_)  < 1e6);
+
+            tf::vector3TFToMsg(first_contact_normal_ * contact_reaction_force_ +
+                               move_friction_force_ * friction_direction,
+                               srv.request.wrench.force);
+
+
+            /* deprecated: only support horizontal pushing and pulling (i.e. height is constant)
+               double direction = atan2(move_end_point.at(1) - first_contact_point_.at(1),
+               move_end_point.at(0) - first_contact_point_.at(0));
+
+               srv.request.wrench.force.x = cos(-direction) * move_friction_force_; //friction direction is opposite
+               srv.request.wrench.force.y = sin(-direction) * move_friction_force_; //friction direction is opposite
+               srv.request.wrench.force.z = contact_reaction_force_;
+            */
 
             ROS_WARN("phase3: external force: [%f, %f, %f]",
-                     cos(-direction) * move_friction_force_,
-                     sin(-direction) * move_friction_force_,
-                     contact_vertical_force_);
+                     srv.request.wrench.force.x,
+                     srv.request.wrench.force.y,
+                     srv.request.wrench.force.z);
 
-            client.call(srv);
+            if(!simulation_ && !discrete_path_debug_flag_)
+              client.call(srv);
 
             first_time_in_new_phase_ = false;
 
