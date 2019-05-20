@@ -105,6 +105,7 @@ private:
   ros::Publisher flight_nav_pub_;
   ros::Publisher se3_roll_pitch_nav_pub_;
   ros::Publisher desired_path_pub_;
+  ros::Publisher end_effector_pos_pub_;
 
   bool debug_verbose_;
   bool headless_;
@@ -128,6 +129,7 @@ private:
   double move_start_time_;
   bool move_start_flag_;
   bool return_flag_;
+  bool replay_;
   double controller_freq_;
   double return_delay_;
 
@@ -173,6 +175,8 @@ private:
 
   void startNavigate()
   {
+    if(replay_) return;
+
     move_start_flag_ = true;
     move_start_time_ = ros::Time::now().toSec();
   }

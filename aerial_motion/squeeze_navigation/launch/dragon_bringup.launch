@@ -7,7 +7,6 @@
   <arg name="estimate_mode"  default= "2" />
   <arg name="headless" default="True" />
 
-
   <include file="$(find dragon)/launch/bringup.launch" >
     <arg name="real_machine" value="$(arg real_machine)" />
     <arg name="simulation" value="$(arg simulation)" />
