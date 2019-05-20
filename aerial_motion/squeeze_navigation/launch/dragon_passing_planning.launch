@@ -11,7 +11,7 @@
 
   <arg name="discrete_path_debug_flag" default="false" />
   <arg name="teleop_flag"  default="false" />
-  <arg name="path_tf_debug" default= "false" />
+  <arg name="replay" default="false" />
 
   <arg name="save_squeeze_path_flag" default="false" />
   <arg name="load_squeeze_path_flag" default="false" />
@@ -62,7 +62,6 @@
     <param name="save_squeeze_path_flag" value="$(arg save_squeeze_path_flag)" />
     <param name="load_squeeze_path_flag" value="$(arg load_squeeze_path_flag)" />
     <param name="start_squeeze_path_from_real_state" value="$(arg start_squeeze_path_from_real_state)" />
-    <param name="path_tf_debug" value="$(arg path_tf_debug)" />
     <param name="file_name" value="$(find sampling_based_method)/path_log/dragon/$(arg path_file_name)" />
     <param name="solving_time_limit" type="double" value="36000"/>
     <param name="motion_sequence_rate" value="10"/>
@@ -72,13 +71,12 @@
     <param name="state_validity_check_res" value="0.005"/>
     <param name="valid_segment_count_factor" value="20"/> <!--20-->
 
-
     <!-- continuous path generator -->
     <!-- bspline -->
     <param name="bspline_degree" value="5" />
 
-    <!--<rosparam file="$(find squeeze_navigation)/config/end_effector/dragon_$(arg type).yaml" command="load" /> -->
-    <rosparam file="$(find squeeze_navigation)/config/end_effector/dragon_$(arg type)_horizontal.yaml" command="load" />
+    <rosparam file="$(find squeeze_navigation)/config/end_effector/dragon_$(arg type).yaml" command="load" />
+    <!--<rosparam file="$(find squeeze_navigation)/config/end_effector/dragon_$(arg type)_horizontal.yaml" command="load" /> -->
     <!-- Phase3: first approach -->
     <param name="approach_trajectory_period" value="5.0" />
 
@@ -89,18 +87,9 @@
     <param name="control_frequency" value="40.0" />
     <param name="joint_control_topic_name" value="/dragon/joints_ctrl" />
     <param name="joint_state_topic_name" value="/dragon/joint_states" />
+
+    <!-- replay -->
+    <param name="replay" value="$(arg replay)"/>
   </node>
 
-  ######### Debug ##################
-  <group if="$(arg path_tf_debug)" >
-    <node pkg="dragon" type="dragon_transform_control_node" name="dragon_transformcontrol"  output="screen" respawn="true" >
-      <rosparam file="$(find dragon)/config/$(arg type)/AttitudeControl.yaml" command="load" />
-      <param name="kinematic_verbose" value="false" />
-      <param name="control_verbose" value="false" />
-      <param name="debug_verbose" value="false" />
-      <param name="real_machine" value="false" />
-      <param name="gimbal_control" value="false" />
-      <param name="gimbal_control_topic_name" value="/dragon/gimbals_ctrl" />
-    </node>
-  </group>
 </launch>

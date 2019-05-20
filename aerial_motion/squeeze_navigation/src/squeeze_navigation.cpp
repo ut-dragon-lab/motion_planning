@@ -91,6 +91,7 @@ SqueezeNavigation::SqueezeNavigation(ros::NodeHandle nh, ros::NodeHandle nhp):
   se3_roll_pitch_nav_pub_ = nh_.advertise<spinal::DesireCoord>("/desire_coordinate", 1);
   desired_path_pub_ = nh_.advertise<moveit_msgs::DisplayRobotState>("/desired_robot_state", 1);
   debug_pub_ = nh_.advertise<moveit_msgs::DisplayRobotState>("/debug_robot_state", 1);
+  end_effector_pos_pub_ = nh_.advertise<geometry_msgs::Vector3Stamped>("end_effector_pos", 1);
 
   robot_baselink_odom_sub_ = nh_.subscribe("/uav/baselink/odom", 1, &SqueezeNavigation::robotOdomCallback, this);
   nhp_.param("joint_state_topic_name", topic_name, std::string("joint_states"));
@@ -139,6 +140,7 @@ void SqueezeNavigation::rosParamInit()
 
   nhp_.param("headless", headless_, true);
   nhp_.param("debug_verbose", debug_verbose_, false);
+  nhp_.param("replay", replay_, false);
 
   // end effector
   std::vector<double> first_contact_point;
@@ -277,6 +279,7 @@ void SqueezeNavigation::stateMachine(const ros::TimerEvent& event)
             MultilinkState::convertCogPose2RootPose(robot_model_ptr_, desired_att, cog_pose, actuator_vector_, root_pose);
 #endif
             tf::poseMsgToTF(root_pose, root_tf);
+
             if(!end_effector_ik_solver_->inverseKinematics(target_frame, joint_state_, root_tf, orientation_flag, true, std::string(""), std::string(""), false, false))
               {
                 ROS_ERROR("squeeze navigation: can not get valid end effector ik pose in phase1");
@@ -294,6 +297,7 @@ void SqueezeNavigation::stateMachine(const ros::TimerEvent& event)
             //if (!teleop_flag_ || discrete_path_debug_flag_) do not need stop (step debug)
             startNavigate();
 
+
             first_time_in_new_phase_ = false;
           }
 
@@ -302,6 +306,24 @@ void SqueezeNavigation::stateMachine(const ros::TimerEvent& event)
           {
             motion_phase_++;
             first_time_in_new_phase_ = true;
+          }
+
+        if(replay_)
+          {
+            auto segs_tf = robot_model_ptr_->fullForwardKinematics(actuator_vector_);
+            tf::Transform fc_pose_world_frame;
+            tf::poseMsgToTF(robot_baselink_odom_.pose.pose, fc_pose_world_frame);
+            tf::Transform end_link_fc_frame;
+            tf::transformKDLToTF(segs_tf.at("fc").Inverse() * segs_tf.at(end_effector_ik_solver_->getParentSegName()), end_link_fc_frame);
+
+            tf::Transform end_effector_world_frame = fc_pose_world_frame * end_link_fc_frame * end_effector_ik_solver_->getEndEffectorRelativePose();
+
+            geometry_msgs::Vector3Stamped ee_pos_;
+            ee_pos_.header = robot_baselink_odom_.header;
+            ee_pos_.vector.x = end_effector_world_frame.getOrigin().x();
+            ee_pos_.vector.y = end_effector_world_frame.getOrigin().y();
+            ee_pos_.vector.z = end_effector_world_frame.getOrigin().z();
+            end_effector_pos_pub_.publish(ee_pos_);
           }
 
         break;
@@ -349,7 +371,7 @@ void SqueezeNavigation::stateMachine(const ros::TimerEvent& event)
             nav_msg.pos_z_nav_mode = nav_msg.POS_MODE;
             nav_msg.target_pos_z = controller_debug_.throttle.target_pos + diff_vec.z();
 
-            flight_nav_pub_.publish(nav_msg);
+            if(!replay_) flight_nav_pub_.publish(nav_msg);
 
             first_time_in_new_phase_ = false;
           }
@@ -468,6 +490,24 @@ void SqueezeNavigation::stateMachine(const ros::TimerEvent& event)
             first_time_in_new_phase_ = false;
 
             once_flag_ = true; //for clear external wrench;
+          }
+
+        if(replay_)
+          {
+            auto segs_tf = robot_model_ptr_->fullForwardKinematics(actuator_vector_);
+            tf::Transform fc_pose_world_frame;
+            tf::poseMsgToTF(robot_baselink_odom_.pose.pose, fc_pose_world_frame);
+            tf::Transform end_link_fc_frame;
+            tf::transformKDLToTF(segs_tf.at("fc").Inverse() * segs_tf.at(end_effector_ik_solver_->getParentSegName()), end_link_fc_frame);
+
+            tf::Transform end_effector_world_frame = fc_pose_world_frame * end_link_fc_frame * end_effector_ik_solver_->getEndEffectorRelativePose();
+
+            geometry_msgs::Vector3Stamped ee_pos_;
+            ee_pos_.header = robot_baselink_odom_.header;
+            ee_pos_.vector.x = end_effector_world_frame.getOrigin().x();
+            ee_pos_.vector.y = end_effector_world_frame.getOrigin().y();
+            ee_pos_.vector.z = end_effector_world_frame.getOrigin().z();
+            end_effector_pos_pub_.publish(ee_pos_);
           }
 
         if(!move_start_flag_)
@@ -850,6 +890,8 @@ const std::vector<MultilinkState> SqueezeNavigation::discretePathResampling(cons
 
 void SqueezeNavigation::continuousPath(const std::vector<MultilinkState>& discrete_path, double trajectory_period)
 {
+  if(replay_) return;
+
   int joint_num = robot_model_ptr_->getLinkJointIndex().size();
 
   /* insert data */
