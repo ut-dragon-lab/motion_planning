@@ -44,6 +44,9 @@
 /* kinematics */
 #include <kdl/treejnttojacsolver.hpp>
 
+/* optimization tools */
+#include <OsqpEigen/OsqpEigen.h>
+
 class GraspVectoringThrust
 {
 public:
@@ -55,6 +58,8 @@ private:
   ros::NodeHandle nh_;
   ros::NodeHandle nhp_;
   boost::shared_ptr<DragonRobotModel> robot_model_ptr_;
+
+  bool verbose_;
 
   const Eigen::MatrixXd getJacobian(std::string root_link, std::string tip_link, const sensor_msgs::JointState& joint_angles, bool full_body, KDL::Segment additional_frame = KDL::Segment());
 };

@@ -15,92 +15,64 @@ find_package(catkin REQUIRED COMPONENTS
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
 
+include(ExternalProject)
 
-## Uncomment this if the package has a setup.py. This macro ensures
-## modules and global scripts declared therein get installed
-## See http://ros.org/doc/api/catkin/html/user_guide/setup_dot_py.html
-# catkin_python_setup()
+# OSQP
+set(OSQP_INSTALL_DIR ${PROJECT_SOURCE_DIR}/osqp)
+ExternalProject_Add(OSQP
+  DOWNLOAD_COMMAND git clone --recursive https://github.com/oxfordcontrol/osqp OSQP
+  CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${OSQP_INSTALL_DIR}
+  TIMEOUT 30
+  CMAKE_ARGS -DCMAKE_BUILD_TYPE=Release
+  BUILD_COMMAND make
+  BUILD_IN_SOURCE 1
+  INSTALL_COMMAND ""
+  INSTALL_COMMAND make install
+  LOG_DOWNLOAD ON
+  LOG_CONFIGURE ON
+  LOG_BUILD ON
+  )
+include_directories(${OSQP_INSTALL_DIR}/include/osqp)
+link_directories(${OSQP_INSTALL_DIR}/lib)
 
-################################################
-## Declare ROS messages, services and actions ##
-################################################
+# OSQP Eigen Wrapper
+set(OSQP_EIGEN_INSTALL_DIR ${PROJECT_SOURCE_DIR}/osqp_eigen)
+ExternalProject_Add(osqpeigen
+  DEPENDS OSQP
+  GIT_REPOSITORY https://github.com/robotology/osqp-eigen.git
+  CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${OSQP_EIGEN_INSTALL_DIR} -DCMAKE_PROJECT_OsqpEigen_INCLUDE=${OSQP_INSTALL_DIR}/osqp_path.cmake
+  TIMEOUT 30
+  PATCH_COMMAND patch -s -p0 < ${PROJECT_SOURCE_DIR}/patch/osqp_eigen.patch
+  BUILD_COMMAND make
+  BUILD_IN_SOURCE 1
+  INSTALL_COMMAND make install
+  LOG_DOWNLOAD ON
+  LOG_CONFIGURE ON
+  LOG_BUILD ON
+  )
+include_directories(${OSQP_EIGEN_INSTALL_DIR}/include)
+link_directories(${OSQP_EIGEN_INSTALL_DIR}/lib)
 
-## To declare and build messages, services or actions from within this
-## package, follow these steps:
-## * Let MSG_DEP_SET be the set of packages whose message types you use in
-##   your messages/services/actions (e.g. std_msgs, actionlib_msgs, ...).
-## * In the file package.xml:
-##   * add a build_depend tag for "message_generation"
-##   * add a build_depend and a exec_depend tag for each package in MSG_DEP_SET
-##   * If MSG_DEP_SET isn't empty the following dependency has been pulled in
-##     but can be declared for certainty nonetheless:
-##     * add a exec_depend tag for "message_runtime"
-## * In this file (CMakeLists.txt):
-##   * add "message_generation" and every package in MSG_DEP_SET to
-##     find_package(catkin REQUIRED COMPONENTS ...)
-##   * add "message_runtime" and every package in MSG_DEP_SET to
-##     catkin_package(CATKIN_DEPENDS ...)
-##   * uncomment the add_*_files sections below as needed
-##     and list every .msg/.srv/.action file to be processed
-##   * uncomment the generate_messages entry below
-##   * add every package in MSG_DEP_SET to generate_messages(DEPENDENCIES ...)
-
-## Generate messages in the 'msg' folder
-# add_message_files(
-#   FILES
-#   Message1.msg
-#   Message2.msg
-# )
-
-## Generate services in the 'srv' folder
-# add_service_files(
-#   FILES
-#   Service1.srv
-#   Service2.srv
-# )
-
-## Generate actions in the 'action' folder
-# add_action_files(
-#   FILES
-#   Action1.action
-#   Action2.action
-# )
-
-## Generate added messages and services with any dependencies listed here
-# generate_messages(
-#   DEPENDENCIES
-#   std_msgs  # Or other packages containing msgs
-# )
-
-################################################
-## Declare ROS dynamic reconfigure parameters ##
-################################################
-
-## To declare and build dynamic reconfigure parameters within this
-## package, follow these steps:
-## * In the file package.xml:
-##   * add a build_depend and a exec_depend tag for "dynamic_reconfigure"
-## * In this file (CMakeLists.txt):
-##   * add "dynamic_reconfigure" to
-##     find_package(catkin REQUIRED COMPONENTS ...)
-##   * uncomment the "generate_dynamic_reconfigure_options" section below
-##     and list every .cfg file to be processed
-
-## Generate dynamic reconfigure parameters in the 'cfg' folder
-# generate_dynamic_reconfigure_options(
-#   cfg/DynReconf1.cfg
-#   cfg/DynReconf2.cfg
-# )
+# NLOPT
+set(NLOPT_INSTALL_DIR ${PROJECT_SOURCE_DIR}/nlopt)
+ExternalProject_Add(nlopt
+  GIT_REPOSITORY https://github.com/stevengj/nlopt.git
+  GIT_TAG v2.5.0
+  CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${NLOPT_INSTALL_DIR}
+  TIMEOUT 30
+  BUILD_COMMAND make
+  BUILD_IN_SOURCE 1
+  INSTALL_COMMAND make install
+  LOG_DOWNLOAD ON
+  LOG_CONFIGURE ON
+  LOG_BUILD ON
+  )
+include_directories(${NLOPT_INSTALL_DIR}/include)
+link_directories(${NLOPT_INSTALL_DIR}/lib)
 
 ###################################
 ## catkin specific configuration ##
 ###################################
-## The catkin_package macro generates cmake config files for your package
-## Declare things to be passed to dependent projects
-## INCLUDE_DIRS: uncomment this if your package contains header files
-## LIBRARIES: libraries you create in this project that dependent projects also need
-## CATKIN_DEPENDS: catkin_packages dependent projects also need
-## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
   INCLUDE_DIRS include
 #  LIBRARIES vectoring_thrust_grasp
@@ -121,7 +93,9 @@ include_directories(
 
 add_library(vectoring_thrust_test
   src/vectoring_thrust_test.cpp)
-target_link_libraries(vectoring_thrust_test  ${catkin_LIBRARIES})
+target_link_libraries(vectoring_thrust_test  ${catkin_LIBRARIES}  osqp OsqpEigen)
+add_dependencies(vectoring_thrust_test OSQP osqpeigen nlopt)
 
 add_executable(vectoring_thrust_test_node src/vectoring_thrust_test_node.cpp)
-target_link_libraries(vectoring_thrust_test_node vectoring_thrust_test ${catkin_LIBRARIES})
+target_link_libraries(vectoring_thrust_test_node vectoring_thrust_test ${catkin_LIBRARIES}  osqp OsqpEigen)
+add_dependencies(vectoring_thrust_test_node OSQP osqpeigen nlopt)
