@@ -1,4 +1,133 @@
 #include <vectoring_thrust_grasp/vectoring_thrust_test.h>
+#include <chrono>
+
+namespace
+{
+  Eigen::VectorXd grasp_torque_;
+  Eigen::MatrixXd J_combined_;
+
+  /* contactConstraint */
+  Eigen::VectorXd::Index pivot_torque_index_;
+  double pivot_torque_value_;
+  std::vector<int> nl_torque_index_;
+
+  /* staticConstraint */
+  std::vector<int> nl_statics_index_;
+
+  /* vectoringConstraint */
+  std::vector<int> nl_force_index_;
+  double max_vectoring_force_;
+
+  /* test */
+  std::vector<double> last_x_;
+
+  double constraint_debug_t = 0;
+  double cost_debug_t = 0;
+
+  double maxGraspForce(const std::vector<double> &x, std::vector<double> &grad, void *grasp_planner)
+  {
+    /* x = [f, tau]^T */
+    /* A = [J^T I] */
+    /* cost func:
+        f_grasp^2 * ||tau_normal ||^2 = x^T * A^T * A * x
+    */
+
+    Eigen::VectorXd x_vec = Eigen::Map<const Eigen::VectorXd>(x.data(), x.size());
+    Eigen::MatrixXd A = Eigen::MatrixXd::Zero(J_combined_.cols() - 6, J_combined_.rows() + J_combined_.cols() - 6);
+    A.leftCols(J_combined_.rows()) = J_combined_.rightCols(J_combined_.cols() - 6).transpose();
+    A.rightCols(J_combined_.cols() - 6) = Eigen::MatrixXd::Identity(J_combined_.cols() - 6, J_combined_.cols() - 6);
+
+    /* differential: 2*A^T*A*x */
+    if (!grad.empty())
+      {
+        auto gradient_vector = 2 * A.transpose() * A * x_vec;
+        assert(grad.size() == gradient_vector.size());
+        for(size_t i = 0; i < grad.size(); i++)
+          grad.at(i) = gradient_vector[i];
+      }
+
+    if (ros::Time::now().toSec() - cost_debug_t > 1.0) // 1 ms
+      {
+        std::cout << "cost : " << x_vec.transpose() * A.transpose() * A * x_vec << std::endl;
+        cost_debug_t = ros::Time::now().toSec();
+      }
+
+    last_x_ = x;
+
+    return x_vec.transpose() * A.transpose() * A * x_vec;
+  }
+
+  /* the equality result should be zero */
+  double contactConstraint(const std::vector<double> &x, std::vector<double> &grad, void *index_ptr)
+  {
+    /* the contact constraint:
+       f_grasp * tau_normal =  J^T f + tau =  A x
+     */
+
+    //std::cout << "contactConstraint 1" << std::endl;
+
+    int index =  *(reinterpret_cast<int*>(index_ptr));
+    Eigen::VectorXd x_vec = Eigen::Map<const Eigen::VectorXd>(x.data(), x.size());
+    Eigen::MatrixXd A = Eigen::MatrixXd::Zero(J_combined_.cols() - 6, J_combined_.rows() + J_combined_.cols() - 6);
+    A.leftCols(J_combined_.rows()) = J_combined_.rightCols(J_combined_.cols() - 6).transpose();
+    A.rightCols(J_combined_.cols() - 6) = Eigen::MatrixXd::Identity(J_combined_.cols() - 6, J_combined_.cols() - 6);
+
+    double constant_ratio = (A.row(pivot_torque_index_) * x_vec / grasp_torque_(pivot_torque_index_))(0,0);
+    /* A.rows(index) * x_vec = constant_ratio * grasp_torque_(index) */
+    /* A.rows(index) * x_vec - constant_ratio * grasp_torque_(index) = 0 */
+
+    if (!grad.empty())
+      {
+        assert(grad.size() == x.size());
+
+        for(size_t i = 0; i < grad.size(); i++)
+          grad.at(i) = A.row(index)[i];
+      }
+    return (A.row(index) * x_vec)(0,0) - constant_ratio * grasp_torque_(index);
+  }
+
+  /* the equality result should be zero */
+  double staticConstraint(const std::vector<double> &x, std::vector<double> &grad, void *index_ptr)
+  {
+    int index = *(reinterpret_cast<int*>(index_ptr));
+
+    /* b_i * x = 0 */
+    Eigen::VectorXd x_vec = Eigen::Map<const Eigen::VectorXd>(x.data(), x.size());
+    Eigen::VectorXd b_i_vector = J_combined_.col(index);
+
+    if (!grad.empty())
+      {
+        grad.resize(x.size(), 0);
+
+        for(size_t i = 0; i < b_i_vector.size(); i++)
+          grad.at(i) = b_i_vector(i);
+      }
+
+    if (ros::Time::now().toSec() - constraint_debug_t > 1.0) // 1 ms
+      {
+        std::cout << "statics constraint: \n " << J_combined_.leftCols(6).transpose() * x_vec.head(b_i_vector.size()) << std::endl;
+        std::cout << "x: " << x_vec.transpose() << std::endl;
+        constraint_debug_t = ros::Time::now().toSec();
+      }
+
+    return b_i_vector.dot(x_vec.head(b_i_vector.size()));
+  }
+
+  /* the vectoring force norm should be smaller than the max value */
+  double vectoringConstraint(const std::vector<double> &x, std::vector<double> &grad, void *index_ptr)
+  {
+    int index =  *(reinterpret_cast<int*>(index_ptr));
+
+    if (!grad.empty())
+      {
+        grad.resize(x.size(), 0);
+        grad.at(index * 3) = 2 * (x.at(index * 3) + x.at(index * 3 + 1));
+        grad.at(index * 3 + 1) = 2 * (x.at(index * 3) + x.at(index * 3 + 1));
+      }
+    return std::pow(x.at(index * 3), 2) + std::pow(x.at(index * 3 + 1), 2) - std::pow(max_vectoring_force_, 2);
+  }
+
+};
 
 GraspVectoringThrust::GraspVectoringThrust(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<DragonRobotModel> robot_model_ptr): nh_(nh), nhp_(nhp), robot_model_ptr_(robot_model_ptr)
 {
@@ -61,8 +190,8 @@ GraspVectoringThrust::GraspVectoringThrust(ros::NodeHandle nh, ros::NodeHandle n
   Eigen::Vector3d  grasp_force_on_tail_ball = (aerial_robot_model::kdlToEigen(seg_tf_map.at("tail_ball").p - seg_tf_map.at("head_ball").p)).normalized() * grasp_force_norm;
 
   /** 2.3. calculate the torque based on the virutal work principle: tau = -J_ext^T * f_ext   **/
-  Eigen::VectorXd grasp_torque = - tail_end_effector_jacobian.topRows(3).transpose() * grasp_force_on_tail_ball;
-  std::cout << "grasp torque: \n" << grasp_torque.transpose() << std::endl;
+  grasp_torque_ = - tail_end_effector_jacobian.topRows(3).transpose() * grasp_force_on_tail_ball;
+  std::cout << "grasp torque: \n" << grasp_torque_.transpose() << std::endl;
 
   /* 3. calculate the vectoring force need for grasping without torque */
   /* virtual work priciple for multilink: tau = 0 = -J'_ext_head^T * f_ext_head -J'_ext_tail^T * f_ext_tail - J'_vec1^T * f_vec1 - J'_vec2^T * f_vec2 - .... - J'_vecN^T * f_vecN */
@@ -80,7 +209,7 @@ GraspVectoringThrust::GraspVectoringThrust(ros::NodeHandle nh, ros::NodeHandle n
   virtual_extended_grasp_torque.head(J_ext_head.cols()) += (- J_ext_head.topRows(3).transpose() * (-grasp_force_on_tail_ball));
   std::cout << "virtual extneded grasp torque: \n" << virtual_extended_grasp_torque.transpose() << std::endl;
 
-  Eigen::MatrixXd J_combined = Eigen::MatrixXd::Zero(3 * robot_model_ptr_->getRotorNum(), virtual_extended_grasp_torque.size());
+  J_combined_ = Eigen::MatrixXd::Zero(3 * robot_model_ptr_->getRotorNum(), virtual_extended_grasp_torque.size());
 
   bool force_on_thrust_frame;
   nhp_.param("force_on_thrust_frame", force_on_thrust_frame, false);
@@ -92,30 +221,29 @@ GraspVectoringThrust::GraspVectoringThrust(ros::NodeHandle nh, ros::NodeHandle n
       else
         J_vec_i = getJacobian(std::string("root"), std::string("gimbal") + std::to_string(i+1) + std::string("_roll_module"), joint_angles, true);
       if(verbose_) std::cout << "extended jacobian for " << i+1 << "th rotor : \n" << J_vec_i << std::endl;
-      J_combined.block(3 * i, 0, 3 , J_vec_i.cols()) = J_vec_i.topRows(3);
+      J_combined_.block(3 * i, 0, 3 , J_vec_i.cols()) = J_vec_i.topRows(3);
     }
 
   /*
-  J_combined = Eigen::MatrixXd::Zero(3 * 2, virtual_extended_grasp_torque.size());
+  J_combined_ = Eigen::MatrixXd::Zero(3 * 2, virtual_extended_grasp_torque.size());
   auto J_vec_i = getJacobian(std::string("root"), std::string("gimbal1_roll_module"), joint_angles, true);
-  J_combined.block(0, 0, 3 , J_vec_i.cols()) = J_vec_i.topRows(3);
+  J_combined_.block(0, 0, 3 , J_vec_i.cols()) = J_vec_i.topRows(3);
   J_vec_i = getJacobian(std::string("root"), std::string("gimbal4_roll_module"), joint_angles, true);
-  J_combined.block(3, 0, 3 , J_vec_i.cols()) = J_vec_i.topRows(3);
+  J_combined_.block(3, 0, 3 , J_vec_i.cols()) = J_vec_i.topRows(3);
   */
 
-  if(verbose_) std::cout << "J_combined: \n" << J_combined << std::endl;
+  //if(verbose_)
+    std::cout << "J_combined_: \n" << J_combined_ << std::endl;
 
   /** lagrange mothod **/
-  Eigen::FullPivLU<Eigen::MatrixXd> lu_solver(J_combined.transpose() * J_combined);
-  Eigen::VectorXd vectoring_f_vector = J_combined * lu_solver.solve(virtual_extended_grasp_torque);
+  Eigen::FullPivLU<Eigen::MatrixXd> lu_solver(J_combined_.transpose() * J_combined_);
+  Eigen::VectorXd vectoring_f_vector = J_combined_ * lu_solver.solve(virtual_extended_grasp_torque);
   std::cout << "psuedo-inverse: vectoring_f_vector: \n" << vectoring_f_vector.transpose() << std::endl;
-  std::cout << "psuedo-inverse: torque: \n" << J_combined.transpose() * vectoring_f_vector << std::endl;
+  std::cout << "psuedo-inverse: torque: \n" << J_combined_.transpose() * vectoring_f_vector << std::endl;
 
   /** qp solving to minimize the joint torque **/
   OsqpEigen::Solver qp_solver;
-
-  // settings
-  //solver.settings()->setVerbosity(false);
+  qp_solver.settings()->setVerbosity(false);
   qp_solver.settings()->setWarmStart(true);
 
   // set the initial data of the QP solver
@@ -123,45 +251,184 @@ GraspVectoringThrust::GraspVectoringThrust(ros::NodeHandle nh, ros::NodeHandle n
   qp_solver.data()->setNumberOfConstraints(6);
 
   /* cost function:
-     f^T W_f f + (J' f + t_ext)^T W_t (J' f + t_ext)      -------------- J' = -J_combined.block()^T
+     f^T W_f f + (J' f + t_ext)^T W_t (J' f + t_ext)      -------------- J' = -J_combined_.block()^T
     = f^T (W_f + J'^T W_t J') f + 2 t_ext^T W_t J' f + ....(constant offset)
   */
   double weight_torque, weight_force;
   nhp_.param("weight_torque", weight_torque, 10.0);
   nhp_.param("weight_force", weight_force, 1.0);
-  Eigen::MatrixXd J_dash = - J_combined.rightCols(J_combined.cols() - 6).transpose();
+  Eigen::MatrixXd J_dash = - J_combined_.rightCols(J_combined_.cols() - 6).transpose();
   Eigen::MatrixXd hessian = weight_force * Eigen::MatrixXd::Identity(3 * robot_model_ptr_->getRotorNum(), 3 * robot_model_ptr_->getRotorNum()) + J_dash.transpose() * weight_torque * J_dash;
   Eigen::SparseMatrix<double> hessian_sparse = hessian.sparseView();
   qp_solver.data()->setHessianMatrix(hessian_sparse);
 
-  Eigen::VectorXd gradient = grasp_torque.transpose() * weight_torque * J_dash;
+  Eigen::VectorXd gradient = grasp_torque_.transpose() * weight_torque * J_dash;
   qp_solver.data()->setGradient(gradient);
 
   /* equality constraint: total force and  moment by vectoring thrust is zero  */
-  Eigen::SparseMatrix<double> constraint_sparse = (J_combined.leftCols(6).transpose()).sparseView();
+  Eigen::SparseMatrix<double> constraint_sparse = (J_combined_.leftCols(6).transpose()).sparseView();
   qp_solver.data()->setLinearConstraintsMatrix(constraint_sparse);
   Eigen::VectorXd lb = Eigen::VectorXd::Zero(6);
   qp_solver.data()->setLowerBound(lb);
   qp_solver.data()->setUpperBound(lb);
 
-  // instantiate the solver
   if(!qp_solver.initSolver())
     {
       ROS_ERROR("can not initialize qp solver");
       return;
     }
 
-  // solve the QP problem
   if(!qp_solver.solve())
     {
       ROS_ERROR("can not solve QP");
       return;
     }
 
-  // get the controller input
   vectoring_f_vector  = qp_solver.getSolution();
   std::cout << "qp: vectoring_f_vector: \n" << vectoring_f_vector.transpose() << std::endl;
-  std::cout << "qp: joint torque: \n" << -J_combined.transpose() * vectoring_f_vector + virtual_extended_grasp_torque << std::endl;
+
+  std::cout << "qp: joint torque: \n" << -J_combined_.transpose() * vectoring_f_vector + virtual_extended_grasp_torque << std::endl;
+
+
+  /** nlopt solving to maximize the grasping force **/
+  auto algorithm_type = nlopt::GN_ISRES; // nlopt::LD_SLSQP
+  nlopt::opt nl_solver(algorithm_type, 3 * robot_model_ptr_->getRotorNum() + grasp_torque_.size());
+  nl_solver.set_max_objective(maxGraspForce, this);
+
+  /* contact (direction) constraint */
+  if(fabs(grasp_torque_.maxCoeff()) > fabs(grasp_torque_.minCoeff()))
+    pivot_torque_value_ = grasp_torque_.maxCoeff(&pivot_torque_index_);
+  else
+    pivot_torque_value_ = grasp_torque_.minCoeff(&pivot_torque_index_);
+
+  nl_torque_index_.reserve(grasp_torque_.size());
+  for(int i = 0; i < grasp_torque_.size(); i++)
+    {
+      if(i == pivot_torque_value_) continue;
+
+      nl_torque_index_.push_back(i);
+      nl_solver.add_equality_constraint(contactConstraint, nl_torque_index_.data() + i, 1e-8);
+    }
+
+  /* static constraint */
+  nl_statics_index_.reserve(6); // important!!
+  for(int i = 0; i < 6; i++)
+    {
+      nl_statics_index_.push_back(i);
+      nl_solver.add_equality_constraint(staticConstraint, &nl_statics_index_[i], 1e-8);
+    }
+
+  /* vectoring force */
+  nhp_.param("max_vectoring_force", max_vectoring_force_, 5.0);
+  nl_force_index_.reserve(robot_model_ptr_->getRotorNum());
+  for(int i = 0; i < robot_model_ptr_->getRotorNum(); i++)
+    {
+      nl_force_index_.push_back(i);
+      nl_solver.add_inequality_constraint(vectoringConstraint, nl_force_index_.data() + i, 1e-3);
+    }
+  nl_solver.set_xtol_rel(1e-3); // important!
+  nl_solver.set_maxeval(2 * 1e5);
+
+  std::vector<double> nlopt_lb(3 * robot_model_ptr_->getRotorNum() + grasp_torque_.size(), -HUGE_VAL);
+  std::vector<double> nlopt_ub(3 * robot_model_ptr_->getRotorNum() + grasp_torque_.size(), HUGE_VAL);
+  for(int i = 0; i < robot_model_ptr_->getRotorNum(); i++)
+    {
+      nlopt_lb.at(3 * i) = -max_vectoring_force_;
+      nlopt_ub.at(3 * i) = max_vectoring_force_;
+      nlopt_lb.at(3 * i + 1) = -max_vectoring_force_;
+      nlopt_ub.at(3 * i + 1) = max_vectoring_force_;
+      nlopt_lb.at(3 * i + 2) = -0.1;
+      nlopt_ub.at(3 * i + 2) = 0.1;
+    }
+  double max_torque;
+  nhp_.param("max_torque", max_torque, 7.0);
+
+  /* get chain from root_link to tip_link */
+  KDL::Chain chain;
+  robot_model_ptr_->getTree().getChain(std::string("head_ball"), std::string("tail_ball"), chain);
+  assert(chain.getNrOfJoints() == grasp_torque_.size());
+  int j = 0;
+  int offset = 3 * robot_model_ptr_->getRotorNum();
+  for(auto seg : chain.segments)
+    {
+      if(seg.getJoint().getType() != KDL::Joint::JointType::None)
+        {
+          if(seg.getJoint().getName().find("joint") != std::string::npos)
+            {
+              nlopt_lb.at(j + offset) = -1; // Nm, fixed paramter for not active joint torque
+              nlopt_ub.at(j + offset) = 1;  // Nm, fixed paramter for not active joint torque
+
+              auto itr = std::find(joint_angles.name.begin(), joint_angles.name.end(), seg.getJoint().getName());
+              if(itr != joint_angles.name.end())
+                {
+                  // hard-coding for the active joint of which the angle is larger than a threshold (e.g. 0.1rad)
+                  if(joint_angles.position.at(std::distance(joint_angles.name.begin(), itr)) > 0.1)
+                    {
+                      nlopt_lb.at(j + offset) = -1e-8; // Nm, fixed paramter for not active joint torque
+                      nlopt_ub.at(j + offset) = max_torque;  // Nm, fixed paramter for not active joint torque
+                    }
+
+                  if(joint_angles.position.at(std::distance(joint_angles.name.begin(), itr)) < -0.1)
+                    {
+                      nlopt_lb.at(j + offset) = -max_torque; // Nm, fixed paramter for not active joint torque
+                      nlopt_ub.at(j + offset) = 1e-8;  // Nm, fixed paramter for not active joint torque
+                    }
+                }
+            }
+          j++;
+        }
+    }
+
+  std::cout << "nlopt nlopt_lb: " << Eigen::Map<const Eigen::VectorXd>(nlopt_lb.data(), nlopt_lb.size()).transpose() << std::endl;
+  std::cout << "nlopt nlopt_ub: " << Eigen::Map<const Eigen::VectorXd>(nlopt_ub.data(), nlopt_ub.size()).transpose() << std::endl;
+  nl_solver.set_lower_bounds(nlopt_lb);
+  nl_solver.set_upper_bounds(nlopt_ub);
+
+  /* set initial value */
+  std::vector<double> x(3 * robot_model_ptr_->getRotorNum() + grasp_torque_.size(), 0.05); /* x = [f, tau]^T */
+  // use following setting based on the previous result, but the big improment
+  /*
+  for (int i = 0; i < 3 * robot_model_ptr_->getRotorNum(); i++)
+    x.at(i) = vectoring_f_vector(i);
+  for (int i = 0; i < grasp_torque_.size(); i++)
+    x.at(3 * robot_model_ptr_->getRotorNum() + i) = grasp_torque_(i);
+  */
+
+  double max_f;
+  Eigen::VectorXd best_x;
+  try{
+    auto t_start = std::chrono::high_resolution_clock::now();
+    nlopt::result result = nl_solver.optimize(x, max_f);
+    auto t_end = std::chrono::high_resolution_clock::now();
+    std::cout << "NLOPT: : "
+              << std::chrono::duration<double, std::milli>(t_end-t_start).count()
+              << " [ms]" << std::endl;
+
+    best_x = Eigen::Map<Eigen::VectorXd>(x.data(), x.size());
+    // TODO: the optimiazation process does not provide the last value (i.e. best_x != last_x)
+    best_x = Eigen::Map<Eigen::VectorXd>(last_x_.data(), last_x_.size());
+
+
+    std::cout << "nlopt best x:" << Eigen::Map<Eigen::VectorXd>(x.data(), x.size()) << std::endl;
+    std::cout << "nlopt last x:" << best_x << std::endl;
+
+    Eigen::MatrixXd A = Eigen::MatrixXd::Zero(J_combined_.cols() - 6, J_combined_.rows() + J_combined_.cols() - 6);
+    A.leftCols(J_combined_.rows()) = J_combined_.rightCols(J_combined_.cols() - 6).transpose();
+    A.rightCols(J_combined_.cols() - 6) = Eigen::MatrixXd::Identity(J_combined_.cols() - 6, J_combined_.cols() - 6);
+
+    Eigen::VectorXd torque_normal = grasp_torque_ / grasp_force_norm;
+    std::cout << "nlopt maximum grasp torque: \n" << A * best_x << std::endl;
+    double grasp_maximum_force = (A * best_x)[pivot_torque_index_]  / torque_normal[pivot_torque_index_];
+    std::cout << "nlopt maximum grasp force: \n" << grasp_maximum_force  << std::endl;
+
+    std::cout << "grasp torque by contact: \n" << torque_normal * grasp_maximum_force << std::endl;
+
+
+    std::cout << "nlopt statics: \n" << J_combined_.leftCols(6).transpose() * best_x.head(3 * robot_model_ptr_->getRotorNum()) << std::endl;
+  }
+  catch(std::exception &e) {
+    std::cout << "nlopt failed: " << e.what() << std::endl;
+  }
 }
 
 const Eigen::MatrixXd GraspVectoringThrust::getJacobian(std::string root_link, std::string tip_link, const sensor_msgs::JointState& joint_angles, bool full_body, KDL::Segment additional_frame)

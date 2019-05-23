@@ -46,13 +46,13 @@
 
 /* optimization tools */
 #include <OsqpEigen/OsqpEigen.h>
+#include <nlopt.hpp>
 
 class GraspVectoringThrust
 {
 public:
   GraspVectoringThrust(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<DragonRobotModel> robot_model_ptr);
   ~GraspVectoringThrust(){}
-
 
 private:
   ros::NodeHandle nh_;

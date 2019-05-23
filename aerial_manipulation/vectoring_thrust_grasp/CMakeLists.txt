@@ -37,7 +37,7 @@ link_directories(${OSQP_INSTALL_DIR}/lib)
 
 # OSQP Eigen Wrapper
 set(OSQP_EIGEN_INSTALL_DIR ${PROJECT_SOURCE_DIR}/osqp_eigen)
-ExternalProject_Add(osqpeigen
+ExternalProject_Add(OSQP_EIGEN
   DEPENDS OSQP
   GIT_REPOSITORY https://github.com/robotology/osqp-eigen.git
   CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${OSQP_EIGEN_INSTALL_DIR} -DCMAKE_PROJECT_OsqpEigen_INCLUDE=${OSQP_INSTALL_DIR}/osqp_path.cmake
@@ -55,7 +55,7 @@ link_directories(${OSQP_EIGEN_INSTALL_DIR}/lib)
 
 # NLOPT
 set(NLOPT_INSTALL_DIR ${PROJECT_SOURCE_DIR}/nlopt)
-ExternalProject_Add(nlopt
+ExternalProject_Add(NLOPT
   GIT_REPOSITORY https://github.com/stevengj/nlopt.git
   GIT_TAG v2.5.0
   CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${NLOPT_INSTALL_DIR}
@@ -93,9 +93,8 @@ include_directories(
 
 add_library(vectoring_thrust_test
   src/vectoring_thrust_test.cpp)
-target_link_libraries(vectoring_thrust_test  ${catkin_LIBRARIES}  osqp OsqpEigen)
-add_dependencies(vectoring_thrust_test OSQP osqpeigen nlopt)
+target_link_libraries(vectoring_thrust_test ${catkin_LIBRARIES} osqp OsqpEigen nlopt)
+add_dependencies(vectoring_thrust_test OSQP OSQP_EIGEN NLOPT)
 
 add_executable(vectoring_thrust_test_node src/vectoring_thrust_test_node.cpp)
-target_link_libraries(vectoring_thrust_test_node vectoring_thrust_test ${catkin_LIBRARIES}  osqp OsqpEigen)
-add_dependencies(vectoring_thrust_test_node OSQP osqpeigen nlopt)
+target_link_libraries(vectoring_thrust_test_node vectoring_thrust_test ${catkin_LIBRARIES})
