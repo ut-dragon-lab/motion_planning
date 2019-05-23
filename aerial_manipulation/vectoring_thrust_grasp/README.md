@@ -1,8 +1,8 @@
 Try following command:
 ```
-$ roslaunch urdf_tutorial display.launch model:=/home/chou/ros/aerial_motion_planning_old_ws/src/motion_planning/aerial_manipulation/vectoring_thrust_grasp/robots/dragon/quad.urdf.xacro
+$ roslaunch vectoring_thrust_grasp dragon_bringup.launch simulation:=false real_machine:=false headless:=false
 ```
 
 ```
-$ rosrun vectoring_thrust_grasp vectoring_thrust_test_node 
+$ roslaunch vectoring_thrust_grasp test.launch
 ```
