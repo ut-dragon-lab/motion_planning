@@ -8,6 +8,7 @@ SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
+  hydrus
   dragon
   roscpp
 )
@@ -91,10 +92,10 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
 )
 
-add_library(vectoring_thrust_test
-  src/vectoring_thrust_test.cpp)
-target_link_libraries(vectoring_thrust_test ${catkin_LIBRARIES} osqp OsqpEigen nlopt)
-add_dependencies(vectoring_thrust_test OSQP OSQP_EIGEN NLOPT)
+add_library(vectoring_thrust_planner
+  src/vectoring_thrust_planner.cpp)
+target_link_libraries(vectoring_thrust_planner ${catkin_LIBRARIES} osqp OsqpEigen nlopt)
+add_dependencies(vectoring_thrust_planner OSQP OSQP_EIGEN NLOPT)
 
 add_executable(vectoring_thrust_test_node src/vectoring_thrust_test_node.cpp)
-target_link_libraries(vectoring_thrust_test_node vectoring_thrust_test ${catkin_LIBRARIES})
+target_link_libraries(vectoring_thrust_test_node vectoring_thrust_planner ${catkin_LIBRARIES})

@@ -1,4 +1,4 @@
-#include <vectoring_thrust_grasp/vectoring_thrust_test.h>
+#include <vectoring_thrust_grasp/vectoring_thrust_planner.h>
 #include <chrono>
 
 namespace
@@ -129,12 +129,46 @@ namespace
 
 };
 
-GraspVectoringThrust::GraspVectoringThrust(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<DragonRobotModel> robot_model_ptr): nh_(nh), nhp_(nhp), robot_model_ptr_(robot_model_ptr)
+GraspVectoringThrust::GraspVectoringThrust(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<DragonRobotModel> robot_model_ptr, bool realtime_control): nh_(nh), nhp_(nhp), robot_model_ptr_(robot_model_ptr), realtime_control_(realtime_control)
 {
   nhp_.param("verbose", verbose_, false);
-  /* 1. calculate the joint angles for the given grasp two end distance */
+  bool test;
+  nhp_.param("test", test, false);
 
-  /* TODO: solve the joint angles from IK manner: set the infinitesimal motion along the radial direction from the orign point 
+  if(test)
+    {
+      sensor_msgs::JointState joint_angles;
+      if(jointAnglesForQuadDragon(joint_angles)) return;
+
+      calculateVectoringForce(joint_angles, true);
+
+      return;
+    }
+
+  joint_state_sub_ = nh_.subscribe("joint_states", 1, &GraspVectoringThrust::jointStatesCallback, this);
+  vectoring_force_pub_ = nh_.advertise<dragon::GraspVectoringForce>("/grasp_vectoring_force", 1);
+}
+
+void GraspVectoringThrust::jointStatesCallback(const sensor_msgs::JointStateConstPtr& state)
+{
+  if(!realtime_control_) return;
+
+  robot_model_ptr_->updateRobotModel(*state);
+  auto joint_angles = robot_model_ptr_->getGimbalProcessedJoint<sensor_msgs::JointState>();
+
+  if(!calculateVectoringForce(joint_angles)) return;
+
+  dragon::GraspVectoringForce msg;
+  msg.clear_flag = false;
+  for(int i = 0; i < vectoring_f_vector_.size(); i++)
+    msg.grasp_vectoring_force.push_back(vectoring_f_vector_[i]);
+
+  vectoring_force_pub_.publish(msg);
+}
+
+bool GraspVectoringThrust::jointAnglesForQuadDragon(sensor_msgs::JointState& joint_angles)
+{
+  /* TODO: solve the joint angles from IK manner: set the infinitesimal motion along the radial direction from the orign point
   const MultilinkState& end_state = ik_solver_->getPathConst().back();
   sensor_msgs::JointState joint_angles;
   for(int i = 0 ; i < robot_model_ptr_->getLinkJointNames().size(); i++)
@@ -146,6 +180,12 @@ GraspVectoringThrust::GraspVectoringThrust(ros::NodeHandle nh, ros::NodeHandle n
   */
 
   /* temporally solution for quad-type */
+  if(robot_model_ptr_->getRotorNum() != 4)
+    {
+      ROS_ERROR("this robot is not dragon quad type");
+      return false;
+    }
+
   auto seg_tf_map = robot_model_ptr_->fullForwardKinematics(KDL::JntArray(robot_model_ptr_->getTree().getNrOfJoints()));
 
   /* l1: the length of link1 */
@@ -168,7 +208,7 @@ GraspVectoringThrust::GraspVectoringThrust(ros::NodeHandle nh, ros::NodeHandle n
   double j3 =  M_PI - (acos((std::pow(l4, 2) + std::pow(inter_length, 2) - std::pow(l1, 2)) / (2 * l4 * inter_length)) + (M_PI - j2) /2);
   std::cout << "joint1_yaw, joint2_yaw, joint3_yaw: " << j1 << ", " << j2 << ", " << j3 << std::endl;
 
-  sensor_msgs::JointState joint_angles;
+  /* hard-coding */
   joint_angles.name.push_back(std::string("joint1_yaw"));
   joint_angles.name.push_back(std::string("joint2_yaw"));
   joint_angles.name.push_back(std::string("joint3_yaw"));
@@ -178,22 +218,28 @@ GraspVectoringThrust::GraspVectoringThrust(ros::NodeHandle nh, ros::NodeHandle n
 
   seg_tf_map = robot_model_ptr_->fullForwardKinematics(joint_angles);
   if(verbose_) std::cout << "the grasp distance vs the end grasp: [" << grasp_two_end_distance <<  " vs " << (seg_tf_map.at("tail_ball").p - seg_tf_map.at("head_ball").p).Norm() << "]" << std::endl;
+}
 
-  /* 2. calcualte the joint torque to balance the grasping force */
-  /** 2.1 calcualte the jacobian **/
+bool GraspVectoringThrust::calculateVectoringForce(const sensor_msgs::JointState& joint_angles, bool calculate_maximum_force)
+{
+  /* 0. update the robot kinematics */
+  auto seg_tf_map = robot_model_ptr_->fullForwardKinematics(joint_angles);
+
+  /* 1. calcualte the joint torque to balance the grasping force */
+  /** 1.1 calcualte the jacobian **/
   auto tail_end_effector_jacobian =  getJacobian(std::string("root"), std::string("tail_ball"), joint_angles, false); // not full body
   if(verbose_) std::cout << "tail_end_effector_jacobian: \n" << tail_end_effector_jacobian << std::endl;
 
-  /** 2.2. calculate the force direction in the first contact point (link1) **/
+  /** 1.2. calculate the force direction in the first contact point (link1) **/
   double grasp_force_norm;
   nhp_.param("grasp_force_norm", grasp_force_norm, 5.0);
   Eigen::Vector3d  grasp_force_on_tail_ball = (aerial_robot_model::kdlToEigen(seg_tf_map.at("tail_ball").p - seg_tf_map.at("head_ball").p)).normalized() * grasp_force_norm;
 
-  /** 2.3. calculate the torque based on the virutal work principle: tau = -J_ext^T * f_ext   **/
+  /** 1.3. calculate the torque based on the virutal work principle: tau = -J_ext^T * f_ext   **/
   grasp_torque_ = - tail_end_effector_jacobian.topRows(3).transpose() * grasp_force_on_tail_ball;
-  std::cout << "grasp torque: \n" << grasp_torque_.transpose() << std::endl;
+  if(verbose_) std::cout << "grasp torque: \n" << grasp_torque_.transpose() << std::endl;
 
-  /* 3. calculate the vectoring force need for grasping without torque */
+  /* 2. calculate the vectoring force need for grasping without torque */
   /* virtual work priciple for multilink: tau = 0 = -J'_ext_head^T * f_ext_head -J'_ext_tail^T * f_ext_tail - J'_vec1^T * f_vec1 - J'_vec2^T * f_vec2 - .... - J'_vecN^T * f_vecN */
   /* J': extended jacobian with root link, R^{6 x (6 + N)} */
   /* force balance: f_vec1 + ... + f_vecN = 0 */
@@ -207,7 +253,7 @@ GraspVectoringThrust::GraspVectoringThrust(ros::NodeHandle nh, ros::NodeHandle n
 
   Eigen::VectorXd virtual_extended_grasp_torque =  - J_ext_tail.topRows(3).transpose() * grasp_force_on_tail_ball;
   virtual_extended_grasp_torque.head(J_ext_head.cols()) += (- J_ext_head.topRows(3).transpose() * (-grasp_force_on_tail_ball));
-  std::cout << "virtual extneded grasp torque: \n" << virtual_extended_grasp_torque.transpose() << std::endl;
+  if(verbose_) std::cout << "virtual extneded grasp torque: \n" << virtual_extended_grasp_torque.transpose() << std::endl;
 
   J_combined_ = Eigen::MatrixXd::Zero(3 * robot_model_ptr_->getRotorNum(), virtual_extended_grasp_torque.size());
 
@@ -232,21 +278,23 @@ GraspVectoringThrust::GraspVectoringThrust(ros::NodeHandle nh, ros::NodeHandle n
   J_combined_.block(3, 0, 3 , J_vec_i.cols()) = J_vec_i.topRows(3);
   */
 
-  //if(verbose_)
-    std::cout << "J_combined_: \n" << J_combined_ << std::endl;
+  if(verbose_) std::cout << "J_combined_: \n" << J_combined_ << std::endl;
 
   /** lagrange mothod **/
   Eigen::FullPivLU<Eigen::MatrixXd> lu_solver(J_combined_.transpose() * J_combined_);
-  Eigen::VectorXd vectoring_f_vector = J_combined_ * lu_solver.solve(virtual_extended_grasp_torque);
-  std::cout << "psuedo-inverse: vectoring_f_vector: \n" << vectoring_f_vector.transpose() << std::endl;
-  std::cout << "psuedo-inverse: torque: \n" << J_combined_.transpose() * vectoring_f_vector << std::endl;
+  vectoring_f_vector_ = J_combined_ * lu_solver.solve(virtual_extended_grasp_torque);
+  if(verbose_) 
+    {
+      std::cout << "psuedo-inverse: vectoring_f_vector: \n" << vectoring_f_vector_.transpose() << std::endl;
+      std::cout << "psuedo-inverse: torque: \n" << J_combined_.transpose() * vectoring_f_vector_ << std::endl;
+    }
 
-  /** qp solving to minimize the joint torque **/
+  /** 3. qp solving to minimize the joint torque **/
   OsqpEigen::Solver qp_solver;
   qp_solver.settings()->setVerbosity(false);
   qp_solver.settings()->setWarmStart(true);
 
-  // set the initial data of the QP solver
+  /*** set the initial data of the QP solver ***/
   qp_solver.data()->setNumberOfVariables(3 * robot_model_ptr_->getRotorNum());
   qp_solver.data()->setNumberOfConstraints(6);
 
@@ -275,22 +323,25 @@ GraspVectoringThrust::GraspVectoringThrust(ros::NodeHandle nh, ros::NodeHandle n
   if(!qp_solver.initSolver())
     {
       ROS_ERROR("can not initialize qp solver");
-      return;
+      return false;
     }
 
   if(!qp_solver.solve())
     {
       ROS_ERROR("can not solve QP");
-      return;
+      return false;
     }
 
-  vectoring_f_vector  = qp_solver.getSolution();
-  std::cout << "qp: vectoring_f_vector: \n" << vectoring_f_vector.transpose() << std::endl;
+  vectoring_f_vector_  = qp_solver.getSolution();
+  if(verbose_)
+    {
+      std::cout << "qp: vectoring_f_vector: \n" << vectoring_f_vector_.transpose() << std::endl;
+      std::cout << "qp: joint torque: \n" << -J_combined_.transpose() * vectoring_f_vector_ + virtual_extended_grasp_torque << std::endl;
+    }
 
-  std::cout << "qp: joint torque: \n" << -J_combined_.transpose() * vectoring_f_vector + virtual_extended_grasp_torque << std::endl;
+  if(!calculate_maximum_force) return true;
 
-
-  /** nlopt solving to maximize the grasping force **/
+  /** 4. nlopt solving to maximize the grasping force **/
   auto algorithm_type = nlopt::GN_ISRES; // nlopt::LD_SLSQP
   nlopt::opt nl_solver(algorithm_type, 3 * robot_model_ptr_->getRotorNum() + grasp_torque_.size());
   nl_solver.set_max_objective(maxGraspForce, this);

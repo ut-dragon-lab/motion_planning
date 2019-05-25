@@ -6,5 +6,8 @@
     <param name="grasp_force_norm" value="10.0" />
     <param name="force_on_thrust_frame" value="false" /> <!-- chose the force point on the thrust frame or on the gimbal roll frame(2D)  -->
     <param name="max_vectoring_force" value="8.0" />
+
+    <param name="test" value="true" />
+    <param name="verbose" value="true" />
   </node>
 </launch>
