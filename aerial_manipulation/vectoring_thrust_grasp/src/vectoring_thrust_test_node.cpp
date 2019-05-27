@@ -5,7 +5,10 @@ int main (int argc, char **argv)
   ros::init (argc, argv, "grasp_vectoring_thrust");
   ros::NodeHandle nh;
   ros::NodeHandle nh_private("~");
-  GraspVectoringThrust*  grasp_vectoring_thrust_node = new GraspVectoringThrust(nh, nh_private, boost::shared_ptr<DragonRobotModel>(new DragonRobotModel(true)), false);
+
+  bool from_real_joint_angle;
+  nh_private.param("from_real_joint_angle", from_real_joint_angle, false);
+  GraspVectoringThrust*  grasp_vectoring_thrust_node = new GraspVectoringThrust(nh, nh_private, boost::shared_ptr<DragonRobotModel>(new DragonRobotModel(true)), from_real_joint_angle);
   ros::spin ();
   delete grasp_vectoring_thrust_node;
   return 0;

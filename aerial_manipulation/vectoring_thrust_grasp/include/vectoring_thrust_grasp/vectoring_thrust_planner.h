@@ -58,7 +58,8 @@ public:
   bool jointAnglesForQuadDragon(sensor_msgs::JointState& joint_angles); // adhoc function for dragon quad type
 
   void setRealtimeControl(bool flag) {realtime_control_ = flag; }
-  const Eigen::VectorXd& getVectoringForce() const {return vectoring_f_vector_;}
+  const Eigen::VectorXd& getVectoringForceRoot() const {return vectoring_f_vector_root_;}
+  const Eigen::VectorXd& getVectoringForceCoG() const {return vectoring_f_vector_cog_;}
 
 private:
   ros::NodeHandle nh_;
@@ -67,7 +68,8 @@ private:
   ros::Publisher vectoring_force_pub_;
   boost::shared_ptr<DragonRobotModel> robot_model_ptr_;
 
-  Eigen::VectorXd vectoring_f_vector_;
+  Eigen::VectorXd vectoring_f_vector_root_;
+  Eigen::VectorXd vectoring_f_vector_cog_;
 
   bool verbose_;
   bool realtime_control_;

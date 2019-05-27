@@ -1,13 +1,24 @@
 <?xml version="1.0"?>
 <launch>
+
+  <arg name="from_real_joint_angle" default="false" />
+  <arg name="verbose" default="false" />
+
   <node pkg="vectoring_thrust_grasp" type="vectoring_thrust_test_node" name="vectoring_thrust_test_node" output="screen" >
     <param name="weight_torque" value="4.0" />
     <param name="weight_force" value="1.0" />
     <param name="grasp_force_norm" value="10.0" />
-    <param name="force_on_thrust_frame" value="false" /> <!-- chose the force point on the thrust frame or on the gimbal roll frame(2D)  -->
+    <param name="force_on_thrust_frame" value="true" /> <!-- chose the force point on the thrust frame or on the gimbal roll frame(2D)  -->
     <param name="max_vectoring_force" value="8.0" />
 
-    <param name="test" value="true" />
-    <param name="verbose" value="true" />
+    <param name="verbose" value="$(arg verbose)" />
+
+    <param name="from_real_joint_angle" value="true" if="$(arg from_real_joint_angle)" />
+    <param name="from_real_joint_angle" value="false" unless="$(arg from_real_joint_angle)" />
+    <param name="test" value="true" unless="$(arg from_real_joint_angle)" />
+    <param name="test" value="false" if="$(arg from_real_joint_angle)" />
+
+    <remap from="joint_states" to="/dragon/joint_states" />
+
   </node>
 </launch>

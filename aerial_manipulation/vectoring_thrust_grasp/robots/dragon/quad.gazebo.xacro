@@ -2,7 +2,7 @@
 <robot
     xmlns:xacro="http://www.ros.org/wiki/xacro" name="dragon" >
 
-  <xacro:include filename="$(find vectoring_thrust_gras)/robots/dragon/quad.urdf.xacro" />
+  <xacro:include filename="$(find vectoring_thrust_grasp)/robots/dragon/quad.urdf.xacro" />
 
   <!-- gazebo elements: hw interface -->
   <gazebo>
