@@ -18,6 +18,7 @@
     <param name="test" value="true" unless="$(arg from_real_joint_angle)" />
     <param name="test" value="false" if="$(arg from_real_joint_angle)" />
 
+    
     <remap from="joint_states" to="/dragon/joint_states" />
 
   </node>

@@ -99,3 +99,11 @@ add_dependencies(vectoring_thrust_planner OSQP OSQP_EIGEN NLOPT)
 
 add_executable(vectoring_thrust_test_node src/vectoring_thrust_test_node.cpp)
 target_link_libraries(vectoring_thrust_test_node vectoring_thrust_planner ${catkin_LIBRARIES})
+
+
+add_library(grasping_motion
+  src/grasping_motion.cpp)
+target_link_libraries(grasping_motion ${catkin_LIBRARIES} vectoring_thrust_planner)
+
+add_executable(grasping_motion_node src/grasping_motion_node.cpp)
+target_link_libraries(grasping_motion_node ${catkin_LIBRARIES} grasping_motion)

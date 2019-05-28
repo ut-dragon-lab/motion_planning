@@ -151,9 +151,10 @@ GraspVectoringThrust::GraspVectoringThrust(ros::NodeHandle nh, ros::NodeHandle n
 
 void GraspVectoringThrust::jointStatesCallback(const sensor_msgs::JointStateConstPtr& state)
 {
+  robot_model_ptr_->updateRobotModel(*state);
+
   if(!realtime_control_) return;
 
-  robot_model_ptr_->updateRobotModel(*state);
   auto joint_angles = robot_model_ptr_->getGimbalProcessedJoint<sensor_msgs::JointState>();
 
   if(!calculateVectoringForce(joint_angles)) return;
@@ -187,7 +188,6 @@ bool GraspVectoringThrust::jointAnglesForQuadDragon(sensor_msgs::JointState& joi
     }
 
   auto seg_tf_map = robot_model_ptr_->fullForwardKinematics(KDL::JntArray(robot_model_ptr_->getTree().getNrOfJoints()));
-
   /* l1: the length of link1 */
   /* l2 = l3: the length of link2, same with that of link3 */
   /* l4 = l3: the length of link4 */

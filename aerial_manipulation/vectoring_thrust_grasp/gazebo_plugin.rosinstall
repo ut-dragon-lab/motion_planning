@@ -1,0 +1,10 @@
+# https://github.com/tu-darmstadt-ros-pkg/hector_quadrotor
+- git:
+    local-name: gazebo-pkgs
+    uri: https://github.com/JenniferBuehler/gazebo-pkgs
+    version: 1.0.2
+
+- git:
+    local-name: general-message-pkgs
+    uri: https://github.com/JenniferBuehler/general-message-pkgs
+    version: 1.0.0
