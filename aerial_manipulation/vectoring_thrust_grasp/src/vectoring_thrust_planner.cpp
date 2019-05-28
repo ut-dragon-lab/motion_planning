@@ -151,6 +151,7 @@ GraspVectoringThrust::GraspVectoringThrust(ros::NodeHandle nh, ros::NodeHandle n
 
 void GraspVectoringThrust::jointStatesCallback(const sensor_msgs::JointStateConstPtr& state)
 {
+  current_joint_states_ = *state;
   robot_model_ptr_->updateRobotModel(*state);
 
   if(!realtime_control_) return;

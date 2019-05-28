@@ -61,6 +61,7 @@ public:
   const Eigen::VectorXd& getVectoringForceRoot() const {return vectoring_f_vector_root_;}
   const Eigen::VectorXd& getVectoringForceCoG() const {return vectoring_f_vector_cog_;}
 
+  const sensor_msgs::JointState& getCurrJointState() const {return current_joint_states_;}
 private:
   ros::NodeHandle nh_;
   ros::NodeHandle nhp_;
@@ -73,6 +74,8 @@ private:
 
   bool verbose_;
   bool realtime_control_;
+
+  sensor_msgs::JointState current_joint_states_;
 
   void jointStatesCallback(const sensor_msgs::JointStateConstPtr& state);
 

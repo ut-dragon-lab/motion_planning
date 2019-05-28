@@ -3,24 +3,29 @@
 
   <arg name = "object" default = "box" />
   <arg name = "simulation" default = "false" />
+  <arg name = "use_joy" default = "true" />
 
   <node pkg="vectoring_thrust_grasp" type="grasping_motion_node" name="grasping_motion_node" output="screen" >
     <rosparam file="$(find vectoring_thrust_grasp)/config/object/$(arg object).yaml" command="load" />
     <!-- ad-hoc method for quad type -->
     <param name="delta_angle" value="0.02"/>
-    <param name="contact_torque_thresh" value="2.0"/>
+    <param name="contact_torque_thresh" value="1.8" />
     <param name="extra_module_comepsention_delay" value="1.0"/>
     <param name="joint1_init_angle" value="1.0"/>
     <param name="joint3_init_angle" value="1.0"/>
 
     <remap from="joint_states" to="/dragon/joint_states" />
+    <remap from="/joints_ctrl" to="/dragon/joints_ctrl" />
   </node>
-
 
   <node pkg="vectoring_thrust_grasp" type="spawn_target_object.py" name="spawn_target_object" output="screen"  if="$(arg simulation)" >
     <param name="sdf_file_path" value="$(find vectoring_thrust_grasp)/gazebo_model/models/$(arg object)/model.sdf"/>
-    <param name="x" value="0.8"/>
-    <param name="y" value="0.5"/>
+    <param name="x" value="0.85"/>
+    <param name="y" value="0.45"/>
+    <param name="spawn_from_trigger" value="true"/>
+    <remap from="/trigger" to="/motion_start" />
   </node>
+
+  <node pkg="vectoring_thrust_grasp" type="joystick_operation.py" name="joystick_operation" output="screen" if="$(arg use_joy)" />
 
 </launch>
