@@ -21,4 +21,5 @@
 
   <!-- overwrite the takeoff param -->
   <param name="/aerial_robot_base_node/navigator/takeoff_height" value="0.3" if="$(arg simulation)"/>
+  <param name="/aerial_robot_base_node/navigator/takeoff_height" value="0.8" unless="$(arg simulation)"/>
 </launch>

@@ -1,2 +1,2 @@
-object_mass: 1.0
-object_inertial_tensor: [0.0375, 0, 0, 0.0375, 0, 0.015]
+object_mass: 0.3 #blue object: 0.3; simulation object: 1.0
+object_inertial_tensor: [0.04, 0, 0, 0.04, 0, 0.04] # blue object: [0.04, 0, 0, 0.04, 0, 0.04]; simulation object: [0.0375, 0, 0, 0.0375, 0, 0.015] 

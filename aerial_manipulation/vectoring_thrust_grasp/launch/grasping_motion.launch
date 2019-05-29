@@ -11,8 +11,8 @@
     <param name="delta_angle" value="0.02"/>
     <param name="contact_torque_thresh" value="1.8" />
     <param name="extra_module_comepsention_delay" value="1.0"/>
-    <param name="joint1_init_angle" value="1.0"/>
-    <param name="joint3_init_angle" value="1.0"/>
+    <param name="joint1_init_angle" value="0.8"/>
+    <param name="joint3_init_angle" value="0.8"/>
 
     <remap from="joint_states" to="/dragon/joint_states" />
     <remap from="/joints_ctrl" to="/dragon/joints_ctrl" />

@@ -115,6 +115,9 @@ void GraspingMotion::stateMachine(const ros::TimerEvent& event)
             joint_control_msg.position.push_back(joint3_init_angle_);
             joint_control_pub_.publish(joint_control_msg);
 
+            ros::Duration(0.1).sleep();
+            joint_control_pub_.publish(joint_control_msg);
+
             once_flag_ = false;
           }
         break;

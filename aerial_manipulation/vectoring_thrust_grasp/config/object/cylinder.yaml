@@ -1,0 +1,2 @@
+object_mass: 1.08
+object_inertial_tensor: [0.005, 0, 0, 0.005, 0, 0.005] #xx, xy, xz, yy, yz, zz
