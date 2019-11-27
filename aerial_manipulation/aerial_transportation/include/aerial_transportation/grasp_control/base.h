@@ -5,7 +5,7 @@
 /* ros */
 #include <ros/ros.h>
 
-#include <aerial_robot_base/FlightNav.h>
+#include <aerial_robot_msgs/FlightNav.h>
 #include <nav_msgs/Odometry.h>
 #include <sensor_msgs/Joy.h>
 #include <geometry_msgs/Point.h>
