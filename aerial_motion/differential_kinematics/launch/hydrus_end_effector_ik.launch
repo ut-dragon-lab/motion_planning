@@ -3,12 +3,14 @@
   ###########  launch config  ###########
   <arg name="type" default="quad" />
   <arg name="headless" default="false" />
+  <arg name="onboards_model"  default = "default_mode_201907"/>
 
   ###########  Robot Model  ###########
   <include file="$(find hydrus)/launch/robot_model.launch" >
     <arg name="type" value="$(arg type)" />
     <arg name="headless" value="$(arg headless)" />
     <arg name="need_joint_state" value="true"/>
+    <arg name="onboards_model"  default = "$(arg onboards_model)"/>
   </include >
 
   ###########  Differential Motion Planner  ###########
