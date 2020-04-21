@@ -3,17 +3,19 @@
   ###########  launch config  ###########
   <arg name="type" default="quad" />
   <arg name="headless" default="false" />
+  <arg name="onboards_model"  default = "old_model_tx2_rs_t265_201906" />
 
   ###########  Robot Model  ###########
   <include file="$(find hydrus)/launch/robot_model.launch" >
     <arg name="type" value="$(arg type)" />
     <arg name="headless" value="$(arg headless)" />
     <arg name="need_joint_state" value="true"/>
+    <arg name="onboards_model" value="$(arg onboards_model)" />
   </include >
 
   ###########  Differential Motion Planner  ###########
   <node pkg="differential_kinematics" type="se2_end_effector_ik_node" name="end_effector_ik_node"  output="screen" >
-    <rosparam file="$(find hydrus)/config/$(arg type)/Hydrus.yaml" command="load" />
+    <rosparam file="$(find hydrus)/config/$(arg type)/$(arg onboards_model)/Hydrus.yaml" command="load" />
     <rosparam file="$(find differential_kinematics)/config/hydrus/$(arg type)/EndEffectorIK.yaml" command="load" />
   </node>
 

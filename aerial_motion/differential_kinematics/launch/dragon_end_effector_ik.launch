@@ -3,12 +3,14 @@
   ###########  launch config  ###########
   <arg name="type" default="quad" />
   <arg name="headless" default="false" />
+  <arg name="onboards_model"  default = "euclid_201709" />
 
   ###########  Robot Model  ###########
   <include file="$(find dragon)/launch/robot_model.launch" >
     <arg name="type" value="$(arg type)" />
     <arg name="headless" value="$(arg headless)" />
     <arg name="need_joint_state" value="true"/>
+    <arg name="onboards_model" value="$(arg onboards_model)" />
   </include >
 
   ###########  Differential Motion Planner  ###########
