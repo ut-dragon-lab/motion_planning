@@ -17,9 +17,10 @@ find_package(catkin REQUIRED COMPONENTS
   std_msgs
   nav_msgs
   aerial_motion_planning_msgs
+  ompl # for ros melodic
 )
 
-find_package(ompl)
+find_package(ompl) # for ros kinetic
 
 add_message_files(FILES PlanningMode.msg)
 
@@ -28,7 +29,7 @@ generate_messages(DEPENDENCIES std_msgs)
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
 
 catkin_package(
-  INCLUDE_DIRS include
+  INCLUDE_DIRS include ${OMPL_INCLUDE_DIRS}
   LIBRARIES motion_planning
   CATKIN_DEPENDS  dragon   moveit_msgs moveit_core moveit_ros_planning_interface
 )
