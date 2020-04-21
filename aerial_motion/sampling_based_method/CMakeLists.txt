@@ -17,10 +17,9 @@ find_package(catkin REQUIRED COMPONENTS
   std_msgs
   nav_msgs
   aerial_motion_planning_msgs
-  ompl # for ros melodic
 )
 
-find_package(ompl) # for ros kinetic
+find_package(ompl)
 
 add_message_files(FILES PlanningMode.msg)
 
@@ -44,7 +43,6 @@ add_dependencies(motion_planning  ${PROJECT_NAME}_gencpp)
 target_link_libraries (motion_planning ${catkin_LIBRARIES}  ${Boost_LIBRARIES} ${OMPL_LIBRARIES})
 
 install(PROGRAMS
-  scripts/state_validation_l4.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
