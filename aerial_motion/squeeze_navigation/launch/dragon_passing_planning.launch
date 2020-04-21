@@ -18,6 +18,7 @@
   <group unless="$(arg headless)">
     <include file="$(find dragon)/launch/robot_model.launch" >
       <arg name="type" value="$(arg type)" />
+      <arg name="onboards_model" value="euclid_201709" />
       <arg name="headless" value="true" />
       <arg name="need_joint_state" value="false"/>
       <arg name="node_suffix" value="planning"/>
