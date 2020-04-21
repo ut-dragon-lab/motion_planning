@@ -104,14 +104,14 @@ namespace aerial_transportation
       target_height_ = object_height_ + grasping_height_offset_;
 
     /* send nav msg */
-    aerial_robot_base::FlightNav nav_msg;
+    aerial_robot_msgs::FlightNav nav_msg;
     nav_msg.header.stamp = ros::Time::now();
-    nav_msg.pos_xy_nav_mode = aerial_robot_base::FlightNav::POS_MODE;
+    nav_msg.pos_xy_nav_mode = aerial_robot_msgs::FlightNav::POS_MODE;
     nav_msg.target_pos_x = object_position_.x + object_offset_.x();
     nav_msg.target_pos_y = object_position_.y + object_offset_.y();
-    nav_msg.pos_z_nav_mode = aerial_robot_base::FlightNav::POS_MODE;
+    nav_msg.pos_z_nav_mode = aerial_robot_msgs::FlightNav::POS_MODE;
     nav_msg.target_pos_z = target_height_;
-    nav_msg.psi_nav_mode = aerial_robot_base::FlightNav::NO_NAVIGATION;
+    nav_msg.psi_nav_mode = aerial_robot_msgs::FlightNav::NO_NAVIGATION;
     uav_nav_pub_.publish(nav_msg);
   }
 

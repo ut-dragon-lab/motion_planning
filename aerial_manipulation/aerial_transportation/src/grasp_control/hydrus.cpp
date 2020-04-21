@@ -88,14 +88,14 @@ namespace aerial_transportation
                 once_flag = true;
 
                 /* send nav msg */
-                aerial_robot_base::FlightNav nav_msg;
+                aerial_robot_msgs::FlightNav nav_msg;
                 nav_msg.header.stamp = ros::Time::now();
-                nav_msg.pos_xy_nav_mode = aerial_robot_base::FlightNav::POS_MODE;
+                nav_msg.pos_xy_nav_mode = aerial_robot_msgs::FlightNav::POS_MODE;
                 nav_msg.target_pos_x = object_position_.x + object_offset_.x();
                 nav_msg.target_pos_y = object_position_.y + object_offset_.y();
-                nav_msg.pos_z_nav_mode = aerial_robot_base::FlightNav::POS_MODE;
+                nav_msg.pos_z_nav_mode = aerial_robot_msgs::FlightNav::POS_MODE;
                 nav_msg.target_pos_z = object_height_;
-                nav_msg.psi_nav_mode = aerial_robot_base::FlightNav::POS_MODE;
+                nav_msg.psi_nav_mode = aerial_robot_msgs::FlightNav::POS_MODE;
                 nav_msg.target_psi = object_position_.theta + object_offset_.z();
                 if(nav_msg.target_psi > M_PI) nav_msg.target_psi -= (2 * M_PI);
                 if(nav_msg.target_psi < -M_PI) nav_msg.target_psi += (2 * M_PI);
@@ -258,13 +258,13 @@ namespace aerial_transportation
             //test, keep position control until the envelope closure reaches
 
             /* send nav msg: shift to vel control mode */
-            aerial_robot_base::FlightNav nav_msg;
+            aerial_robot_msgs::FlightNav nav_msg;
             nav_msg.header.stamp = ros::Time::now();
-            nav_msg.pos_xy_nav_mode = aerial_robot_base::FlightNav::VEL_MODE;
+            nav_msg.pos_xy_nav_mode = aerial_robot_msgs::FlightNav::VEL_MODE;
             nav_msg.target_pos_x = 0;
             nav_msg.target_pos_y = 0;
-            nav_msg.pos_z_nav_mode = aerial_robot_base::FlightNav::NO_NAVIGATION;
-            nav_msg.psi_nav_mode = aerial_robot_base::FlightNav::NO_NAVIGATION;
+            nav_msg.pos_z_nav_mode = aerial_robot_msgs::FlightNav::NO_NAVIGATION;
+            nav_msg.psi_nav_mode = aerial_robot_msgs::FlightNav::NO_NAVIGATION;
 
             uav_nav_pub_.publish(nav_msg);
 
@@ -411,13 +411,13 @@ namespace aerial_transportation
               joints_control_[i].target_angle = joints_control_[i].approach_angle;
 
             /* send nav msg: shift to vel control mode */
-            aerial_robot_base::FlightNav nav_msg;
+            aerial_robot_msgs::FlightNav nav_msg;
             nav_msg.header.stamp = ros::Time::now();
-            nav_msg.pos_xy_nav_mode = aerial_robot_base::FlightNav::VEL_MODE;
+            nav_msg.pos_xy_nav_mode = aerial_robot_msgs::FlightNav::VEL_MODE;
             nav_msg.target_pos_x = 0;
             nav_msg.target_pos_y = 0;
-            nav_msg.pos_z_nav_mode = aerial_robot_base::FlightNav::NO_NAVIGATION;
-            nav_msg.psi_nav_mode = aerial_robot_base::FlightNav::NO_NAVIGATION;
+            nav_msg.pos_z_nav_mode = aerial_robot_msgs::FlightNav::NO_NAVIGATION;
+            nav_msg.psi_nav_mode = aerial_robot_msgs::FlightNav::NO_NAVIGATION;
             uav_nav_pub_.publish(nav_msg);
           }
       }

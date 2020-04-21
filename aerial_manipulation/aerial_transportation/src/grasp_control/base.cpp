@@ -10,7 +10,7 @@ namespace aerial_transportation
     baseRosParamInit();
 
     /* pub & sub */
-    uav_nav_pub_ = nh_.advertise<aerial_robot_base::FlightNav>(uav_nav_pub_name_, 1);
+    uav_nav_pub_ = nh_.advertise<aerial_robot_msgs::FlightNav>(uav_nav_pub_name_, 1);
     uav_state_sub_ = nh_.subscribe(uav_state_sub_name_, 1, &Base::stateCallback, this);
     object_pos_sub_ = nh_.subscribe(object_pos_sub_name_, 1, &Base::objectPoseCallback, this);
     joy_stick_sub_ = nh_.subscribe("/joy", 1, &Base::joyStickCallback, this);
@@ -139,17 +139,17 @@ namespace aerial_transportation
           /* nav part */
           tf::Vector3 delta((object_position_.x + object_offset_.x()) - uav_position_.x(), (object_position_.y + object_offset_.y()) - uav_position_.y(), 0.0);
 
-          aerial_robot_base::FlightNav nav_msg;
+          aerial_robot_msgs::FlightNav nav_msg;
           nav_msg.header.stamp = ros::Time::now();
-          nav_msg.target = aerial_robot_base::FlightNav::BASELINK;
-          nav_msg.pos_xy_nav_mode = aerial_robot_base::FlightNav::POS_MODE;
+          nav_msg.target = aerial_robot_msgs::FlightNav::BASELINK;
+          nav_msg.pos_xy_nav_mode = aerial_robot_msgs::FlightNav::POS_MODE;
           nav_msg.target_pos_x = object_position_.x + object_offset_.x();
           nav_msg.target_pos_y = object_position_.y + object_offset_.y();
-          nav_msg.pos_z_nav_mode = aerial_robot_base::FlightNav::NO_NAVIGATION;
-          nav_msg.psi_nav_mode = aerial_robot_base::FlightNav::NO_NAVIGATION;
+          nav_msg.pos_z_nav_mode = aerial_robot_msgs::FlightNav::NO_NAVIGATION;
+          nav_msg.psi_nav_mode = aerial_robot_msgs::FlightNav::NO_NAVIGATION;
           if(object_head_direction_)
             {
-              nav_msg.psi_nav_mode = aerial_robot_base::FlightNav::POS_MODE;
+              nav_msg.psi_nav_mode = aerial_robot_msgs::FlightNav::POS_MODE;
               nav_msg.target_psi = object_position_.theta + object_offset_.z();
               if(nav_msg.target_psi > M_PI) nav_msg.target_psi -= (2 * M_PI);
               if(nav_msg.target_psi < -M_PI) nav_msg.target_psi += (2 * M_PI);
@@ -194,15 +194,15 @@ namespace aerial_transportation
 	    target_height_ = box_point_.z + object_height_ + dropping_offset_;
 
           /* send nav msg */
-          aerial_robot_base::FlightNav nav_msg;
+          aerial_robot_msgs::FlightNav nav_msg;
 	  nav_msg.header.stamp = ros::Time::now();
-          nav_msg.target = aerial_robot_base::FlightNav::BASELINK;
-          nav_msg.pos_xy_nav_mode = aerial_robot_base::FlightNav::POS_MODE;
+          nav_msg.target = aerial_robot_msgs::FlightNav::BASELINK;
+          nav_msg.pos_xy_nav_mode = aerial_robot_msgs::FlightNav::POS_MODE;
           nav_msg.target_pos_x = uav_position_.x();
           nav_msg.target_pos_y = uav_position_.y();
-          nav_msg.pos_z_nav_mode = aerial_robot_base::FlightNav::POS_MODE;
+          nav_msg.pos_z_nav_mode = aerial_robot_msgs::FlightNav::POS_MODE;
           nav_msg.target_pos_z = target_height_;
-          nav_msg.psi_nav_mode = aerial_robot_base::FlightNav::NO_NAVIGATION;
+          nav_msg.psi_nav_mode = aerial_robot_msgs::FlightNav::NO_NAVIGATION;
           uav_nav_pub_.publish(nav_msg);
 
           if(fabs(box_point_.z + object_height_ + dropping_offset_ - uav_position_.z())  < 0.05) //0.05m, hard-coding
@@ -218,14 +218,14 @@ namespace aerial_transportation
           /* nav part */
           tf::Vector3 delta(box_point_.x + box_offset_.x() - uav_position_.x(), box_point_.y  + box_offset_.y() - uav_position_.y(), 0.0);
 
-          aerial_robot_base::FlightNav nav_msg;
+          aerial_robot_msgs::FlightNav nav_msg;
           nav_msg.header.stamp = ros::Time::now();
-          nav_msg.target = aerial_robot_base::FlightNav::BASELINK;
-          nav_msg.pos_xy_nav_mode = aerial_robot_base::FlightNav::POS_MODE;
+          nav_msg.target = aerial_robot_msgs::FlightNav::BASELINK;
+          nav_msg.pos_xy_nav_mode = aerial_robot_msgs::FlightNav::POS_MODE;
           nav_msg.target_pos_x = box_point_.x + box_offset_.x();
           nav_msg.target_pos_y = box_point_.y + box_offset_.y();
-          nav_msg.pos_z_nav_mode = aerial_robot_base::FlightNav::NO_NAVIGATION;
-          nav_msg.psi_nav_mode = aerial_robot_base::FlightNav::NO_NAVIGATION;
+          nav_msg.pos_z_nav_mode = aerial_robot_msgs::FlightNav::NO_NAVIGATION;
+          nav_msg.psi_nav_mode = aerial_robot_msgs::FlightNav::NO_NAVIGATION;
           uav_nav_pub_.publish(nav_msg);
 
           /* phase shift condition */
@@ -249,14 +249,14 @@ namespace aerial_transportation
         {
           //tf::Vector3 delta(uav_init_position_.x() - uav_position_.x() , uav_init_position_.y() - uav_position_.y() , 0);
 
-          aerial_robot_base::FlightNav nav_msg;
+          aerial_robot_msgs::FlightNav nav_msg;
           nav_msg.header.stamp = ros::Time::now();
-          nav_msg.target = aerial_robot_base::FlightNav::BASELINK;
-          nav_msg.pos_xy_nav_mode = aerial_robot_base::FlightNav::POS_MODE;
+          nav_msg.target = aerial_robot_msgs::FlightNav::BASELINK;
+          nav_msg.pos_xy_nav_mode = aerial_robot_msgs::FlightNav::POS_MODE;
           nav_msg.target_pos_x = uav_init_position_.x();
           nav_msg.target_pos_y = uav_init_position_.y();
-          nav_msg.pos_z_nav_mode = aerial_robot_base::FlightNav::NO_NAVIGATION;
-          nav_msg.psi_nav_mode = aerial_robot_base::FlightNav::NO_NAVIGATION;
+          nav_msg.pos_z_nav_mode = aerial_robot_msgs::FlightNav::NO_NAVIGATION;
+          nav_msg.psi_nav_mode = aerial_robot_msgs::FlightNav::NO_NAVIGATION;
           uav_nav_pub_.publish(nav_msg);
 
           phase_ = IDLE_PHASE;
