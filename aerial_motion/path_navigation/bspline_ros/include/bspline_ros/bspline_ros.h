@@ -50,7 +50,6 @@ public:
   void display3dPath(std::vector<int> indices, int sample_num = 100);
 
   std::vector<double> evaluate(double t, int derive = 0);
-  std::vector<double> evaluateDerive(double t); // for debug
 
 private:
   ros::NodeHandle nh_, nhp_;

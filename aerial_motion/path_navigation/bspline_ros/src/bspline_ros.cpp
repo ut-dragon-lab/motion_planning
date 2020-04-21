@@ -105,25 +105,6 @@ bool BsplineRos::initialize(bool uniform, double start_time, double end_time, in
   return rescaled_result;
 }
 
-std::vector<double> BsplineRos::evaluateDerive(double t)
-{
-  /* Over range adjust */
-  if (t > time_end_)
-    t = time_end_;
-  else if (t < time_start_)
-    t = time_start_;
-
-  /* In uniform mode, curve time is defaultly from 0.0 to 1.0, so we have to divide with the time duration scale factor: time_end_ - time_start_ */
-  if (uniform_)
-    t = (t - time_start_) / (time_end_ - time_start_);
-
-  std::vector<tinyspline::rational> result = splines_.at(0).derive().evaluate(t).result();
-  std::vector<double> res_d;
-  for (int i = 0; i < result.size(); ++i)
-    res_d.push_back(result[i] / (time_end_ - time_start_));
-  return res_d;
-}
-
 void BsplineRos::display3dPath(std::vector<int> indices, int sample_num)
 {
   if(indices.size() != 3)
@@ -141,7 +122,7 @@ void BsplineRos::display3dPath(std::vector<int> indices, int sample_num)
   path_point_marker.header.frame_id = "world";
   path_point_marker.header.stamp = ros::Time().now();
 
-  for (int i = 0; i <= sample_num; ++i)
+  for (int i = 0; i < sample_num; ++i)
     {
       auto result = evaluate(time_start_ + i * sample_gap);
       path_point_marker.id = i;

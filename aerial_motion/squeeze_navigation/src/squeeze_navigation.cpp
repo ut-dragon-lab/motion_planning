@@ -553,9 +553,6 @@ void SqueezeNavigation::navigate(const ros::TimerEvent& event)
   double cur_time = ros::Time::now().toSec() - move_start_time_;
   std::vector<double> des_pos = bspline_ptr_->evaluate(cur_time + 1.0 / controller_freq_);
   std::vector<double> des_vel = bspline_ptr_->evaluate(cur_time, 1);
-  std::vector<double> des_vel_debug = bspline_ptr_->evaluateDerive(cur_time);
-  ROS_INFO("vel debug: [%f, %f, %f], [%f, %f, %f]", des_vel.at(0), des_vel.at(1), des_vel.at(2),
-           des_vel_debug.at(0), des_vel_debug.at(1), des_vel_debug.at(2));
 
   {
     // debug
@@ -681,19 +678,20 @@ void SqueezeNavigation::continuousPath(const std::vector<MultilinkState>& discre
   for (int i = -1; i < (int)discrete_path.size() + 1; i++)
     {
       /* add one more start & end keypose to guarantee speed 0 */
-      if (i < 0) i = 0;
-      if (i >= discrete_path.size()) i = discrete_path.size() - 1;
+      int id = i;
+      if (id < 0) id = 0;
+      if (id >= discrete_path.size()) id = discrete_path.size() - 1;
 
       std::vector<double> control_point;
 
       // cog position
-      const auto cog_pos = discrete_path.at(i).getCogPoseConst().position;
+      const auto cog_pos = discrete_path.at(id).getCogPoseConst().position;
       control_point.push_back(cog_pos.x);
       control_point.push_back(cog_pos.y);
       control_point.push_back(cog_pos.z);
 
       // euler enagles
-      tf::Matrix3x3 att(discrete_path.at(i).getBaselinkDesiredAttConst());
+      tf::Matrix3x3 att(discrete_path.at(id).getBaselinkDesiredAttConst());
       double r, p, y; att.getRPY(r, p, y);
       control_point.push_back(r);
       control_point.push_back(p);
@@ -702,7 +700,7 @@ void SqueezeNavigation::continuousPath(const std::vector<MultilinkState>& discre
 
       /* set joint state */
       for(auto itr : robot_model_ptr_->getLinkJointIndex())
-        control_point.push_back(discrete_path.at(i).getActuatorStateConst()(itr));
+        control_point.push_back(discrete_path.at(id).getActuatorStateConst()(itr));
 
       control_point_list.push_back(control_point);
     }
