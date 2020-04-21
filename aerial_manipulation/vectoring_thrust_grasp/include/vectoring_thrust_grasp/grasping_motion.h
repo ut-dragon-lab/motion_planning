@@ -2,7 +2,7 @@
 /*********************************************************************
  * Software License Agreement (BSD License)
  *
- *  Copyright (c) 2017, JSK Lab
+ *  Copyright (c) 2019, JSK Lab
  *  All rights reserved.
  *
  *  Redistribution and use in source and binary forms, with or without
@@ -33,62 +33,47 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *********************************************************************/
 
-#ifndef BSPLINE_GENERATE_H_
-#define BSPLINE_GENERATE_H_
-#include <iostream>
-/*we need set the following flag to disable c++11 for linking the tinyspline */
-#define TINYSPLINE_DISABLE_CXX11_FEATURES
-#include <tinysplinecpp.h>
-#include <ros/ros.h>
-#include <geometry_msgs/Point.h>
-#include <geometry_msgs/PoseStamped.h>
-#include <nav_msgs/Path.h>
-#include <visualization_msgs/Marker.h>
-#include <visualization_msgs/MarkerArray.h>
-#include <unistd.h>
-#include <stdlib.h>
-#include <bspline_generator/ControlPoints.h>
+#pragma once
 
-class TinysplineInterface
+/* ros */
+#include <ros/ros.h>
+#include <std_msgs/Empty.h>
+#include <geometry_msgs/Inertia.h>
+#include <aerial_robot_model/AddExtraModule.h>
+
+/* vectoring force planner */
+#include <vectoring_thrust_grasp/vectoring_thrust_planner.h>
+
+enum
+  {
+    PHASE0, // init phase (hovering)
+    PHASE1, // do grasping (change joint angle)
+    PHASE2, // hold (give the vectoring force)
+    PHASE3, // reserve: realse object
+  };
+
+class GraspingMotion
 {
 public:
-  TinysplineInterface(ros::NodeHandle nh, ros::NodeHandle nhp);
-  ~TinysplineInterface(){}
-
-  const double getStartTime() const {return time_start_;}
-  const double getEndTime() const {return time_end_;}
-
-  void splinePathDisplay();
-  void bsplineParamInput(const bspline_generator::ControlPoints& msg);
-  void getDerive();
-  std::vector<double> evaluate(double t);
-  std::vector<double> evaluateDerive(double t);
-  void controlPolygonDisplay();
-  void controlPolygonDisplayInterface(int mode = 1);
-  void arrayConvertToPoint(int id, geometry_msgs::Point& point);
+  GraspingMotion(ros::NodeHandle nh, ros::NodeHandle nhp);
+  ~GraspingMotion(){}
 
 private:
-  boost::shared_ptr<tinyspline::BSpline> spline_ptr_;
-  tinyspline::BSpline spline_derive_;
-  std::vector<tinyspline::rational> controlpts_;
-  std::vector<tinyspline::rational> knotpts_;
-  int controlpts_num_;
-  int knots_num_;
-  int deg_;
-  int dim_;
-  bool is_uniform_;
-  double time_start_;
-  double time_end_;
-  bool polygon_display_flag_;
-  bool debug_;
-  std::string path_frame_id_;
-
   ros::NodeHandle nh_;
   ros::NodeHandle nhp_;
+  ros::Publisher joint_control_pub_;
+  ros::Publisher vectoring_force_pub_;
+  ros::Subscriber start_sub_;
+  ros::Subscriber release_sub_;
 
-  ros::Publisher pub_spline_path_;
-  ros::Publisher pub_reconstructed_path_markers_;
+  int motion_phase_;
+  ros::Timer motion_timer_;
 
+  boost::shared_ptr<DragonRobotModel> robot_model_ptr_;
+  std::unique_ptr<GraspVectoringThrust> planner_;
+  geometry_msgs::Inertia object_inertia_;
+
+  void startCallback(const std_msgs::Empty msg);
+  void releaseCallback(const std_msgs::Empty msg);
+  void stateMachine(const ros::TimerEvent& event);
 };
-
-#endif

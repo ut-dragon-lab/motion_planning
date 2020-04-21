@@ -47,14 +47,27 @@
 /* rosservice for target end-effector pose */
 #include <visualization_msgs/MarkerArray.h>
 #include <differential_kinematics/TargetPose.h>
+#include <aerial_motion_planning_msgs/multilink_state.h>
 
 using namespace differential_kinematics;
 
 class EndEffectorIKSolverCore
 {
 public:
-  EndEffectorIKSolverCore(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<HydrusRobotModel> robot_model_ptr);
+  EndEffectorIKSolverCore(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<HydrusRobotModel> robot_model_ptr, bool simulation);
   ~EndEffectorIKSolverCore(){}
+
+  const std::string getParentSegName() const {return parent_seg_;}
+  const tf::Transform getEndEffectorRelativePose() const {return end_effector_relative_pose_;}
+  const std::vector<MultilinkState>& getPathConst() const {return path_;}
+
+  void setEndEffectorPose(std::string parent_seg, tf::Transform pose);
+  void setCollision(const visualization_msgs::MarkerArray& env_collision)
+  {
+    env_collision_ = env_collision;
+  }
+
+  bool inverseKinematics(const tf::Transform& target_ee_pose, const sensor_msgs::JointState& init_actuator_vector, const tf::Transform& init_root_pose, bool orientation, bool full_body, std::string tran_free_axis, std::string rot_free_axis, bool collision_avoidance, bool debug);
 
 private:
 
@@ -65,8 +78,13 @@ private:
   ros::Subscriber env_collision_sub_;
   tf::TransformBroadcaster br_;
 
-  boost::shared_ptr<Planner> planner_core_ptr_;
+  boost::shared_ptr<HydrusRobotModel> robot_model_ptr_;
+  std::string baselink_name_;
+  std::string parent_seg_;
+  tf::Transform end_effector_relative_pose_;
 
+  boost::shared_ptr<Planner> planner_core_ptr_;
+  std::vector<MultilinkState> path_;
   tf::Transform target_ee_pose_;
   sensor_msgs::JointState init_actuator_vector_;
 
@@ -74,14 +92,13 @@ private:
   bool collision_avoidance_;
   visualization_msgs::MarkerArray env_collision_;
 
-  bool inverseKinematics(const tf::Transform& target_ee_pose, const sensor_msgs::JointState& init_actuator_vector, const tf::Transform& init_root_pose, bool orientation, bool full_body, std::string tran_free_axis, std::string rot_free_axis, bool collision_avoidance, bool debug);
-
   void actuatorStateCallback(const sensor_msgs::JointStateConstPtr& state);
   bool endEffectorIkCallback(differential_kinematics::TargetPose::Request  &req,
                              differential_kinematics::TargetPose::Response &res);
-  void envCollision(const visualization_msgs::MarkerArrayConstPtr& env_msg);
 
+  void envCollision(const visualization_msgs::MarkerArrayConstPtr& env_msg);
   void motionFunc();
+
 };
 
 #endif

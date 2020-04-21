@@ -2,7 +2,7 @@
 /*********************************************************************
  * Software License Agreement (BSD License)
  *
- *  Copyright (c) 2017, JSK Lab
+ *  Copyright (c) 2019, JSK Lab
  *  All rights reserved.
  *
  *  Redistribution and use in source and binary forms, with or without
@@ -33,62 +33,52 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *********************************************************************/
 
-#ifndef BSPLINE_GENERATE_H_
-#define BSPLINE_GENERATE_H_
-#include <iostream>
-/*we need set the following flag to disable c++11 for linking the tinyspline */
-#define TINYSPLINE_DISABLE_CXX11_FEATURES
-#include <tinysplinecpp.h>
-#include <ros/ros.h>
-#include <geometry_msgs/Point.h>
-#include <geometry_msgs/PoseStamped.h>
-#include <nav_msgs/Path.h>
-#include <visualization_msgs/Marker.h>
-#include <visualization_msgs/MarkerArray.h>
-#include <unistd.h>
-#include <stdlib.h>
-#include <bspline_generator/ControlPoints.h>
+#pragma once
 
-class TinysplineInterface
+/* ros */
+#include <ros/ros.h>
+#include <dragon/GraspVectoringForce.h>
+
+/* robot model */
+#include <dragon/dragon_robot_model.h>
+
+/* kinematics */
+#include <kdl/treejnttojacsolver.hpp>
+
+/* optimization tools */
+#include <OsqpEigen/OsqpEigen.h>
+#include <nlopt.hpp>
+
+class GraspVectoringThrust
 {
 public:
-  TinysplineInterface(ros::NodeHandle nh, ros::NodeHandle nhp);
-  ~TinysplineInterface(){}
+  GraspVectoringThrust(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<DragonRobotModel> robot_model_ptr, bool realtime_control);
+  ~GraspVectoringThrust(){}
 
-  const double getStartTime() const {return time_start_;}
-  const double getEndTime() const {return time_end_;}
+  bool jointAnglesForQuadDragon(sensor_msgs::JointState& joint_angles); // adhoc function for dragon quad type
 
-  void splinePathDisplay();
-  void bsplineParamInput(const bspline_generator::ControlPoints& msg);
-  void getDerive();
-  std::vector<double> evaluate(double t);
-  std::vector<double> evaluateDerive(double t);
-  void controlPolygonDisplay();
-  void controlPolygonDisplayInterface(int mode = 1);
-  void arrayConvertToPoint(int id, geometry_msgs::Point& point);
+  void setRealtimeControl(bool flag) {realtime_control_ = flag; }
+  const Eigen::VectorXd& getVectoringForceRoot() const {return vectoring_f_vector_root_;}
+  const Eigen::VectorXd& getVectoringForceCoG() const {return vectoring_f_vector_cog_;}
 
+  const sensor_msgs::JointState& getCurrJointState() const {return current_joint_states_;}
 private:
-  boost::shared_ptr<tinyspline::BSpline> spline_ptr_;
-  tinyspline::BSpline spline_derive_;
-  std::vector<tinyspline::rational> controlpts_;
-  std::vector<tinyspline::rational> knotpts_;
-  int controlpts_num_;
-  int knots_num_;
-  int deg_;
-  int dim_;
-  bool is_uniform_;
-  double time_start_;
-  double time_end_;
-  bool polygon_display_flag_;
-  bool debug_;
-  std::string path_frame_id_;
-
   ros::NodeHandle nh_;
   ros::NodeHandle nhp_;
+  ros::Subscriber joint_state_sub_;
+  ros::Publisher vectoring_force_pub_;
+  boost::shared_ptr<DragonRobotModel> robot_model_ptr_;
 
-  ros::Publisher pub_spline_path_;
-  ros::Publisher pub_reconstructed_path_markers_;
+  Eigen::VectorXd vectoring_f_vector_root_;
+  Eigen::VectorXd vectoring_f_vector_cog_;
 
+  bool verbose_;
+  bool realtime_control_;
+
+  sensor_msgs::JointState current_joint_states_;
+
+  void jointStatesCallback(const sensor_msgs::JointStateConstPtr& state);
+
+  bool calculateVectoringForce(const sensor_msgs::JointState& joint_angles, bool calculate_maximum_force = false);
+  const Eigen::MatrixXd getJacobian(std::string root_link, std::string tip_link, const sensor_msgs::JointState& joint_angles, bool full_body, KDL::Segment additional_frame = KDL::Segment());
 };
-
-#endif
