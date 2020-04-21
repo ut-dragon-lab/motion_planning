@@ -2,7 +2,7 @@
 <robot
     xmlns:xacro="http://www.ros.org/wiki/xacro" name="dragon" >
 
-  <xacro:include filename="$(find dragon)/robots/quad.urdf.xacro" />
+  <xacro:include filename="$(find dragon)/robots/quad/euclid_201709.urdf.xacro" />
 
   <joint name="tail_ball" type="fixed">
     <parent link="link4"/>
