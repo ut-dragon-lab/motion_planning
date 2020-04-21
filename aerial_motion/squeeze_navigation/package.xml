@@ -35,6 +35,7 @@
   <exec_depend>differential_kinematics</exec_depend>
   <exec_depend>pluginlib</exec_depend>
   <exec_depend>moveit_msgs</exec_depend>
+  <exec_depend>moveit_ros_visualization</exec_depend>
 
   <export>
     <squeeze_navigation plugin="${prefix}/planner_plugins.xml" />
