@@ -78,26 +78,26 @@ namespace differential_kinematics
       if(verbose_) std::cout << "collision_distance_forbidden_range: " << std::setprecision(3) << collision_distance_forbidden_range_ << std::endl;
     }
 
-    std::shared_ptr<fcl::CollisionGeometry<double>> CollisionAvoidance::createGeometryObject(boost::shared_ptr<urdf::Link> link)
+    std::shared_ptr<fcl::CollisionGeometry<double>> CollisionAvoidance::createGeometryObject(urdf::LinkSharedPtr link)
     {
-      boost::shared_ptr<urdf::Geometry> geom = link->collision->geometry;
+      urdf::GeometrySharedPtr geom = link->collision->geometry;
       ROS_ASSERT(geom);
 
       if(geom->type == urdf::Geometry::BOX)
         {
           //ROS_INFO("%s: BOX", link->name.c_str());
-          urdf::Vector3 dim = boost::dynamic_pointer_cast<urdf::Box>(geom)->dim;
+          urdf::Vector3 dim = urdf::dynamic_pointer_cast<urdf::Box>(geom)->dim;
           return std::shared_ptr<fcl::CollisionGeometry<double> >(new fcl::Box<double>(dim.x, dim.y, dim.z));
         }
       else if(geom->type == urdf::Geometry::SPHERE)
         {
           //ROS_INFO("%s: SPHERE", link->name.c_str());
-          return std::shared_ptr<fcl::CollisionGeometry<double> >(new fcl::Sphere<double>(boost::dynamic_pointer_cast<urdf::Sphere>(geom)->radius));
+          return std::shared_ptr<fcl::CollisionGeometry<double> >(new fcl::Sphere<double>(urdf::dynamic_pointer_cast<urdf::Sphere>(geom)->radius));
         }
       else if(geom->type == urdf::Geometry::CYLINDER)
         {
           //ROS_INFO("CYLINDER: %f, %f", boost::dynamic_pointer_cast<urdf::Cylinder>(geom)->radius, boost::dynamic_pointer_cast<urdf::Cylinder>(geom)->length);
-          return std::shared_ptr<fcl::CollisionGeometry<double> >(new fcl::Cylinder<double>(boost::dynamic_pointer_cast<urdf::Cylinder>(geom)->radius, boost::dynamic_pointer_cast<urdf::Cylinder>(geom)->length));
+          return std::shared_ptr<fcl::CollisionGeometry<double> >(new fcl::Cylinder<double>(urdf::dynamic_pointer_cast<urdf::Cylinder>(geom)->radius, urdf::dynamic_pointer_cast<urdf::Cylinder>(geom)->length));
         }
       else if(geom->type == urdf::Geometry::MESH)
         {
@@ -306,6 +306,8 @@ namespace differential_kinematics
           std::cout << "constraint name: " << constraint_name_ << ", lb: \n" << lb << std::endl;
           std::cout << "constraint name: " << constraint_name_ << ", ub: \n" << ub.transpose() << std::endl;
         }
+
+      return true;
     }
 
     bool CollisionAvoidance::defaultDistanceFunction(fcl::CollisionObject<double>* o1, fcl::CollisionObject<double>* o2, void* cdata_, double& dist)

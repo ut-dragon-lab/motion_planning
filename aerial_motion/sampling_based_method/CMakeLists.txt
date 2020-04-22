@@ -28,7 +28,7 @@ generate_messages(DEPENDENCIES std_msgs)
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
 
 catkin_package(
-  INCLUDE_DIRS include
+  INCLUDE_DIRS include ${OMPL_INCLUDE_DIRS}
   LIBRARIES motion_planning
   CATKIN_DEPENDS  dragon   moveit_msgs moveit_core moveit_ros_planning_interface
 )
@@ -43,7 +43,6 @@ add_dependencies(motion_planning  ${PROJECT_NAME}_gencpp)
 target_link_libraries (motion_planning ${catkin_LIBRARIES}  ${Boost_LIBRARIES} ${OMPL_LIBRARIES})
 
 install(PROGRAMS
-  scripts/state_validation_l4.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 

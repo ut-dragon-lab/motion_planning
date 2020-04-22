@@ -129,7 +129,7 @@ namespace differential_kinematics
         return nullptr;
       }
 
-      std::shared_ptr<fcl::CollisionGeometry<double> > createGeometryObject(boost::shared_ptr<urdf::Link> link);
+      std::shared_ptr<fcl::CollisionGeometry<double> > createGeometryObject(urdf::LinkSharedPtr link);
 
       bool closestPoint();
 

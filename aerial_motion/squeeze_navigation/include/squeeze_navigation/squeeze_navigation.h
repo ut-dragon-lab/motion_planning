@@ -57,7 +57,7 @@
 
 /* continous path generator */
 #include <kalman_filter/lpf_filter.h>
-#include <bspline_generator/tinyspline_interface.h>
+#include <bspline_ros/bspline_ros.h>
 
 /* utils */
 #include <tf/LinearMath/Transform.h>
@@ -71,8 +71,6 @@ class SqueezeNavigation{
 public:
   SqueezeNavigation(ros::NodeHandle nh, ros::NodeHandle nhp);
   ~SqueezeNavigation(){}
-
-  std::vector<double> getKeypose(int id);
 
 private:
   ros::NodeHandle nh_;
@@ -103,6 +101,8 @@ private:
   FirFilter states_lpf1_;
   FirFilterQuaternion states_lpf2_;
 
+  std::vector<MultilinkState> discrete_path_;
+
   /* continuous path */
   int bspline_degree_;
   double trajectory_period_;
@@ -124,8 +124,7 @@ private:
   boost::shared_ptr<squeeze_motion_planner::Base> discrete_path_planner_;
 
   /* continuous path generator */
-  boost::shared_ptr<TinysplineInterface> bspline_ptr_;
-  boost::shared_ptr<bspline_generator::ControlPoints> control_pts_ptr_;
+  boost::shared_ptr<BsplineRos> bspline_ptr_;
 
   void rosParamInit();
   void navigate(const ros::TimerEvent& event);
