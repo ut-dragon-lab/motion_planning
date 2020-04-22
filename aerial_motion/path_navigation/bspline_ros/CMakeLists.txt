@@ -33,11 +33,16 @@ ExternalProject_Add(tinyspline
 include_directories(${TINYSPLINE_INSTALL_DIR}/include)
 link_directories(${TINYSPLINE_INSTALL_DIR}/lib)
 
+if (NOT EXISTS ${TINYSPLINE_INSTALL_DIR})
+  #This has be done in the very first build for
+  # catkin_package to be able to find the include folder
+  file(MAKE_DIRECTORY ${TINYSPLINE_INSTALL_DIR}/include)
+endif()
+
 catkin_package(
   INCLUDE_DIRS include ${TINYSPLINE_INSTALL_DIR}/include
   LIBRARIES bspline_ros
   CATKIN_DEPENDS ${PACKAGE_DEPENDENCIES}
-
 )
 
 ###########
