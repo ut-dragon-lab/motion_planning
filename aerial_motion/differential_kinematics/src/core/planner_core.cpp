@@ -220,7 +220,7 @@ namespace differential_kinematics
 
             if(!(*itr)->getConstraint(single_A, single_lb, single_ub, debug))
               {
-                ROS_ERROR("constraint: %s is invlid", (*itr)->getConstraintName().c_str());
+                ROS_ERROR("constraint: %s is invalid", (*itr)->getConstraintName().c_str());
                 return false;
               }
 

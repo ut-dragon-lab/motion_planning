@@ -306,6 +306,8 @@ namespace differential_kinematics
           std::cout << "constraint name: " << constraint_name_ << ", lb: \n" << lb << std::endl;
           std::cout << "constraint name: " << constraint_name_ << ", ub: \n" << ub.transpose() << std::endl;
         }
+
+      return true;
     }
 
     bool CollisionAvoidance::defaultDistanceFunction(fcl::CollisionObject<double>* o1, fcl::CollisionObject<double>* o2, void* cdata_, double& dist)
