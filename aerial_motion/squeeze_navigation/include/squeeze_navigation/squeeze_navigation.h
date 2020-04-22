@@ -61,7 +61,7 @@
 
 /* continous path generator */
 #include <kalman_filter/lpf_filter.h>
-#include <bspline_generator/tinyspline_interface.h>
+#include <bspline_ros/bspline_ros.h>
 
 /* utils */
 #include <tf/LinearMath/Transform.h>
@@ -141,7 +141,7 @@ private:
   std::vector<MultilinkState> discrete_path_;
 
   /* continuous path generator */
-  boost::shared_ptr<TinysplineInterface> bspline_ptr_;
+  boost::shared_ptr<BsplineRos> bspline_ptr_;
 
   void rosParamInit();
   void stateMachine(const ros::TimerEvent& event);

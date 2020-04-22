@@ -99,13 +99,22 @@ SqueezeNavigation::SqueezeNavigation(ros::NodeHandle nh, ros::NodeHandle nhp):
   controller_debug_sub_ = nh_.subscribe("/controller/debug", 1, &SqueezeNavigation::controlDebugCallback, this);
 
   /* robot model */
-  //////// TODO: temporary //////////////
+  // TODO: temporary
   nhp_.param("motion_type", motion_type_, 0);
   if (motion_type_ == motion_type::SE2) //SE2
     robot_model_ptr_ = boost::shared_ptr<HydrusRobotModel>(new HydrusRobotModel(true));
   else //SE3
     robot_model_ptr_ = boost::shared_ptr<HydrusRobotModel>(new DragonRobotModel(true));
-  /////////////////////////////////
+  /* set the joint angle limit */
+  for(auto itr : robot_model_ptr_->getLinkJointNames())
+    {
+      auto joint_ptr = robot_model_ptr_->getUrdfModel().getJoint(itr);
+      assert(joint_ptr != nullptr);
+
+      angle_min_vec_.push_back(joint_ptr->limits->lower);
+      angle_max_vec_.push_back(joint_ptr->limits->upper);
+      ROS_ERROR_STREAM(itr << ", max: " << joint_ptr->limits->upper << "; min: " << joint_ptr->limits->lower);
+    }
 
   /* end effector ik solver */
   end_effector_ik_solver_ = boost::shared_ptr<EndEffectorIKSolverCore>(new EndEffectorIKSolverCore(nh_, ros::NodeHandle(nhp_, "end_effector"), robot_model_ptr_, false));
@@ -125,8 +134,7 @@ SqueezeNavigation::SqueezeNavigation(ros::NodeHandle nh, ros::NodeHandle nhp):
   discrete_path_planner_->initialize(nh_, nhp_, robot_model_ptr_);
 
   /* continous path generator */
-  /* e.g.: bspline */
-  bspline_ptr_ = boost::shared_ptr<TinysplineInterface>(new TinysplineInterface(nh_, nhp_));
+  bspline_ptr_ = boost::shared_ptr<BsplineRos>(new BsplineRos(nh_, nhp_));
 
   /* navigation timer */
   navigate_timer_ = nh_.createTimer(ros::Duration(1.0 / controller_freq_), &SqueezeNavigation::stateMachine, this);
@@ -895,81 +903,42 @@ void SqueezeNavigation::continuousPath(const std::vector<MultilinkState>& discre
   int joint_num = robot_model_ptr_->getLinkJointIndex().size();
 
   /* insert data */
-  bspline_generator::ControlPoints control_pts;
-  control_pts.num = 0;
-  control_pts.degree = bspline_degree_;
-  control_pts.control_pts.layout.dim.push_back(std_msgs::MultiArrayDimension());
-  control_pts.control_pts.layout.dim.push_back(std_msgs::MultiArrayDimension());
-  control_pts.control_pts.layout.dim[0].label = "height";
-  control_pts.control_pts.layout.dim[1].label = "width";
-
-  control_pts.num = discrete_path.size() + 2;
-  control_pts.dim = 6 + joint_num;
-
-  control_pts.is_uniform = true; // TODO: SHI FAN
-  control_pts.start_time = 0.0;
-  control_pts.end_time = trajectory_period;
-  control_pts.control_pts.layout.dim[0].size = control_pts.num;
-  control_pts.control_pts.layout.dim[1].size = control_pts.dim;
-  control_pts.control_pts.layout.dim[0].stride = control_pts.num * control_pts.dim;
-  control_pts.control_pts.layout.dim[1].stride = control_pts.dim;
-  control_pts.control_pts.layout.data_offset = 0;
-
-  control_pts.control_pts.data.resize(0);
+  std::vector<std::vector<double> > control_point_list;
   for (int i = -1; i < (int)discrete_path.size() + 1; i++)
     {
       /* add one more start & end keypose to guarantee speed 0 */
       int id = i;
-      if (id < 0)
-        id = 0;
-      else if (id >= discrete_path.size())
-        id = discrete_path.size() - 1;
-      int index_s = id * control_pts.dim;
+      if (id < 0) id = 0;
+      if (id >= discrete_path.size()) id = discrete_path.size() - 1;
 
-      /* general state: pos_x, pos_y, pos_z, roll, pitch, yaw, joints */
+      std::vector<double> control_point;
+
       // cog position
-      control_pts.control_pts.data.push_back(discrete_path.at(id).getCogPoseConst().position.x);
-      control_pts.control_pts.data.push_back(discrete_path.at(id).getCogPoseConst().position.y);
-      control_pts.control_pts.data.push_back(discrete_path.at(id).getCogPoseConst().position.z);
+      const auto cog_pos = discrete_path.at(id).getCogPoseConst().position;
+      control_point.push_back(cog_pos.x);
+      control_point.push_back(cog_pos.y);
+      control_point.push_back(cog_pos.z);
 
-      // convert to euler enagles
+      // euler enagles
       tf::Matrix3x3 att(discrete_path.at(id).getBaselinkDesiredAttConst());
       double r, p, y; att.getRPY(r, p, y);
-
-      control_pts.control_pts.data.push_back(r);
-      control_pts.control_pts.data.push_back(p);
+      control_point.push_back(r);
+      control_point.push_back(p);
       /* TODO: use quaternion bspline: keep yaw euler angle continous */
-      control_pts.control_pts.data.push_back(generateContinousEulerAngle(y, id));
-
+      control_point.push_back(generateContinousEulerAngle(y, i));
 
       /* set joint state */
       for(auto itr : robot_model_ptr_->getLinkJointIndex())
-        control_pts.control_pts.data.push_back(discrete_path.at(id).getActuatorStateConst()(itr));
+        control_point.push_back(discrete_path.at(id).getActuatorStateConst()(itr));
 
-      /*
-      ROS_INFO("bspline %d: [%f, %f, %f]. [%f, %f, %f]", id,
-               discrete_path.at(id).getCogPoseConst().position.x,
-               discrete_path.at(id).getCogPoseConst().position.y,
-               discrete_path.at(id).getCogPoseConst().position.z,
-               r,p,y);
-      */
+      control_point_list.push_back(control_point);
     }
 
-  bspline_ptr_->bsplineParamInput(control_pts);
-  bspline_ptr_->getDerive();
-  bspline_ptr_->splinePathDisplay();
-  bspline_ptr_->controlPolygonDisplay();
+  bspline_ptr_->initialize(true, 0, trajectory_period, bspline_degree_, control_point_list);
+  std::vector<int> pos_indicies{0,1,2};
+  bspline_ptr_->display3dPath(pos_indicies);
+
   ROS_INFO("Spline display finished.");
-
-  /* set the joint angle limit */
-  for(auto itr : robot_model_ptr_->getLinkJointNames())
-    {
-      auto joint_ptr = robot_model_ptr_->getUrdfModel().getJoint(itr);
-      assert(joint_ptr != nullptr);
-
-      angle_min_vec_.push_back(joint_ptr->limits->lower);
-      angle_max_vec_.push_back(joint_ptr->limits->upper);
-    }
 }
 
 void SqueezeNavigation::adjustInitalStateCallback(const std_msgs::Empty msg)
@@ -1104,7 +1073,7 @@ void SqueezeNavigation::pathNavigate()
 
   double cur_time = ros::Time::now().toSec() - move_start_time_;
   std::vector<double> des_pos = bspline_ptr_->evaluate(cur_time + 1.0 / controller_freq_);
-  std::vector<double> des_vel = bspline_ptr_->evaluateDerive(cur_time);
+  std::vector<double> des_vel = bspline_ptr_->evaluate(cur_time, 1);
 
   {
     // debug
