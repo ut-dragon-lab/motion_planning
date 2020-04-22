@@ -1,3 +1,0 @@
-[submodule "aerial_motion/differential_kinematics/fcl"]
-	path = aerial_motion/differential_kinematics/fcl
-	url = https://github.com/flexible-collision-library/fcl.git
