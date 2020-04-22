@@ -131,6 +131,5 @@ add_library(squeeze_navigation src/squeeze_navigation.cpp)
 target_link_libraries(squeeze_navigation ${catkin_LIBRARIES})
 add_dependencies(squeeze_navigation ${catkin_EXPORTED_TARGETS})
 
-
 add_executable(squeeze_navigation_node src/squeeze_navigation_node.cpp)
-target_link_libraries(squeeze_navigation_node ${catkin_LIBRARIES} squeeze_navigation)
+target_link_libraries(squeeze_navigation_node squeeze_navigation ${catkin_LIBRARIES})

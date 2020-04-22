@@ -20,7 +20,7 @@ differential_kinematics_constraint:
         state_limit:
                 verbose: true
                 joint_vel_thre: 0.1 #0.17 , 0.02 is not valid for full_body
-                root_translational_vel_thre: 1 #0.1
+                root_translational_vel_thre: 0.5 #0.1
                 root_rotational_vel_thre: 1 #0.1
                 joint_vel_constraint_range: 0.11
                 joint_vel_forbidden_range: 0.02

@@ -4,14 +4,17 @@
 
   <arg name="type" default="quad" />
 
-  <arg name="discrete_path_debug_flag" default="0" />
-  <arg name="discrete_path_search_method_name" default="sampling_based_method" />
+  <arg name="discrete_path_search_method_name" default="differential_kinematics" />
   <arg name="motion_type"  default="1" /> <!--SE2: 0, SE3: 1 -->
 
-  <!-- sampling based method -->
-  <arg name="path_tf_debug" default= "false" />
-  <arg name="save_path_flag" default="true" />
-  <arg name="load_path_flag" default="true" />
+  <arg name="start_squeeze_path_from_real_state" default="true" />
+
+  <arg name="discrete_path_debug_flag" default="false" />
+  <arg name="teleop_flag"  default="false" />
+  <arg name="replay" default="false" />
+
+  <arg name="save_squeeze_path_flag" default="false" />
+  <arg name="load_squeeze_path_flag" default="false" />
   <arg name="path_file_name" default="dragon_planning_log.txt" />
 
   ###########  Robot Model  ###########
@@ -22,6 +25,8 @@
       <arg name="headless" value="true" />
       <arg name="need_joint_state" value="false"/>
       <arg name="node_suffix" value="planning"/>
+      <arg name="direct_model" value="True" />
+      <arg name="direct_model_name" value="$(find squeeze_navigation)/robots/dragon/quad.urdf.xacro"/>
     </include >
 
     <node name="rviz" pkg="rviz" type="rviz"
@@ -37,19 +42,13 @@
     <param name="debug_verbose" value="false" />
     <param name="headless" value="$(arg headless)" />
 
+    <param name="teleop_flag" value="$(arg teleop_flag)" />
     <!-- robot model -->
     <rosparam file="$(find dragon)/config/$(arg type)/AttitudeControl.yaml" command="load" />
 
     <!-- discrete path search -->
     <param name="discrete_path_search_method_name" value="squeeze_navigation/$(arg discrete_path_search_method_name)" />
 
-    <!--
-    <rosparam file="$(find squeeze_navigation)/config/$(arg discrete_path_search_method_name)/dragon/$(arg type)/GapWithTransformation.yaml" command="load" if="$(arg transformation)"/>
-    <rosparam file="$(find squeeze_navigation)/config/$(arg discrete_path_search_method_name)/dragon$(arg type)/GapWithoutTransformation.yaml" command="load" unless="$(arg transformation)"/>
-    <rosparam file="$(find squeeze_navigation)/config/$(arg discrete_path_search_method_name)/dragon/$(arg type)/GapWithTransformation.yaml" command="load" />
-    <rosparam file="$(find squeeze_navigation)/config/$(arg discrete_path_search_method_name)/gap/HorizontalGapNoOverlap.yaml" command="load"/>
-    <rosparam file="$(find squeeze_navigation)/config/$(arg discrete_path_search_method_name)/gap/VerticalGap.yaml" command="load" unless="$(arg horizontal_gap)"/>
-    -->
     <rosparam file="$(find squeeze_navigation)/config/$(arg discrete_path_search_method_name)/dragon_$(arg type).yaml" command="load" />
     <rosparam file="$(find squeeze_navigation)/config/$(arg discrete_path_search_method_name)/gap.yaml" command="load"/>
 
@@ -62,9 +61,9 @@
     <param name="file_state_offset_z" type="double" value="0.0" />
 
     <!-- sampling based method -->
-    <param name="save_path_flag" type="bool" value="$(arg save_path_flag)" />
-    <param name="load_path_flag" type="bool" value="$(arg load_path_flag)" />
-    <param name="path_tf_debug" value="$(arg path_tf_debug)" />
+    <param name="save_squeeze_path_flag" value="$(arg save_squeeze_path_flag)" />
+    <param name="load_squeeze_path_flag" value="$(arg load_squeeze_path_flag)" />
+    <param name="start_squeeze_path_from_real_state" value="$(arg start_squeeze_path_from_real_state)" />
     <param name="file_name" value="$(find sampling_based_method)/path_log/dragon/$(arg path_file_name)" />
     <param name="solving_time_limit" type="double" value="36000"/>
     <param name="motion_sequence_rate" value="10"/>
@@ -75,26 +74,24 @@
     <param name="valid_segment_count_factor" value="20"/> <!--20-->
 
     <!-- continuous path generator -->
-    <!-- bsploine -->
+    <!-- bspline -->
     <param name="bspline_degree" value="5" />
-    <param name="trajectory_period" value="50.0" />
+
+    <rosparam file="$(find squeeze_navigation)/config/end_effector/dragon_$(arg type).yaml" command="load" />
+    <!--<rosparam file="$(find squeeze_navigation)/config/end_effector/dragon_$(arg type)_horizontal.yaml" command="load" /> -->
+    <!-- Phase3: first approach -->
+    <param name="approach_trajectory_period" value="5.0" />
+
+    <!-- Phase5: squeeze -->
+    <param name="squeeze_trajectory_period" value="50.0" />
 
     <!-- navigation -->
     <param name="control_frequency" value="40.0" />
     <param name="joint_control_topic_name" value="/dragon/joints_ctrl" />
-    <param name="joint_state_topic_name" value="dragon/joint_states" />
+    <param name="joint_state_topic_name" value="/dragon/joint_states" />
+
+    <!-- replay -->
+    <param name="replay" value="$(arg replay)"/>
   </node>
 
-  ######### Debug ##################
-  <group if="$(arg path_tf_debug)" >
-    <node pkg="dragon" type="dragon_transform_control_node" name="dragon_transformcontrol"  output="screen" respawn="true" >
-      <rosparam file="$(find dragon)/config/$(arg type)/AttitudeControl.yaml" command="load" />
-      <param name="kinematic_verbose" value="false" />
-      <param name="control_verbose" value="false" />
-      <param name="debug_verbose" value="false" />
-      <param name="real_machine" value="false" />
-      <param name="gimbal_control" value="false" />
-      <param name="gimbal_control_topic_name" value="/dragon/gimbals_ctrl" />
-    </node>
-  </group>
 </launch>

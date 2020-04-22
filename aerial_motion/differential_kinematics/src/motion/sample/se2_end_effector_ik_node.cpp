@@ -42,7 +42,7 @@ int main(int argc, char **argv)
   ros::NodeHandle nh;
   ros::NodeHandle nhp("~");
 
-  EndEffectorIKSolverCore *ik_solver = new EndEffectorIKSolverCore(nh, nhp, boost::shared_ptr<HydrusRobotModel>(new HydrusRobotModel(true)));
+  EndEffectorIKSolverCore *ik_solver = new EndEffectorIKSolverCore(nh, nhp, boost::shared_ptr<HydrusRobotModel>(new HydrusRobotModel(true)), true);
 
   ros::spin();
 

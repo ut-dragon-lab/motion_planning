@@ -43,13 +43,16 @@
 class BsplineRos
 {
 public:
-
   BsplineRos(ros::NodeHandle nh, ros::NodeHandle nhp);
   ~BsplineRos(){}
   bool initialize(bool uniform, double start_time, double end_time, int degree, const  std::vector<std::vector<double> >& control_point_list, const std::vector<double>& knot_point_list = std::vector<double>());
   void display3dPath(std::vector<int> indices, int sample_num = 100);
 
   std::vector<double> evaluate(double t, int derive = 0);
+
+  const tinyspline::BSpline& getSpline(int derive = 0) const {return splines_.at(derive); }
+  const double getStartTime() const { return time_start_; }
+  const double getEndTime() const { return time_end_; }
 
 private:
   ros::NodeHandle nh_, nhp_;
