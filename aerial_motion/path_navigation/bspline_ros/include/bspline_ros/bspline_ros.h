@@ -50,6 +50,10 @@ public:
 
   std::vector<double> evaluate(double t, int derive = 0);
 
+  const tinyspline::BSpline& getSpline(int derive = 0) const {return splines_.at(derive); }
+  const double getStartTime() const { return time_start_; }
+  const double getEndTime() const { return time_end_; }
+
 private:
   ros::NodeHandle nh_, nhp_;
   ros::Publisher spline_path_pub_;

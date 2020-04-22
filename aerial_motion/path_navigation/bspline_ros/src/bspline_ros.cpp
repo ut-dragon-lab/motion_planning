@@ -50,6 +50,8 @@ bool BsplineRos::initialize(bool uniform, double start_time, double end_time, in
       return false;
     }
 
+  splines_.clear();
+
   uniform_ = uniform;
   time_start_ = start_time;
   time_end_ = end_time;
