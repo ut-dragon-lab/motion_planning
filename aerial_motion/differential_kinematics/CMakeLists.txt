@@ -8,6 +8,7 @@ project(differential_kinematics)
 find_package(catkin REQUIRED COMPONENTS
   roscpp
   aerial_robot_model
+  fcl_catkin
   hydrus
   dragon
   aerial_motion_planning_msgs
@@ -47,30 +48,9 @@ if (NOT EXISTS ${QPOASES_INSTALL_DIR})
   file(MAKE_DIRECTORY ${QPOASES_INSTALL_DIR}/include)
 endif()
 
-# FCL
-set(FCL_INSTALL_DIR ${PROJECT_SOURCE_DIR}/fcl)
-ExternalProject_Add(FCL
-  GIT_REPOSITORY https://github.com/flexible-collision-library/fcl.git
-  GIT_TAG v0.6.0
-  CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${FCL_INSTALL_DIR}
-  TIMEOUT 30
-  CMAKE_ARGS -DCMAKE_BUILD_TYPE=Release
-  BUILD_COMMAND make
-  BUILD_IN_SOURCE 1
-  INSTALL_COMMAND make install
-  LOG_DOWNLOAD ON
-  LOG_CONFIGURE ON
-  LOG_BUILD ON
-  )
-include_directories(${FCL_INSTALL_DIR}/include)
-link_directories(${FCL_INSTALL_DIR}/lib)
-
-if (NOT EXISTS ${FCL_INSTALL_DIR})
-  #This has be done in the very first build for
-  # catkin_package to be able to find the include folder
-  file(MAKE_DIRECTORY ${FCL_INSTALL_DIR}/include)
-endif()
-
+find_package(fcl_catkin)
+set(FCL_INCLUDE_DIRS ${fcl_catkin_INCLUDE_DIRS}/fcl_catkin)
+include_directories(${FCL_INCLUDE_DIRS})
 
 add_service_files(
   FILES
@@ -84,9 +64,10 @@ generate_messages(
 )
 
 catkin_package(
-  INCLUDE_DIRS include ${FCL_INSTALL_DIR}/include ${QPOASES_INSTALL_DIR}/include
+  INCLUDE_DIRS include ${QPOASES_INSTALL_DIR}/include ${FCL_INCLUDE_DIRS}
   LIBRARIES  differential_kinematics_planner_core end_effector_ik_solver_core
   CATKIN_DEPENDS hydrus dragon
+  DEPENDS fcl_catkin
 )
 
 # Eigen requires optimization to get good performance
@@ -121,8 +102,7 @@ add_library (differential_kinematics_constraint_pluginlib
   src/constraint/state_limit.cpp
   src/constraint/cog_motion.cpp
   )
-target_link_libraries (differential_kinematics_constraint_pluginlib ${catkin_LIBRARIES} differential_kinematics_planner_core fcl)
-add_dependencies(differential_kinematics_constraint_pluginlib FCL)
+target_link_libraries (differential_kinematics_constraint_pluginlib ${catkin_LIBRARIES} differential_kinematics_planner_core ${fcl_catkin_LIBRARIES})
 
 # se3 specified differential kinematics constraints
 add_library (dragon_differential_kinematics_constraint_pluginlib
@@ -132,8 +112,8 @@ target_link_libraries (dragon_differential_kinematics_constraint_pluginlib ${cat
 
 # end-effector IK solver core
 add_library (end_effector_ik_solver_core src/motion/end_effector_ik_solver_core.cpp)
-target_link_libraries (end_effector_ik_solver_core ${catkin_LIBRARIES} differential_kinematics_planner_core fcl)
-add_dependencies(end_effector_ik_solver_core ${PROJECT_NAME}_generate_messages_cpp FCL)
+target_link_libraries (end_effector_ik_solver_core ${catkin_LIBRARIES} differential_kinematics_planner_core)
+add_dependencies(end_effector_ik_solver_core ${PROJECT_NAME}_generate_messages_cpp)
 
 ## specific robots:
 add_executable (se2_end_effector_ik_node src/motion/sample/se2_end_effector_ik_node.cpp)
