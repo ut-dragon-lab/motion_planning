@@ -51,7 +51,7 @@ endif()
 set(FCL_INSTALL_DIR ${PROJECT_SOURCE_DIR}/fcl)
 ExternalProject_Add(FCL
   GIT_REPOSITORY https://github.com/flexible-collision-library/fcl.git
-  GIT_TAG 07c8480f70e4b5bfa15cb37b76fc5271d2502e82
+  GIT_TAG v0.6.0
   CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${FCL_INSTALL_DIR}
   TIMEOUT 30
   CMAKE_ARGS -DCMAKE_BUILD_TYPE=Release
