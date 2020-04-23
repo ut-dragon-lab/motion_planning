@@ -17,7 +17,7 @@ include(ExternalProject)
 set(TINYSPLINE_INSTALL_DIR ${PROJECT_SOURCE_DIR}/tinyspline)
 ExternalProject_Add(tinyspline
   GIT_REPOSITORY https://github.com/msteinbeck/tinyspline.git
-  GIT_TAG 00303254eb48d0925164fabb5ef9c46dc52f3f4f
+  GIT_TAG d536e842f71f997ddb0f11d1d7a1a0d8d3e557d0
   CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${TINYSPLINE_INSTALL_DIR}
   TIMEOUT 30
   PATCH_COMMAND
@@ -31,7 +31,7 @@ ExternalProject_Add(tinyspline
   LOG_BUILD ON
   )
 include_directories(${TINYSPLINE_INSTALL_DIR}/include)
-link_directories(${TINYSPLINE_INSTALL_DIR}/lib)
+link_directories(${TINYSPLINE_INSTALL_DIR}/lib64)
 
 if (NOT EXISTS ${TINYSPLINE_INSTALL_DIR})
   #This has be done in the very first build for
@@ -58,4 +58,4 @@ include_directories(
 
 add_library(bspline_ros src/bspline_ros.cpp)
 add_dependencies(bspline_ros tinyspline)
-target_link_libraries(bspline_ros ${catkin_LIBRARIES} tinysplinecpp)
+target_link_libraries(bspline_ros ${catkin_LIBRARIES} tinysplinecxx)

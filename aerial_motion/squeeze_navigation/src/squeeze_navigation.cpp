@@ -113,7 +113,6 @@ SqueezeNavigation::SqueezeNavigation(ros::NodeHandle nh, ros::NodeHandle nhp):
 
       angle_min_vec_.push_back(joint_ptr->limits->lower);
       angle_max_vec_.push_back(joint_ptr->limits->upper);
-      ROS_ERROR_STREAM(itr << ", max: " << joint_ptr->limits->upper << "; min: " << joint_ptr->limits->lower);
     }
 
   /* end effector ik solver */

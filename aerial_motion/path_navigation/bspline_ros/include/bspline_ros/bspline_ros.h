@@ -36,7 +36,7 @@
 #ifndef BSPLINE_GENERATE_H_
 #define BSPLINE_GENERATE_H_
 #include <iostream>
-#include <tinysplinecpp.h>
+#include <tinysplinecxx.h>
 #include <ros/ros.h>
 #include <visualization_msgs/MarkerArray.h>
 

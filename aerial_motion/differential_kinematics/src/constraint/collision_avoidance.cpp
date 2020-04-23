@@ -144,15 +144,18 @@ namespace differential_kinematics
 
           /* get collision model offset tf in world frame */
           KDL::Frame f_collision_obj = f_root * f_link * f_collision_obj_offset;
+
           double qx, qy, qz, qw;
           f_collision_obj.M.GetQuaternion(qx, qy, qz, qw);
-          //ROS_INFO("link name: %s, collision position: [%f, %f, %f], orientation: [%f, %f, %f, %f]", link_info.name.c_str(), f_collision_obj.p.x(), f_collision_obj.p.y(), f_collision_obj.p.z(), qx, qy, qz, qw);
+          if(debug) ROS_INFO("link `%s` collision model origin w.r.t in world frame : [%f, %f, %f], orientation: [%f, %f, %f, %f]", link_info.name.c_str(), f_collision_obj.p.x(), f_collision_obj.p.y(), f_collision_obj.p.z(), qx, qy, qz, qw);
 
           /* convert from KDL to FCL and update collision object */
-          Eigen::Affine3d tf_obj;
-          tf::transformKDLToEigen(f_collision_obj, tf_obj);
+          Eigen::Vector3d pos;
+          tf::vectorKDLToEigen(f_collision_obj.p, pos);
+          Eigen::Quaterniond rot;
+          tf::quaternionKDLToEigen(f_collision_obj.M, rot);
 
-          (*it)->setTransform(tf_obj);
+          (*it)->setTransform(rot, pos);
           (*it)->computeAABB();
 
           /* start nearest points calculation */
@@ -163,14 +166,9 @@ namespace differential_kinematics
           distance_data.request = request;
           collision_manager_->distance((*it), &distance_data, CollisionAvoidance::defaultDistanceFunction);
 
-          if(boost::math::isnan(distance_data.result.nearest_points[0](0)) ||
-             boost::math::isnan(distance_data.result.nearest_points[0](1)) ||
-             boost::math::isnan(distance_data.result.nearest_points[0](2)))
+          if(boost::math::isnan(distance_data.result.nearest_points[0](0) + distance_data.result.nearest_points[0](1) + distance_data.result.nearest_points[0](2)))
             {
               ROS_WARN("FCL: broadphase distance process causes nan");
-              //ROS_ERROR("distance: %f is nan, link name: %s, collision position: [%f, %f, %f], orientation: [%f, %f, %f, %f]", distance_data.result.min_distance, link_info.name.c_str(), f_collision_obj.p.x(), f_collision_obj.p.y(), f_collision_obj.p.z(), qx, qy, qz, qw);
-              //std::cout << " point of env in local frame: x = " << distance_data.result.nearest_points[0](0) << " y = " << distance_data.result.nearest_points[0](1) << " z = " << distance_data.result.nearest_points[0](2) << std::endl;
-              //std::cout << " point on robot in local frame: x = " << distance_data.result.nearest_points[1](0) << " y = " << distance_data.result.nearest_points[1](1) << " z = " << distance_data.result.nearest_points[1](2) << std::endl;
 
               /* special process */
               std::vector< fcl::CollisionObject<double> * > env_objs;
@@ -183,39 +181,28 @@ namespace differential_kinematics
                 {
                   result.clear();
                   double distance_temp = fcl::distance(env_obj, (*it), request, result);
-                  // std::cout << "\n" << "distance is: " << distance << std::endl;
-                  // std::cout << " point of env in local frame: x = " << result.nearest_points[0](0) << " y = " << result.nearest_points[0](1) << " z = " << result.nearest_points[0](2) << std::endl;
-                  // std::cout << " point on robot in local frame: x = " << result.nearest_points[1](0) << " y = " << result.nearest_points[1](1) << " z = " << result.nearest_points[1](2) << std::endl;
-
+                  ROS_INFO_STREAM("distance is "<< distance_temp << "point of env in world frame: " << result.nearest_points[0].transpose() << ", point on robot in world framed: " << result.nearest_points[1]);
                   if(boost::math::isnan(result.nearest_points[0](0)))
                     {
-                      std::cout << "\n" << "object type1: " << env_obj->getNodeType() <<  "; object type2: " << (*it)->getNodeType() << std::endl;
+                      ROS_INFO_STREAM("object type1: " << env_obj->getNodeType() <<  "; object type2: " << (*it)->getNodeType());
 
                       if(env_obj->getNodeType()  == fcl::GEOM_BOX && (*it)->getNodeType()  == fcl::GEOM_BOX)
                         {
-                          const fcl::Box<double>* obj1_ptr = dynamic_cast<const fcl::Box<double>* >((env_obj->getCollisionGeometry()));
-                          const fcl::Box<double>* obj2_ptr = dynamic_cast<const fcl::Box<double>* >(((*it)->getCollisionGeometry()));
-                          ROS_INFO("distance: %f", distance_temp);
-                          ROS_INFO("obj1: size: [%f, %f, %f], pos: [%f, %f, %f], rot: [%f %f, %f, %f]",
+                          auto obj1_ptr = reinterpret_cast<const fcl::Box<double>*>((env_obj->collisionGeometry()).get());
+                          auto obj2_ptr = reinterpret_cast<const fcl::Box<double>*>((*it)->collisionGeometry().get());
+
+                          ROS_INFO("obj1: size: [%f, %f, %f], pos: [%f, %f, %f], rot: [%f, %f, %f, %f]",
                                    obj1_ptr->side[0], obj1_ptr->side[1], obj1_ptr->side[2],
-                                   env_obj->getTranslation()[0], env_obj->getTranslation()[1], env_obj->getTranslation()[2],
-                                   env_obj->getQuatRotation().x(), env_obj->getQuatRotation().y(), env_obj->getQuatRotation().z(), env_obj->getQuatRotation().w());
+                                   (*it)->getTranslation()[0], (*it)->getTranslation()[1], (*it)->getTranslation()[2],
+                                   (*it)->getQuatRotation().x(), (*it)->getQuatRotation().y(), (*it)->getQuatRotation().z(), (*it)->getQuatRotation().w());
                           ROS_INFO("obj2: size: [%f, %f, %f], pos: [%f, %f, %f], rot: [%f, %f, %f, %f]",
                                    obj2_ptr->side[0], obj2_ptr->side[1], obj2_ptr->side[2],
                                    (*it)->getTranslation()[0], (*it)->getTranslation()[1], (*it)->getTranslation()[2],
                                    (*it)->getQuatRotation().x(), (*it)->getQuatRotation().y(), (*it)->getQuatRotation().z(), (*it)->getQuatRotation().w());
-
-                          //std::cout << " point of env in local frame: x = " << result.nearest_points[0](0) << " y = " << result.nearest_points[0](1) << " z = " << result.nearest_points[0](2) << std::endl;
-                          //std::cout << " point on robot in local frame: x = " << result.nearest_points[1](0) << " y = " << result.nearest_points[1](1) << " z = " << result.nearest_points[1](2) << std::endl;
                         }
                     }
 
-                  if(!boost::math::isnan(result.nearest_points[0](0)) &&
-                     !boost::math::isnan(result.nearest_points[0](1)) &&
-                     !boost::math::isnan(result.nearest_points[0](2)) &&
-                     !boost::math::isnan(result.nearest_points[1](0)) &&
-                     !boost::math::isnan(result.nearest_points[1](1)) &&
-                     !boost::math::isnan(result.nearest_points[1](2)))
+                  if(!boost::math::isnan(result.nearest_points[0](0) + result.nearest_points[0](1) + result.nearest_points[0](2) + result.nearest_points[1](0) + result.nearest_points[1](1) + result.nearest_points[1](2)))
                     {
                       if(distance_temp < distance && distance_temp > 0)
                         {
@@ -235,9 +222,7 @@ namespace differential_kinematics
             }
 
           /* closest points in local object frame */
-          //ROS_WARN("distance = %f", distance_data.result.min_distance);
-          //std::cout << " point of env in local frame: x = " << distance_data.result.nearest_points[0](0) << " y = " << distance_data.result.nearest_points[0](1) << " z = " << distance_data.result.nearest_points[0](2) << std::endl;
-          //std::cout << " point on robot in local frame: x = " << distance_data.result.nearest_points[1](0) << " y = " << distance_data.result.nearest_points[1](1) << " z = " << distance_data.result.nearest_points[1](2) << std::endl;
+          if(debug) ROS_WARN("distance = %f", distance_data.result.min_distance);
 
           if(distance_data.result.min_distance <= 0)
             {
@@ -252,34 +237,35 @@ namespace differential_kinematics
               min_dist_link_ = link_info.name;
             }
 
-          /* closest points in world object frame */
-          /* this seaching algorithm is not good! */
-          /* TODO: create orignail callback function instead of defaultDistanceFunction */
+          // fcl::DistanceDta::nearest_points is described in the world coordinates
+          // https://github.com/flexible-collision-library/fcl/commit/91d9d4d5735e44f91ba9df013c9fcd16a22938e4#diff-a6cbd7f133bb7a9426e02c3070d71dd3
           KDL::Vector p_in_env;
           std::vector< fcl::CollisionObject<double> * > env_objs;
           collision_manager_->getObjects(env_objs);
           for(auto env_obj : env_objs)
             {
+              /* TODO:this seaching algorithm is not good! */
               if(env_obj->collisionGeometry().get() == distance_data.result.o1)
                 {
-                  //ROS_INFO("the object world position is [%f, %f, %f]", env_obj->getTranslation()[0], env_obj->getTranslation()[1], env_obj->getTranslation()[2]);
-                  tf::vectorEigenToKDL(env_obj->getTransform() * (distance_data.result.nearest_points[0]), p_in_env);
-                  //ROS_INFO("the point in object in world frame is [%f, %f, %f]", p_in_env[0], p_in_env[1], p_in_env[2]);
+                  if(debug)
+                    ROS_INFO_STREAM("the collision object origin world position is "
+                                    <<  env_obj->getTranslation().transpose()
+                                    << ", the nearest point in collision object w.r.t world frame is"
+                                    << distance_data.result.nearest_points[0].transpose());
+                  tf::vectorEigenToKDL(distance_data.result.nearest_points[0], p_in_env);
                 }
             }
 
-          KDL::Vector p_in_robot_local_frame;
-          tf::vectorEigenToKDL(distance_data.result.nearest_points[1], p_in_robot_local_frame);
-          KDL::Vector p_in_robot = f_collision_obj * p_in_robot_local_frame;
-          if(debug)
-            std::cout << " point of robot in world frame: x = " <<  p_in_robot.x() << " y = " << p_in_robot.y() << " z = " << p_in_robot.z()  << std::endl;
+          if(debug) ROS_INFO_STREAM("the nearest point in robot w.r.t world frame is" << distance_data.result.nearest_points[1].transpose());
+          KDL::Vector p_in_robot;
+          tf::vectorEigenToKDL(distance_data.result.nearest_points[1], p_in_robot);
+          KDL::Vector p_in_robot_local_frame = f_collision_obj.Inverse() * p_in_robot;
+          if(debug) ROS_INFO("the nearest point in robot w.r.t link collision frame is %f, %f, %f", p_in_robot_local_frame.x(), p_in_robot_local_frame.y(), p_in_robot_local_frame.z());
+
 
           /* conver normal to root link: from env to robot */
           tf::Vector3 distance_arrow;
           tf::vectorKDLToTF(p_in_robot - p_in_env, distance_arrow);
-          // ROS_ERROR("distance_arrow: [%f, %f, %f], normalized: [%f, %f, %f]",
-          //           distance_arrow.x(), distance_arrow.y(), distance_arrow.z(),
-          //           distance_arrow.normalized().x(), distance_arrow.normalized().y(), distance_arrow.normalized().z());
           tf::Vector3 n_in_root_link =  planner_->getTargetRootPose().getBasis().inverse() * distance_arrow.normalized();
           Eigen::Vector3d n_in_root_link_eigen;
           tf::vectorTFToEigen(n_in_root_link, n_in_root_link_eigen);
@@ -296,8 +282,6 @@ namespace differential_kinematics
               return false;
             }
 
-          // std::cout << "n_in_root_link_eigen.transpose() * jacobian: \n" << n_in_root_link_eigen.transpose() * jacobian << std::endl;
-          // std::cout << "n_in_root_link: \n" << n_in_root_link_eigen.transpose() << std::endl;
           A.block(index, 0, 1, A.cols()) = n_in_root_link_eigen.transpose() * jacobian;
 
           if (distance_data.result.min_distance < collision_distance_constraint_range_)
@@ -322,7 +306,7 @@ namespace differential_kinematics
 
       if(cdata->done) { dist = result.min_distance; return true; }
 
-      distance(o1, o2, request, result);
+      fcl::distance(o1, o2, request, result);
 
       dist = result.min_distance;
 

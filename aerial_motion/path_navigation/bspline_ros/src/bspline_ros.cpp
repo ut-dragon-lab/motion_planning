@@ -58,18 +58,18 @@ bool BsplineRos::initialize(bool uniform, double start_time, double end_time, in
   int control_point_num = control_point_list.size();
   int dim = control_point_list.at(0).size();
 
-  tsBSplineType flag = TS_NONE;
+  tsBSplineType flag = TS_OPENED;
   if (uniform_) flag = TS_CLAMPED;
-  splines_.push_back(tinyspline::BSpline(degree, dim, control_point_num, flag));
+  splines_.push_back(tinyspline::BSpline(control_point_num, dim, degree, flag));
 
   /* Set control points value */
-  auto control_points = splines_.at(0).ctrlp();
+  auto control_points = splines_.at(0).controlPoints();
   for (int i = 0; i < control_point_num; ++i)
     {
       for (int j = 0; j < dim; ++j)
         control_points.at(i * dim + j) = control_point_list.at(i).at(j);
     }
-  splines_.at(0).setCtrlp(control_points);
+  splines_.at(0).setControlPoints(control_points);
 
   /* Set knots value is needed if not uniform bspline */
   if (!uniform_)
@@ -100,7 +100,7 @@ bool BsplineRos::initialize(bool uniform, double start_time, double end_time, in
       return std::vector<double>();
     }
 
-  std::vector<tinyspline::rational> result = splines_.at(derive).evaluate(t).result();
+  std::vector<tinyspline::real> result = splines_.at(derive).eval(t).result();
   /* Scale back */
   std::vector<double> rescaled_result;
   for (auto val: result) rescaled_result.push_back(val / std::pow(time_end_ - time_start_, derive));
