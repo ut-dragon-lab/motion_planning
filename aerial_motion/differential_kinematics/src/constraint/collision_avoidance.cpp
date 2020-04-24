@@ -115,12 +115,12 @@ namespace differential_kinematics
     bool CollisionAvoidance::getConstraint(Eigen::MatrixXd& A, Eigen::VectorXd& lb, Eigen::VectorXd& ub, bool debug)
     {
       //debug = true;
-      A = Eigen::MatrixXd::Zero(nc_, planner_->getRobotModelPtr()->getLinkJointIndex().size() + 6);
+      A = Eigen::MatrixXd::Zero(nc_, planner_->getRobotModelPtr()->getLinkJointIndices().size() + 6);
       lb = Eigen::VectorXd::Constant(nc_, -1e6);
       ub = Eigen::VectorXd::Constant(nc_, 1e6);
 
       // fullFK
-      auto full_fk_result = planner_->getRobotModelPtr()->fullForwardKinematics(planner_->getTargetActuatorVector<KDL::JntArray>());
+      auto full_fk_result = planner_->getRobotModelPtr()->fullForwardKinematics(planner_->getTargetJointVector<KDL::JntArray>());
 
       /* get root tf in world frame */
       KDL::Frame f_root;
@@ -274,7 +274,7 @@ namespace differential_kinematics
           int index = std::distance(robot_collision_model_.begin(), it);
 
           Eigen::MatrixXd jacobian;
-          if(!getJacobian(jacobian, planner_->getTargetActuatorVector<KDL::JntArray>(),
+          if(!getJacobian(jacobian, planner_->getTargetJointVector<KDL::JntArray>(),
                           link_info.name.c_str(), f_link,
                           f_collision_obj_offset * p_in_robot_local_frame, debug))
             {
@@ -317,7 +317,7 @@ namespace differential_kinematics
 
     bool CollisionAvoidance::getJacobian(Eigen::MatrixXd& jacobian, KDL::JntArray joint_positions, std::string parent_link_name, KDL::Frame f_parent_link, KDL::Vector contact_offset, bool debug)
     {
-      jacobian = Eigen::MatrixXd::Zero(3, planner_->getRobotModelPtr()->getLinkJointIndex().size() + 6);
+      jacobian = Eigen::MatrixXd::Zero(3, planner_->getRobotModelPtr()->getLinkJointIndices().size() + 6);
 
       /* calculate the jacobian */
       KDL::TreeJntToJacSolver jac_solver(planner_->getRobotModelPtr()->getTree());
@@ -328,8 +328,8 @@ namespace differential_kinematics
           jac.changeRefPoint(f_parent_link.M * contact_offset);
           if(debug) std::cout << "raw jacobian for " << parent_link_name << " (only joints):\n" << jac.data << std::endl;
           /* joint reassignment  */
-          for(size_t i = 0; i < planner_->getRobotModelPtr()->getLinkJointIndex().size(); i++)
-            jacobian.block(0, 6 + i , 3, 1) = jac.data.block(0, planner_->getRobotModelPtr()->getLinkJointIndex().at(i), 3, 1);
+          for(size_t i = 0; i < planner_->getRobotModelPtr()->getLinkJointIndices().size(); i++)
+            jacobian.block(0, 6 + i , 3, 1) = jac.data.block(0, planner_->getRobotModelPtr()->getLinkJointIndices().at(i), 3, 1);
 
           /* full body */
           if(full_body_)

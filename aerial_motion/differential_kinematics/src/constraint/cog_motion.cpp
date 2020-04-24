@@ -91,7 +91,7 @@ namespace differential_kinematics
           for(const auto& joint_itr: joint_segment_map_)
           {
           for(const auto& seg_itr: joint_itr.second)
-          std::cout << joint_itr.first << ", id: " << actuator_map_.at(joint_itr.first) << ", " << seg_itr << std::endl;
+          std::cout << joint_itr.first << ", id: " << joint_map_.at(joint_itr.first) << ", " << seg_itr << std::endl;
           }
         */
       }
@@ -119,14 +119,14 @@ namespace differential_kinematics
 #if 0 // debug by linear approximation for cog velocity 
         KDL::Rotation curr_root_att;
         tf::quaternionTFToKDL(planner_->getTargetRootPose().getRotation(), curr_root_att);
-        auto curr_actuator_vector =  planner_->getTargetActuatorVector<KDL::JntArray>();
-        Eigen::MatrixXd test_jacobian = Eigen::MatrixXd::Zero(6, planner_->getRobotModelPtr()->getLinkJointIndex().size() + 6);
+        auto curr_joint_vector =  planner_->getTargetJointVector<KDL::JntArray>();
+        Eigen::MatrixXd test_jacobian = Eigen::MatrixXd::Zero(6, planner_->getRobotModelPtr()->getLinkJointIndices().size() + 6);
         auto curr_segments_tf = planner_->getRobotModelPtr()->getSegmentsTf();
 
-        auto robotModelUpdate = [this](KDL::Rotation root_att, KDL::JntArray actuator_vector)
+        auto robotModelUpdate = [this](KDL::Rotation root_att, KDL::JntArray joint_vector)
           {
             planner_->getRobotModelPtr()->setCogDesireOrientation(root_att);
-            planner_->getRobotModelPtr()->updateRobotModel(actuator_vector);
+            planner_->getRobotModelPtr()->updateRobotModel(joint_vector);
           };
 
         /* CoG velocity */
@@ -135,11 +135,11 @@ namespace differential_kinematics
 
         /* joint */
         double delta_angle = 0.001; // [rad]
-        for(int index = 0; index < planner_->getRobotModelPtr()->getLinkJointIndex().size(); index++)
+        for(int index = 0; index < planner_->getRobotModelPtr()->getLinkJointIndices().size(); index++)
           {
-            KDL::JntArray perturbation_actuator_vector = curr_actuator_vector;
-            perturbation_actuator_vector(planner_->getRobotModelPtr()->getLinkJointIndex().at(index)) += delta_angle;
-            robotModelUpdate(curr_root_att, perturbation_actuator_vector);
+            KDL::JntArray perturbation_joint_vector = curr_joint_vector;
+            perturbation_joint_vector(planner_->getRobotModelPtr()->getLinkJointIndices().at(index)) += delta_angle;
+            robotModelUpdate(curr_root_att, perturbation_joint_vector);
 
             /* linear cog velocity */
             test_jacobian.block(0, 6 + index, 3, 1) = aerial_robot_model::kdlToEigen(curr_root_att) * (planner_->getRobotModelPtr()->getCog<Eigen::Affine3d>().translation() - nominal_cog) / delta_angle;
@@ -159,7 +159,7 @@ namespace differential_kinematics
         /* linear velocity */
         test_jacobian.block(0, 0, 3, 3) =  aerial_robot_model::kdlToEigen(curr_root_att);
         /* roll */
-        robotModelUpdate(curr_root_att * KDL::Rotation::RPY(delta_angle, 0, 0), curr_actuator_vector);
+        robotModelUpdate(curr_root_att * KDL::Rotation::RPY(delta_angle, 0, 0), curr_joint_vector);
         /* -- linear cog velocity */
         Eigen::Vector3d momentum_jacobian = (aerial_robot_model::kdlToEigen(curr_root_att * KDL::Rotation::RPY(delta_angle, 0, 0)) * planner_->getRobotModelPtr()->getCog<Eigen::Affine3d>().translation() -  aerial_robot_model::kdlToEigen(curr_root_att) * nominal_cog) / delta_angle;
         test_jacobian.block(0, 3, 3, 1) = momentum_jacobian;
@@ -175,7 +175,7 @@ namespace differential_kinematics
           }
 
         /*  pitch */
-        robotModelUpdate(curr_root_att * KDL::Rotation::RPY(0, delta_angle, 0), curr_actuator_vector);
+        robotModelUpdate(curr_root_att * KDL::Rotation::RPY(0, delta_angle, 0), curr_joint_vector);
         /* -- linear cog velocity */
         test_jacobian.block(0, 4, 3, 1) = (aerial_robot_model::kdlToEigen(curr_root_att * KDL::Rotation::RPY(0, delta_angle, 0)) * planner_->getRobotModelPtr()->getCog<Eigen::Affine3d>().translation() -  aerial_robot_model::kdlToEigen(curr_root_att) * nominal_cog) / delta_angle;
         /* -- bad: angular momentum */
@@ -195,7 +195,7 @@ namespace differential_kinematics
 
 
         /* yaw */
-        robotModelUpdate(curr_root_att * KDL::Rotation::RPY(0, 0, delta_angle), curr_actuator_vector);
+        robotModelUpdate(curr_root_att * KDL::Rotation::RPY(0, 0, delta_angle), curr_joint_vector);
         /* -- linear cog velocity */
         test_jacobian.block(0, 5, 3, 1) = (aerial_robot_model::kdlToEigen(curr_root_att * KDL::Rotation::RPY(0, 0, delta_angle)) * planner_->getRobotModelPtr()->getCog<Eigen::Affine3d>().translation() -  aerial_robot_model::kdlToEigen(curr_root_att) * nominal_cog) / delta_angle;
         /* -- bad: angular momentum */
@@ -213,7 +213,7 @@ namespace differential_kinematics
         if(debug)
           std::cout << "constraint (" << constraint_name_.c_str()  << "): matrix test: \n" << test_jacobian << std::endl;
         /* 0. revert the robot model with current state */
-        robotModelUpdate(curr_root_att, curr_actuator_vector);
+        robotModelUpdate(curr_root_att, curr_joint_vector);
 #endif
 
         if(debug)
@@ -241,11 +241,11 @@ namespace differential_kinematics
       void makeJointSegmentMap()
       {
         joint_segment_map_.clear();
-        const auto actuator_map = planner_->getRobotModelPtr()->getActuatorMap();
+        const auto joint_index_map = planner_->getRobotModelPtr()->getJointIndexMap();
 
-        for (const auto actuator : actuator_map) {
+        for (const auto joint_index : joint_index_map) {
           std::vector<std::string> empty_vec;
-          joint_segment_map_[actuator.first] = empty_vec;
+          joint_segment_map_[joint_index.first] = empty_vec;
         }
 
         std::vector<std::string> current_joints;
@@ -287,7 +287,7 @@ namespace differential_kinematics
       {
         double mass_all = planner_->getRobotModelPtr()->getMass();
 
-        jacobian = Eigen::MatrixXd::Zero(nc_, planner_->getRobotModelPtr()->getLinkJointIndex().size() + 6);
+        jacobian = Eigen::MatrixXd::Zero(nc_, planner_->getRobotModelPtr()->getLinkJointIndices().size() + 6);
         /*
            Note: the jacobian about the cog velocity (linear momentum) and angular momentum.
 
@@ -306,11 +306,11 @@ namespace differential_kinematics
         const auto& seg_frames =  planner_->getRobotModelPtr()->getSegmentsTf();
         const auto& segment_map = planner_->getRobotModelPtr()->getTree().getSegments();
         const auto& inertia_map = planner_->getRobotModelPtr()->getInertiaMap();
-        const auto& actuator_map = planner_->getRobotModelPtr()->getActuatorMap();
+        const auto& joint_index_map = planner_->getRobotModelPtr()->getJointIndexMap();
 
         KDL::Vector total_cog = planner_->getRobotModelPtr()->getCog<KDL::Frame>().p;
-        Eigen::MatrixXd cog_velocity_jacobian = Eigen::MatrixXd::Zero(3, planner_->getTargetActuatorVector<KDL::JntArray>().rows());
-        Eigen::MatrixXd cog_angular_jacobian = Eigen::MatrixXd::Zero(3, planner_->getTargetActuatorVector<KDL::JntArray>().rows());
+        Eigen::MatrixXd cog_velocity_jacobian = Eigen::MatrixXd::Zero(3, planner_->getTargetJointVector<KDL::JntArray>().rows());
+        Eigen::MatrixXd cog_angular_jacobian = Eigen::MatrixXd::Zero(3, planner_->getTargetJointVector<KDL::JntArray>().rows());
 
         for (const auto& joint_segment : joint_segment_map_)
           {
@@ -331,7 +331,7 @@ namespace differential_kinematics
               }
             }
 
-            auto col_index = actuator_map.at(joint_segment.first);
+            auto col_index = joint_index_map.at(joint_segment.first);
             KDL::Vector c = inertia.getCOG();
             double m = inertia.getMass();
             KDL::Vector momentum_jacobian_col = a * (c - r) * m;
@@ -341,10 +341,10 @@ namespace differential_kinematics
           }
 
         /* extract the jacobian directly connected with link joint */
-        for(int i = 0; i < planner_->getRobotModelPtr()->getLinkJointIndex().size(); i++)
+        for(int i = 0; i < planner_->getRobotModelPtr()->getLinkJointIndices().size(); i++)
           {
-            jacobian.block(0, 6 + i, 3, 1) = cog_velocity_jacobian.block(0, planner_->getRobotModelPtr()->getLinkJointIndex().at(i), 3, 1);
-            jacobian.block(3, 6 + i, 3, 1) = cog_angular_jacobian.block(0, planner_->getRobotModelPtr()->getLinkJointIndex().at(i), 3, 1);
+            jacobian.block(0, 6 + i, 3, 1) = cog_velocity_jacobian.block(0, planner_->getRobotModelPtr()->getLinkJointIndices().at(i), 3, 1);
+            jacobian.block(3, 6 + i, 3, 1) = cog_angular_jacobian.block(0, planner_->getRobotModelPtr()->getLinkJointIndices().at(i), 3, 1);
           }
 
         if(full_body_)
@@ -377,28 +377,28 @@ namespace differential_kinematics
             KDL::TreeJntToJacSolver jac_solver(planner_->getRobotModelPtr()->getTree());
             KDL::Jacobian jac_root_link(planner_->getRobotModelPtr()->getTree().getNrOfJoints());
 
-            Eigen::MatrixXd gimbal_joint_jacobian = Eigen::MatrixXd::Zero(3, planner_->getRobotModelPtr()->getLinkJointIndex().size()); // R^{3 x N_j}
+            Eigen::MatrixXd gimbal_joint_jacobian = Eigen::MatrixXd::Zero(3, planner_->getRobotModelPtr()->getLinkJointIndices().size()); // R^{3 x N_j}
 
             for(int i = 0; i < rotor_num_; i++)
               {
                 /* calculate the jacobian from joints to rotation of {thrust_i} w.r.t {world} */
-                if(jac_solver.JntToJac(planner_->getTargetActuatorVector<KDL::JntArray>(),
+                if(jac_solver.JntToJac(planner_->getTargetJointVector<KDL::JntArray>(),
                                        jac_root_link, std::string("thrust") + std::to_string(i + 1)) == KDL::SolverI::E_NOERROR)
                   {
                     //std::cout << "raw whole jacobian: \n" << jac_root_link.data << std::endl;
 
                     /* extract the rotation only jacobian from link joint to the thrust link */
-                    Eigen::MatrixXd thrust_joint_rot_jacobian_world = Eigen::MatrixXd::Zero(3, planner_->getRobotModelPtr()->getLinkJointIndex().size()); // R^{3 x N_j}
-                    for(int index = 0; index < planner_->getRobotModelPtr()->getLinkJointIndex().size(); index++)
+                    Eigen::MatrixXd thrust_joint_rot_jacobian_world = Eigen::MatrixXd::Zero(3, planner_->getRobotModelPtr()->getLinkJointIndices().size()); // R^{3 x N_j}
+                    for(int index = 0; index < planner_->getRobotModelPtr()->getLinkJointIndices().size(); index++)
                       {
-                        thrust_joint_rot_jacobian_world.block(0, index, 3, 1)  =  aerial_robot_model::kdlToEigen(curr_root_att) * jac_root_link.data.block(3, planner_->getRobotModelPtr()->getLinkJointIndex().at(index), 3, 1);
+                        thrust_joint_rot_jacobian_world.block(0, index, 3, 1)  =  aerial_robot_model::kdlToEigen(curr_root_att) * jac_root_link.data.block(3, planner_->getRobotModelPtr()->getLinkJointIndices().at(index), 3, 1);
                       }
 
                     //std::cout << "thrust_joint_rot_jacobian_world: \n" << thrust_joint_rot_jacobian_world << std::endl;
                     Eigen::MatrixXd thrust_gimbal_rot_jacobian_world = Eigen::MatrixXd::Zero(3, 2); // R^{3 x 2}
                     /* TODO: hard-coding about the name of gimbal link */
-                    auto gimbal1_index = actuator_map.at(std::string("gimbal") + std::to_string(i + 1) + std::string("_roll"));
-                    auto gimbal2_index = actuator_map.at(std::string("gimbal") + std::to_string(i + 1) + std::string("_pitch"));
+                    auto gimbal1_index = joint_index_map.at(std::string("gimbal") + std::to_string(i + 1) + std::string("_roll"));
+                    auto gimbal2_index = joint_index_map.at(std::string("gimbal") + std::to_string(i + 1) + std::string("_pitch"));
                     thrust_gimbal_rot_jacobian_world.block(0, 0, 3, 1) = aerial_robot_model::kdlToEigen(curr_root_att) * jac_root_link.data.block(3, gimbal1_index, 3, 1);
                     thrust_gimbal_rot_jacobian_world.block(0, 1, 3, 1) = aerial_robot_model::kdlToEigen(curr_root_att) * jac_root_link.data.block(3, gimbal2_index, 3, 1);
 

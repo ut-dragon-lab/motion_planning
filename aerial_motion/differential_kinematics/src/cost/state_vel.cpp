@@ -61,7 +61,7 @@ namespace differential_kinematics
 
       bool getHessianGradient(bool& convergence, Eigen::MatrixXd& H, Eigen::VectorXd& g, bool debug = false)
       {
-        auto j_ndof = planner_->getRobotModelPtr()->getLinkJointIndex().size();
+        auto j_ndof = planner_->getRobotModelPtr()->getLinkJointIndices().size();
         H = Eigen::MatrixXd::Identity(j_ndof + 6, j_ndof + 6);
         if(full_body_)
           {

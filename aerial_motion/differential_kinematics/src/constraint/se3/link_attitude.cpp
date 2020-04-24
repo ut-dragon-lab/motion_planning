@@ -82,7 +82,7 @@ namespace differential_kinematics
 
       bool getConstraint(Eigen::MatrixXd& A, Eigen::VectorXd& lb, Eigen::VectorXd& ub, bool debug = false)
       {
-        double j_ndof = planner_->getRobotModelPtr()->getLinkJointIndex().size();
+        double j_ndof = planner_->getRobotModelPtr()->getLinkJointIndices().size();
         A = Eigen::MatrixXd::Zero(nc_, j_ndof + 6);
         lb = Eigen::VectorXd::Constant(nc_, -attitude_change_vel_thre_);
         ub = Eigen::VectorXd::Constant(nc_, attitude_change_vel_thre_);
@@ -102,14 +102,14 @@ namespace differential_kinematics
         KDL::TreeJntToJacSolver jac_solver(planner_->getRobotModelPtr()->getTree());
         KDL::Jacobian jac(planner_->getRobotModelPtr()->getTree().getNrOfJoints());
 
-        if(jac_solver.JntToJac(planner_->getTargetActuatorVector<KDL::JntArray>(),
+        if(jac_solver.JntToJac(planner_->getTargetJointVector<KDL::JntArray>(),
                                jac, std::string("link") + std::to_string(rotor_num_)) == KDL::SolverI::E_NOERROR)
           {
             if(debug) std::cout << "raw jacobian: \n" << jac.data << std::endl;
 
             /* joint reassignment  */
             for(size_t i = 0; i < j_ndof; i++)
-              jacobian.block(0, 6 + i , 3, 1) = jac.data.block(3, planner_->getRobotModelPtr()->getLinkJointIndex().at(i), 3, 1);
+              jacobian.block(0, 6 + i , 3, 1) = jac.data.block(3, planner_->getRobotModelPtr()->getLinkJointIndices().at(i), 3, 1);
 
             /* full body */
             if(full_body_)
@@ -124,7 +124,7 @@ namespace differential_kinematics
           }
 
         /* set A and lb/ub */
-        auto full_fk_result = planner_->getRobotModelPtr()->fullForwardKinematics(planner_->getTargetActuatorVector<KDL::JntArray>());
+        auto full_fk_result = planner_->getRobotModelPtr()->fullForwardKinematics(planner_->getTargetJointVector<KDL::JntArray>());
         int joint_offset = j_ndof / (rotor_num_ - 1 );
         std::vector<double> roll_vec; // for debug
         std::vector<double> pitch_vec; // for debug

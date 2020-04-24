@@ -59,10 +59,14 @@ namespace differential_kinematics
 
         nc_ = 2 + rotor_num_;
 
-        stability_margin_thre_ = planner_->getRobotModelPtr()->getStabilityMaginThresh();
-        p_det_thre_ = planner_->getRobotModelPtr()->getPDetThresh();
-        f_min_ = planner_->getRobotModelPtr()->getThrustLowerLimit();
-        f_max_ = planner_->getRobotModelPtr()->getThrustUpperLimit();
+        nhp_.param ("f_min", f_min_, planner_->getRobotModelPtr()->getThrustLowerLimit());
+        if(verbose_) std::cout << "f_min: " << std::setprecision(3) << f_min_ << std::endl;
+        nhp_.param ("f_max", f_max_, planner_->getRobotModelPtr()->getThrustUpperLimit());
+        if(verbose_) std::cout << "f_max: " << std::setprecision(3) << f_max_ << std::endl;
+        nhp_.param ("stability_margin_thre", stability_margin_thre_, planner_->getRobotModelPtr()->getStabilityMaginThresh());
+        if(verbose_) std::cout << "stability_margin_thre: " << std::setprecision(3) << stability_margin_thre_ << std::endl;
+        nhp_.param ("p_det_thre", p_det_thre_, planner_->getRobotModelPtr()->getPDetThresh());
+        if(verbose_) std::cout << "p_det_thre: " << std::setprecision(3) << p_det_thre_ << std::endl;
 
         nhp_.param ("stability_margin_decrease_vel_thre", stability_margin_decrease_vel_thre_, -0.01);
         if(verbose_) std::cout << "stability_margin_decrease_vel_thre: " << std::setprecision(3) << stability_margin_decrease_vel_thre_ << std::endl;
@@ -82,21 +86,21 @@ namespace differential_kinematics
 
       bool getConstraint(Eigen::MatrixXd& A, Eigen::VectorXd& lb, Eigen::VectorXd& ub, bool debug = false)
       {
-        auto robotModelUpdate = [this](KDL::Rotation root_att, KDL::JntArray actuator_vector)
+        auto robotModelUpdate = [this](KDL::Rotation root_att, KDL::JntArray joint_vector)
           {
             planner_->getRobotModelPtr()->setCogDesireOrientation(root_att);
-            planner_->getRobotModelPtr()->updateRobotModel(actuator_vector);
+            planner_->getRobotModelPtr()->updateRobotModel(joint_vector);
             planner_->getRobotModelPtr()->stabilityMarginCheck();
             planner_->getRobotModelPtr()->modelling();
           };
 
         KDL::Rotation curr_root_att;
         tf::quaternionTFToKDL(planner_->getTargetRootPose().getRotation(), curr_root_att);
-        auto curr_actuator_vector =  planner_->getTargetActuatorVector<KDL::JntArray>();
+        auto curr_joint_vector =  planner_->getTargetJointVector<KDL::JntArray>();
 
 
         //debug = true;
-        A = Eigen::MatrixXd::Zero(nc_, planner_->getRobotModelPtr()->getLinkJointIndex().size() + 6);
+        A = Eigen::MatrixXd::Zero(nc_, planner_->getRobotModelPtr()->getLinkJointIndices().size() + 6);
         lb = Eigen::VectorXd::Constant(nc_, -0.1);
         ub = Eigen::VectorXd::Constant(nc_, 0.1);
 
@@ -147,11 +151,11 @@ namespace differential_kinematics
 
         /* joint */
         double delta_angle = 0.001; // [rad]
-        for(int index = 0; index < planner_->getRobotModelPtr()->getLinkJointIndex().size(); index++)
+        for(int index = 0; index < planner_->getRobotModelPtr()->getLinkJointIndices().size(); index++)
           {
-            KDL::JntArray perturbation_actuator_vector = curr_actuator_vector;
-            perturbation_actuator_vector(planner_->getRobotModelPtr()->getLinkJointIndex().at(index)) += delta_angle;
-            robotModelUpdate(curr_root_att, perturbation_actuator_vector);
+            KDL::JntArray perturbation_joint_vector = curr_joint_vector;
+            perturbation_joint_vector(planner_->getRobotModelPtr()->getLinkJointIndices().at(index)) += delta_angle;
+            robotModelUpdate(curr_root_att, perturbation_joint_vector);
 
             /* stability margin */
             A(0, 6 + index) = (planner_->getRobotModelPtr()->getStabilityMargin() - nominal_stability_margin) /delta_angle;
@@ -168,7 +172,7 @@ namespace differential_kinematics
           {
             /* root */
             /* roll */
-            robotModelUpdate(curr_root_att * KDL::Rotation::RPY(delta_angle, 0, 0), curr_actuator_vector);
+            robotModelUpdate(curr_root_att * KDL::Rotation::RPY(delta_angle, 0, 0), curr_joint_vector);
             /* stability margin */
             A(0, 3) = (planner_->getRobotModelPtr()->getStabilityMargin() - nominal_stability_margin) / delta_angle;
             /* singularity */
@@ -177,7 +181,7 @@ namespace differential_kinematics
             A.block(2, 3, rotor_num_, 1) = (planner_->getRobotModelPtr()->getOptimalHoveringThrust() - nominal_hovering_f) / delta_angle;
 
             /*  pitch */
-            robotModelUpdate(curr_root_att * KDL::Rotation::RPY(0, delta_angle, 0), curr_actuator_vector);
+            robotModelUpdate(curr_root_att * KDL::Rotation::RPY(0, delta_angle, 0), curr_joint_vector);
             /* stability margin */
             A(0, 4) = (planner_->getRobotModelPtr()->getStabilityMargin() - nominal_stability_margin) / delta_angle;
             /* singularity */
@@ -186,7 +190,7 @@ namespace differential_kinematics
             A.block(2, 4, rotor_num_, 1) = (planner_->getRobotModelPtr()->getOptimalHoveringThrust() - nominal_hovering_f) / delta_angle;
 
             /* yaw */
-            robotModelUpdate(curr_root_att * KDL::Rotation::RPY(0, 0, delta_angle), curr_actuator_vector);
+            robotModelUpdate(curr_root_att * KDL::Rotation::RPY(0, 0, delta_angle), curr_joint_vector);
 
             /* stability margin */
             A(0, 5) = (planner_->getRobotModelPtr()->getStabilityMargin() - nominal_stability_margin) / delta_angle;
@@ -197,7 +201,7 @@ namespace differential_kinematics
           }
 
         /* 0. revert the robot model with current state */
-        robotModelUpdate(curr_root_att, curr_actuator_vector);
+        robotModelUpdate(curr_root_att, curr_joint_vector);
 
         if(debug)
           std::cout << "constraint (" << constraint_name_.c_str()  << "): matrix A: \n" << A << std::endl;

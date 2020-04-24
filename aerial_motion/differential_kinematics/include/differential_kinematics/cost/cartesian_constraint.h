@@ -99,7 +99,7 @@ namespace differential_kinematics
                 //ROS_INFO("%s", seg.getJoint().getName().c_str()); //debug
                 auto itr = std::find(joint_names.begin(), joint_names.end(), seg.getJoint().getName());
                 assert(itr != joint_names.end());
-                chain_joint_index_.push_back(planner_->getRobotModelPtr()->getLinkJointIndex().at(std::distance(joint_names.begin(), itr)));
+                chain_joint_index_.push_back(planner_->getRobotModelPtr()->getLinkJointIndices().at(std::distance(joint_names.begin(), itr)));
               }
           }
       }

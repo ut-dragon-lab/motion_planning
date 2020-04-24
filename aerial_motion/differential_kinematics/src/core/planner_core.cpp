@@ -48,7 +48,7 @@ namespace differential_kinematics
 
   Planner::Planner(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<HydrusRobotModel> robot_model_ptr): nh_(nh), nhp_(nhp), robot_model_ptr_(robot_model_ptr), multilink_type_(motion_type::SE2), gimbal_module_flag_(false), motion_func_vector_(), solved_(false)
   {
-    target_actuator_vector_.resize(robot_model_ptr_->getTree().getNrOfJoints());
+    target_joint_vector_.resize(robot_model_ptr_->getTree().getNrOfJoints());
     for(auto tree_itr : robot_model_ptr_->getTree().getSegments())
       {
         std::string joint_name = tree_itr.second.segment.getJoint().getName();
@@ -69,13 +69,13 @@ namespace differential_kinematics
             gimbal_module_flag_ = true;
           }
       }
-    target_actuator_vector_.resize(robot_model_ptr_->getTree().getNrOfJoints());
+    target_joint_vector_.resize(robot_model_ptr_->getTree().getNrOfJoints());
     nhp_.param ("differential_kinematics_count", differential_kinematics_count_, 100);
 
-    /* publisher for joint(actuator) state */
-    std::string actuator_state_pub_name;
-    nhp_.param("actuator_state_pub_name", actuator_state_pub_name, std::string("joint_state"));
-    actuator_state_pub_ = nh_.advertise<sensor_msgs::JointState>(actuator_state_pub_name, 1);
+    /* publisher for joint state */
+    std::string joint_state_pub_name;
+    nhp_.param("joint_state_pub_name", joint_state_pub_name, std::string("joint_state"));
+    joint_state_pub_ = nh_.advertise<sensor_msgs::JointState>(joint_state_pub_name, 1);
 
     /* motion timer */
     double rate;
@@ -84,24 +84,24 @@ namespace differential_kinematics
       motion_timer_ = nhp_.createTimer(ros::Duration(1.0 / rate), &Planner::motionFunc, this);
   }
 
-  template<> const sensor_msgs::JointState Planner::getTargetActuatorVector() const
+  template<> const sensor_msgs::JointState Planner::getTargetJointVector() const
   {
-    return robot_model_ptr_->kdlJointToMsg(target_actuator_vector_);
+    return robot_model_ptr_->kdlJointToMsg(target_joint_vector_);
   }
 
-  template<> const KDL::JntArray Planner::getTargetActuatorVector() const
+  template<> const KDL::JntArray Planner::getTargetJointVector() const
   {
-    return target_actuator_vector_;
+    return target_joint_vector_;
   }
 
-  template<> void Planner::setTargetActuatorVector(const KDL::JntArray& target_actuator_vector)
+  template<> void Planner::setTargetJointVector(const KDL::JntArray& target_joint_vector)
   {
-    target_actuator_vector_ = target_actuator_vector;
+    target_joint_vector_ = target_joint_vector;
   }
 
-  template<> void Planner::setTargetActuatorVector(const sensor_msgs::JointState& target_actuator_vector)
+  template<> void Planner::setTargetJointVector(const sensor_msgs::JointState& target_joint_vector)
   {
-    target_actuator_vector_ = robot_model_ptr_->jointMsgToKdl(target_actuator_vector);
+    target_joint_vector_ = robot_model_ptr_->jointMsgToKdl(target_joint_vector);
   }
 
   bool Planner::solver(CostContainer cost_container, ConstraintContainer constraint_container, bool debug)
@@ -111,7 +111,7 @@ namespace differential_kinematics
         KDL::Rotation root_att;
         tf::quaternionTFToKDL(target_root_pose_.getRotation(), root_att);
         robot_model_ptr_->setCogDesireOrientation(root_att);
-        robot_model_ptr_->updateRobotModel(target_actuator_vector_);
+        robot_model_ptr_->updateRobotModel(target_joint_vector_);
         /* special check */
         if(!robot_model_ptr_->stabilityMarginCheck()) ROS_ERROR("[differential kinematics] update modelling, bad stability margin: %f", robot_model_ptr_->getStabilityMargin());
         if(!robot_model_ptr_->modelling()) ROS_ERROR("[differential kinematics] update modelling, bad stability from force");
@@ -131,19 +131,19 @@ namespace differential_kinematics
         if(gimbal_module_flag_)
           {
             auto dragon_model_ptr = boost::dynamic_pointer_cast<DragonRobotModel>(robot_model_ptr_);
-            assert(target_actuator_vector_.rows() == dragon_model_ptr->getGimbalProcessedJoint<KDL::JntArray>().rows());
-            target_actuator_vector_ = dragon_model_ptr->getGimbalProcessedJoint<KDL::JntArray>();
+            assert(target_joint_vector_.rows() == dragon_model_ptr->getGimbalProcessedJoint<KDL::JntArray>().rows());
+            target_joint_vector_ = dragon_model_ptr->getGimbalProcessedJoint<KDL::JntArray>();
           }
 
         /* considering the non-joint modules such as gimbal are updated after forward-kinemtics */
-        /* the correct target_actuator vector should be added here */
+        /* the correct target_joint vector should be added here */
         target_root_pose_sequence_.push_back(target_root_pose_);
-        target_actuator_vector_sequence_.push_back(target_actuator_vector_);
+        target_joint_vector_sequence_.push_back(target_joint_vector_);
       };
 
     robot_model_ptr_->setBaselinkName(std::string("link1"));
 
-    target_actuator_vector_sequence_.resize(0);
+    target_joint_vector_sequence_.resize(0);
     target_root_pose_sequence_.resize(0);
     sequence_ = 0;
     double start_time = ros::Time::now().toSec();
@@ -163,7 +163,7 @@ namespace differential_kinematics
       3. the matrix in Eigen library is colunm-major, so use transpose to get row-major data.
       Plus, (A.transpose()).data is still column-mojar, please assign to a new matrix
     */
-    boost::shared_ptr<SQProblem> qp_solver(new SQProblem(6 + robot_model_ptr_->getLinkJointIndex().size(), total_nc));
+    boost::shared_ptr<SQProblem> qp_solver(new SQProblem(6 + robot_model_ptr_->getLinkJointIndices().size(), total_nc));
     bool qp_init_flag = true;
 
     int n_wsr = 100;
@@ -305,7 +305,7 @@ namespace differential_kinematics
           target_root_pose_ *= tf::Transform(tf::Quaternion(delta_rot_from_root_link, delta_rot_from_root_link.length()), delta_pos_from_root_link);
 
         /* udpate the joint angles */
-        for(size_t i = 0; i < robot_model_ptr_->getLinkJointIndex().size(); i++) target_actuator_vector_(robot_model_ptr_->getLinkJointIndex().at(i)) += delta_state_vector(i + 6);
+        for(size_t i = 0; i < robot_model_ptr_->getLinkJointIndices().size(); i++) target_joint_vector_(robot_model_ptr_->getLinkJointIndices().at(i)) += delta_state_vector(i + 6);
 
         /* step6: update the kinematics by forward kinemtiacs, along with the modelling with current kinematics  */
         modelUpdate();
@@ -313,10 +313,10 @@ namespace differential_kinematics
         if(debug)
           {
             ROS_WARN("finish loop %d", l);
-            auto target_actuator_state = getTargetActuatorVector<sensor_msgs::JointState>();
+            auto target_joint_state = getTargetJointVector<sensor_msgs::JointState>();
             std::cout << "target joint vector: ";
-            for(int i = 0 ; i < target_actuator_state.name.size(); i++)
-              std::cout << "[" << target_actuator_state.name.at(i) << ", " << target_actuator_state.position.at(i) << "], " << std::endl;
+            for(int i = 0 ; i < target_joint_state.name.size(); i++)
+              std::cout << "[" << target_joint_state.name.at(i) << ", " << target_joint_state.position.at(i) << "], " << std::endl;
             std::cout << std::endl;
           }
       }
@@ -342,13 +342,13 @@ namespace differential_kinematics
       {
         /* publish joint angle and root tf */
         ros::Time now_time = ros::Time::now();
-        sensor_msgs::JointState joint_msg = robot_model_ptr_->kdlJointToMsg(target_actuator_vector_sequence_.at(sequence_));
+        sensor_msgs::JointState joint_msg = robot_model_ptr_->kdlJointToMsg(target_joint_vector_sequence_.at(sequence_));
         joint_msg.header.stamp = now_time;
 
         br_.sendTransform(tf::StampedTransform(target_root_pose_sequence_.at(sequence_), now_time, "world", "root"));
-        actuator_state_pub_.publish(joint_msg);
+        joint_state_pub_.publish(joint_msg);
         sequence_++;
-        if(sequence_ == target_actuator_vector_sequence_.size()) sequence_ = 0;
+        if(sequence_ == target_joint_vector_sequence_.size()) sequence_ = 0;
 
         /* additional function from external module */
         for(auto func_itr = motion_func_vector_.begin(); func_itr != motion_func_vector_.end(); func_itr++)

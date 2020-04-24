@@ -63,7 +63,7 @@ namespace sampling_base
   void MotionPlanning::motionSequence()
   {
     /* moveit */
-    planning_scene_->setCurrentState(path_.at(state_index).getRootActuatorStateConst<moveit_msgs::RobotState>());
+    planning_scene_->setCurrentState(path_.at(state_index).getRootJointStateConst<moveit_msgs::RobotState>());
     planning_scene_->getPlanningSceneMsg(planning_scene_msg_);
     planning_scene_msg_.is_diff = true;
     planning_scene_diff_pub_.publish(planning_scene_msg_);
@@ -72,13 +72,13 @@ namespace sampling_base
   bool  MotionPlanning::isStateValid(const ompl::base::State *state)
   {
     geometry_msgs::Pose root_pose;
-    KDL::JntArray actuator_state(robot_model_ptr_->getActuatorMap().size());
+    KDL::JntArray joint_state(robot_model_ptr_->getJointIndexMap().size());
 
     if(planning_mode_ == sampling_based_method::PlanningMode::ONLY_JOINTS_MODE)
       {
         int index = 0;
-        for(auto itr : robot_model_ptr_->getLinkJointIndex())
-          actuator_state(itr) = state->as<ompl::base::RealVectorStateSpace::StateType>()->values[index++];
+        for(auto itr : robot_model_ptr_->getLinkJointIndices())
+          joint_state(itr) = state->as<ompl::base::RealVectorStateSpace::StateType>()->values[index++];
       }
     else if(planning_mode_ == sampling_based_method::PlanningMode::ONLY_BASE_MODE)
       {
@@ -120,15 +120,15 @@ namespace sampling_base
             root_pose.orientation.w = state_tmp->as<ompl::base::SE3StateSpace::StateType>(0)->rotation().w;
           }
         int index = 0;
-        for(auto itr : robot_model_ptr_->getLinkJointIndex())
-          actuator_state(itr) = state_tmp->as<ompl::base::RealVectorStateSpace::StateType>(1)->values[index++];
+        for(auto itr : robot_model_ptr_->getLinkJointIndices())
+          joint_state(itr) = state_tmp->as<ompl::base::RealVectorStateSpace::StateType>(1)->values[index++];
       }
 
     /* TODO: 
        the robot_model is also updated, in the following command,
        which is not good.
     */
-    MultilinkState current_state(robot_model_ptr_, root_pose, actuator_state);
+    MultilinkState current_state(robot_model_ptr_, root_pose, joint_state);
 
     //check distance thresold
     if(planning_mode_ == sampling_based_method::PlanningMode::JOINTS_AND_BASE_MODE ||
@@ -141,7 +141,7 @@ namespace sampling_base
         KDL::Rotation q;
         tf::quaternionMsgToKDL(root_pose.orientation, q);
         robot_model_ptr_->setCogDesireOrientation(q);
-        robot_model_ptr_->updateRobotModel(actuator_state);
+        robot_model_ptr_->updateRobotModel(joint_state);
 #endif
         if(!robot_model_ptr_->stabilityMarginCheck()) return false;
         if(!robot_model_ptr_->overlapCheck()) return false;
@@ -153,7 +153,7 @@ namespace sampling_base
 
     collision_detection::CollisionRequest collision_request;
     collision_detection::CollisionResult collision_result;
-    planning_scene_->setCurrentState(current_state.getRootActuatorStateConst<moveit_msgs::RobotState>());
+    planning_scene_->setCurrentState(current_state.getRootJointStateConst<moveit_msgs::RobotState>());
     planning_scene_->checkCollision(collision_request, collision_result, planning_scene_->getCurrentState(), acm_);
 
     if(collision_result.collision) return false;
@@ -216,9 +216,9 @@ namespace sampling_base
       }
 
     /* joints */
-    ompl::base::StateSpacePtr r_joints(new ompl::base::RealVectorStateSpace(robot_model_ptr_->getLinkJointIndex().size()));
-    ompl::base::RealVectorBounds joint_bounds(robot_model_ptr_->getLinkJointIndex().size());
-    for(int j = 0; j < robot_model_ptr_->getLinkJointIndex().size(); j++ )
+    ompl::base::StateSpacePtr r_joints(new ompl::base::RealVectorStateSpace(robot_model_ptr_->getLinkJointIndices().size()));
+    ompl::base::RealVectorBounds joint_bounds(robot_model_ptr_->getLinkJointIndices().size());
+    for(int j = 0; j < robot_model_ptr_->getLinkJointIndices().size(); j++ )
       {
         joint_bounds.low[j] = joint_lower_limits_.at(j);
         joint_bounds.high[j] = joint_upper_limits_.at(j);
@@ -260,10 +260,10 @@ namespace sampling_base
     ompl::base::ScopedState<> goal(config_space_);
     if(planning_mode_ == sampling_based_method::PlanningMode::ONLY_JOINTS_MODE)
       {
-        for(int i = 0; i < robot_model_ptr_->getLinkJointIndex().size(); i ++)
+        for(int i = 0; i < robot_model_ptr_->getLinkJointIndices().size(); i ++)
           {
-            start->as<ompl::base::RealVectorStateSpace::StateType>()->values[i] = start_state_.getActuatorStateConst()(robot_model_ptr_->getLinkJointIndex().at(i));
-            goal->as<ompl::base::RealVectorStateSpace::StateType>()->values[i] = goal_state_.getActuatorStateConst()(robot_model_ptr_->getLinkJointIndex().at(i));
+            start->as<ompl::base::RealVectorStateSpace::StateType>()->values[i] = start_state_.getJointStateConst()(robot_model_ptr_->getLinkJointIndices().at(i));
+            goal->as<ompl::base::RealVectorStateSpace::StateType>()->values[i] = goal_state_.getJointStateConst()(robot_model_ptr_->getLinkJointIndices().at(i));
           }
       }
     else if(planning_mode_ == sampling_based_method::PlanningMode::ONLY_BASE_MODE)
@@ -318,10 +318,10 @@ namespace sampling_base
             goal_tmp->as<ompl::base::SE3StateSpace::StateType>(0)->rotation().w = goal_state_.getRootPoseConst().orientation.w;
           }
 
-        for(int i = 0; i < robot_model_ptr_->getLinkJointIndex().size(); i ++)
+        for(int i = 0; i < robot_model_ptr_->getLinkJointIndices().size(); i ++)
           {
-            start_tmp->as<ompl::base::RealVectorStateSpace::StateType>(1)->values[i] = start_state_.getActuatorStateConst()(robot_model_ptr_->getLinkJointIndex().at(i));
-            goal_tmp->as<ompl::base::RealVectorStateSpace::StateType>(1)->values[i] = goal_state_.getActuatorStateConst()(robot_model_ptr_->getLinkJointIndex().at(i));
+            start_tmp->as<ompl::base::RealVectorStateSpace::StateType>(1)->values[i] = start_state_.getJointStateConst()(robot_model_ptr_->getLinkJointIndices().at(i));
+            goal_tmp->as<ompl::base::RealVectorStateSpace::StateType>(1)->values[i] = goal_state_.getJointStateConst()(robot_model_ptr_->getLinkJointIndices().at(i));
           }
       }
 
@@ -353,7 +353,7 @@ namespace sampling_base
     planning_scene_ = boost::shared_ptr<planning_scene::PlanningScene>(new planning_scene::PlanningScene(robot_model_loader.getModel()));
     acm_ = planning_scene_->getAllowedCollisionMatrix();
 
-    planning_scene_->setCurrentState(start_state_.getRootActuatorStateConst<moveit_msgs::RobotState>());
+    planning_scene_->setCurrentState(start_state_.getRootJointStateConst<moveit_msgs::RobotState>());
     planning_scene_->getPlanningSceneMsg(planning_scene_msg_);
     planning_scene_msg_.is_diff = true;
     planning_scene_diff_pub_.publish(planning_scene_msg_);
@@ -494,10 +494,10 @@ namespace sampling_base
     nhp_.param("start_state_yaw", y, 0.0);
     pose.orientation = tf::createQuaternionMsgFromRollPitchYaw(r,p,y);
     /* getTree().getNrOfJoints() = link_joint + gimbal + rotor */
-    KDL::JntArray actuator_state(robot_model_ptr_->getTree().getNrOfJoints());
+    KDL::JntArray joint_state(robot_model_ptr_->getTree().getNrOfJoints());
     for(int i = 0; i < robot_model_ptr_->getLinkJointNames().size(); i++)
-      nhp_.param(std::string("start_") + robot_model_ptr_->getLinkJointNames().at(i), actuator_state(robot_model_ptr_->getLinkJointIndex().at(i)), 0.0);
-    start_state_.setStatesFromRoot(robot_model_ptr_, pose, actuator_state);
+      nhp_.param(std::string("start_") + robot_model_ptr_->getLinkJointNames().at(i), joint_state(robot_model_ptr_->getLinkJointIndices().at(i)), 0.0);
+    start_state_.setStatesFromRoot(robot_model_ptr_, pose, joint_state);
 
     nhp_.param("goal_state_x", pose.position.x, 0.0);
     nhp_.param("goal_state_y", pose.position.y, 0.5);
@@ -515,8 +515,8 @@ namespace sampling_base
         nhp_.getParam("goal_state_qw", pose.orientation.w);
       }
     for(int i = 0; i < robot_model_ptr_->getLinkJointNames().size(); i++)
-      nhp_.param(std::string("goal_") + robot_model_ptr_->getLinkJointNames().at(i), actuator_state(robot_model_ptr_->getLinkJointIndex().at(i)), 0.0);
-    goal_state_.setStatesFromRoot(robot_model_ptr_, pose, actuator_state);
+      nhp_.param(std::string("goal_") + robot_model_ptr_->getLinkJointNames().at(i), joint_state(robot_model_ptr_->getLinkJointIndices().at(i)), 0.0);
+    goal_state_.setStatesFromRoot(robot_model_ptr_, pose, joint_state);
 
     nhp_.param("file_state_offset_x", file_state_offset_x_, 0.0);
     nhp_.param("file_state_offset_y", file_state_offset_y_, 0.0);
@@ -535,8 +535,8 @@ namespace sampling_base
        planning_mode_ == sampling_based_method::PlanningMode::JOINTS_AND_BASE_MODE)
       {
         if(planning_mode_ == sampling_based_method::PlanningMode::ONLY_JOINTS_MODE) length_cost_thre_ = 0.1;
-        for(auto index: robot_model_ptr_->getLinkJointIndex())
-          length_cost_thre_ += fabs(start_state_.getActuatorStateConst()(index) - goal_state_.getActuatorStateConst()(index));
+        for(auto index: robot_model_ptr_->getLinkJointIndices())
+          length_cost_thre_ += fabs(start_state_.getJointStateConst()(index) - goal_state_.getJointStateConst()(index));
       }
     return ompl::base::Cost(length_cost_thre_);
   }
@@ -544,13 +544,13 @@ namespace sampling_base
   void MotionPlanning::addState(ompl::base::State *ompl_state)
   {
     geometry_msgs::Pose root_pose;
-    KDL::JntArray actuator_state(robot_model_ptr_->getActuatorMap().size());
+    KDL::JntArray joint_state(robot_model_ptr_->getJointIndexMap().size());
 
     if(planning_mode_ == sampling_based_method::PlanningMode::ONLY_JOINTS_MODE)
       {
         int index = 0;
-        for(auto itr : robot_model_ptr_->getLinkJointIndex())
-          actuator_state(itr) = ompl_state->as<ompl::base::RealVectorStateSpace::StateType>()->values[index++];
+        for(auto itr : robot_model_ptr_->getLinkJointIndices())
+          joint_state(itr) = ompl_state->as<ompl::base::RealVectorStateSpace::StateType>()->values[index++];
       }
     else if(planning_mode_ == sampling_based_method::PlanningMode::JOINTS_AND_BASE_MODE)
       {
@@ -577,8 +577,8 @@ namespace sampling_base
           }
 
         int index = 0;
-        for(auto itr : robot_model_ptr_->getLinkJointIndex())
-          actuator_state(itr) = state_tmp->as<ompl::base::RealVectorStateSpace::StateType>(1)->values[index++];
+        for(auto itr : robot_model_ptr_->getLinkJointIndices())
+          joint_state(itr) = state_tmp->as<ompl::base::RealVectorStateSpace::StateType>(1)->values[index++];
       }
     else if(planning_mode_ == sampling_based_method::PlanningMode::ONLY_BASE_MODE)
       {
@@ -605,7 +605,7 @@ namespace sampling_base
     KDL::Rotation q;
     tf::quaternionMsgToKDL(root_pose.orientation, q);
     robot_model_ptr_->setCogDesireOrientation(q);
-    robot_model_ptr_->updateRobotModel(actuator_state);
+    robot_model_ptr_->updateRobotModel(joint_state);
     robot_model_ptr_->stabilityMarginCheck();
 
     if(robot_model_ptr_->getStabilityMargin() < min_var_)
@@ -633,7 +633,7 @@ namespace sampling_base
     tf::Matrix3x3(tf_q).getRPY(r, p, y);
     ROS_INFO("index: %d, dist_var: %f, max_force: %f, base pose: [%f, %f, %f] att: [%f, %f, %f]", (int)path_.size(), robot_model_ptr_->getStabilityMargin(), robot_model_ptr_->getOptimalHoveringThrust().maxCoeff(), root_pose.position.x, root_pose.position.y, root_pose.position.z, r, p, y);
 
-    addState(MultilinkState(robot_model_ptr_, root_pose, actuator_state));
+    addState(MultilinkState(robot_model_ptr_, root_pose, joint_state));
   }
 
   void MotionPlanning::savePath()
@@ -643,18 +643,18 @@ namespace sampling_base
     ofs << "start_state_: ";
     /* root pose */
     for (int i = 0; i < 7; i++)
-      ofs << " " << start_state_.getRootActuatorStateConst<std::vector<double> >().at(i);
+      ofs << " " << start_state_.getRootJointStateConst<std::vector<double> >().at(i);
     /* joint state */
-    for (auto index: robot_model_ptr_->getLinkJointIndex())
-      ofs << " " << start_state_.getActuatorStateConst()(index);
+    for (auto index: robot_model_ptr_->getLinkJointIndices())
+      ofs << " " << start_state_.getJointStateConst()(index);
     ofs << std::endl;
     ofs << "goal_state_: ";
     /* root pose */
     for (int i = 0; i < 7; i++)
-      ofs << " " << goal_state_.getRootActuatorStateConst<std::vector<double> >().at(i);
+      ofs << " " << goal_state_.getRootJointStateConst<std::vector<double> >().at(i);
     /* joint state */
-    for (auto index: robot_model_ptr_->getLinkJointIndex())
-      ofs << " " << goal_state_.getActuatorStateConst()(index);
+    for (auto index: robot_model_ptr_->getLinkJointIndices())
+      ofs << " " << goal_state_.getJointStateConst()(index);
     ofs << std::endl;
 
     ofs << "states: " << path_.size()  << std::endl;
@@ -669,12 +669,12 @@ namespace sampling_base
         ofs << "state" << k << ": ";
         /* root pose */
         for (int i = 0; i < 7; i++)
-          ofs << " " << path_.at(k).getRootActuatorStateConst<std::vector<double> >().at(i);
+          ofs << " " << path_.at(k).getRootJointStateConst<std::vector<double> >().at(i);
         /* joint state */
-        for (auto index: robot_model_ptr_->getLinkJointIndex())
-          ofs << " " << path_.at(k).getActuatorStateConst()(index);
+        for (auto index: robot_model_ptr_->getLinkJointIndices())
+          ofs << " " << path_.at(k).getJointStateConst()(index);
 
-        for (int j = 0; j < robot_model_ptr_->getLinkJointIndex().size(); j++)
+        for (int j = 0; j < robot_model_ptr_->getLinkJointIndices().size(); j++)
 
           ofs << std::endl;
       }
@@ -712,7 +712,7 @@ namespace sampling_base
     std::string str;
     std::string header;
     std::vector<double> root_pose_vec(7);
-    KDL::JntArray actuator_state(robot_model_ptr_->getActuatorMap().size());
+    KDL::JntArray joint_state(robot_model_ptr_->getJointIndexMap().size());
 
     //1 start and goal state
     std::getline(ifs, str);
@@ -721,12 +721,12 @@ namespace sampling_base
     /* root pose */
     for (int i = 0; i < 7; i++) ss[0] >> root_pose_vec.at(i);
     /* joint state */
-    for (auto index: robot_model_ptr_->getLinkJointIndex()) ss[0] >> actuator_state(index);
+    for (auto index: robot_model_ptr_->getLinkJointIndices()) ss[0] >> joint_state(index);
 
     root_pose_vec.at(0) += file_state_offset_x_;
     root_pose_vec.at(1) += file_state_offset_y_;
     root_pose_vec.at(2) += file_state_offset_z_;
-    start_state_.setStatesFromRoot(robot_model_ptr_, convertPoseFromVector(root_pose_vec), actuator_state);
+    start_state_.setStatesFromRoot(robot_model_ptr_, convertPoseFromVector(root_pose_vec), joint_state);
 
     std::getline(ifs, str);
     ss[1].str(str);
@@ -734,12 +734,12 @@ namespace sampling_base
     /* root pose */
     for (int i = 0; i < 7; i++) ss[0] >> root_pose_vec.at(i);
     /* joint state */
-    for (auto index: robot_model_ptr_->getLinkJointIndex()) ss[0] >> actuator_state(index);
+    for (auto index: robot_model_ptr_->getLinkJointIndices()) ss[0] >> joint_state(index);
 
     root_pose_vec.at(0) += file_state_offset_x_;
     root_pose_vec.at(1) += file_state_offset_y_;
     root_pose_vec.at(2) += file_state_offset_z_;
-    goal_state_.setStatesFromRoot(robot_model_ptr_, convertPoseFromVector(root_pose_vec), actuator_state);
+    goal_state_.setStatesFromRoot(robot_model_ptr_, convertPoseFromVector(root_pose_vec), joint_state);
 
     std::getline(ifs, str);
     ss[2].str(str);
@@ -776,12 +776,12 @@ namespace sampling_base
         /* root pose */
         for (int i = 0; i < 7; i++) ss_tmp >> root_pose_vec.at(i);
         /* joint state */
-        for (auto index: robot_model_ptr_->getLinkJointIndex()) ss_tmp >> actuator_state(index);
+        for (auto index: robot_model_ptr_->getLinkJointIndices()) ss_tmp >> joint_state(index);
         root_pose_vec.at(0) += file_state_offset_x_;
         root_pose_vec.at(1) += file_state_offset_y_;
         root_pose_vec.at(2) += file_state_offset_z_;
 
-        path_.push_back(MultilinkState(robot_model_ptr_, convertPoseFromVector(root_pose_vec), actuator_state));
+        path_.push_back(MultilinkState(robot_model_ptr_, convertPoseFromVector(root_pose_vec), joint_state));
 
         /* robot model is already updated by the Multilink() func */
         robot_model_ptr_->modelling();
@@ -803,7 +803,7 @@ namespace sampling_base
   {
     collision_detection::CollisionRequest collision_request;
     collision_detection::CollisionResult collision_result;
-    planning_scene_->setCurrentState(state.getRootActuatorStateConst<moveit_msgs::RobotState>());
+    planning_scene_->setCurrentState(state.getRootJointStateConst<moveit_msgs::RobotState>());
     planning_scene_->checkCollision(collision_request, collision_result); //TODO acm_
     if(collision_result.collision) ROS_WARN("Robot collision with env");
   }

@@ -41,13 +41,13 @@
 void MultilinkState::convertCogPose2RootPose(boost::shared_ptr<aerial_robot_model::RobotModel> robot_model_ptr,
                                              const tf::Quaternion& baselink_desired_att,
                                              const geometry_msgs::Pose& cog_pose,
-                                             const KDL::JntArray& actuator_state,
+                                             const KDL::JntArray& joint_state,
                                              geometry_msgs::Pose& root_pose)
 {
   KDL::Rotation kdl_q;
   tf::quaternionTFToKDL(baselink_desired_att, kdl_q);
   robot_model_ptr->setCogDesireOrientation(kdl_q);
-  robot_model_ptr->updateRobotModel(actuator_state);
+  robot_model_ptr->updateRobotModel(joint_state);
 
   /* root */
   tf::Transform cog_tf;
@@ -62,33 +62,33 @@ void MultilinkState::convertCogPose2RootPose(boost::shared_ptr<aerial_robot_mode
 void MultilinkState::setStatesFromCog(boost::shared_ptr<aerial_robot_model::RobotModel> robot_model_ptr,
                                       const tf::Quaternion& baselink_desired_att,
                                       const geometry_msgs::Pose& cog_pose,
-                                      const KDL::JntArray& actuator_state)
+                                      const KDL::JntArray& joint_state)
 {
-  if(actuator_map_.empty()) actuator_map_ = robot_model_ptr->getActuatorMap();
+  if(joint_index_map_.empty()) joint_index_map_ = robot_model_ptr->getJointIndexMap();
 
   /* set cog pose */
   baselink_desired_att_ = baselink_desired_att;
   cog_pose_ = cog_pose;
 
-  /* set actuator vector */
-  actuator_state_ = actuator_state;
+  /* set joint vector */
+  joint_state_ = joint_state;
 
   /* set root pose */
-  convertCogPose2RootPose(robot_model_ptr, baselink_desired_att, cog_pose, actuator_state, root_pose_);
+  convertCogPose2RootPose(robot_model_ptr, baselink_desired_att, cog_pose, joint_state, root_pose_);
 
   /* special process for model with gimbal module */
-  if(gimbal_module_flag_) actuator_state_ = boost::dynamic_pointer_cast<DragonRobotModel>(robot_model_ptr)->getGimbalProcessedJoint<KDL::JntArray>();
+  if(gimbal_module_flag_) joint_state_ = boost::dynamic_pointer_cast<DragonRobotModel>(robot_model_ptr)->getGimbalProcessedJoint<KDL::JntArray>();
 }
 
 void MultilinkState::convertBaselinkPose2RootPose(boost::shared_ptr<aerial_robot_model::RobotModel> robot_model_ptr,
                                                   const geometry_msgs::Pose& baselink_pose,
-                                                  const KDL::JntArray& actuator_state,
+                                                  const KDL::JntArray& joint_state,
                                                   geometry_msgs::Pose& root_pose)
 {
   tf::Transform baselink_tf;
   tf::poseMsgToTF(baselink_pose, baselink_tf);
   tf::Transform root2baselink_tf;
-  tf::transformKDLToTF(robot_model_ptr->forwardKinematics<KDL::Frame>(robot_model_ptr->getBaselinkName(), actuator_state), root2baselink_tf);
+  tf::transformKDLToTF(robot_model_ptr->forwardKinematics<KDL::Frame>(robot_model_ptr->getBaselinkName(), joint_state), root2baselink_tf);
   tf::Transform root_tf = baselink_tf * root2baselink_tf.inverse();
 
   tf::poseTFToMsg(root_tf, root_pose);
@@ -96,20 +96,20 @@ void MultilinkState::convertBaselinkPose2RootPose(boost::shared_ptr<aerial_robot
 
 void MultilinkState::convertRootPose2CogPose(boost::shared_ptr<aerial_robot_model::RobotModel> robot_model_ptr,
                                              const geometry_msgs::Pose& root_pose,
-                                             const KDL::JntArray& actuator_state,
+                                             const KDL::JntArray& joint_state,
                                              tf::Quaternion& baselink_desired_att,
                                              geometry_msgs::Pose& cog_pose)
 {
   tf::Transform root_tf;
   tf::poseMsgToTF(root_pose, root_tf);
   tf::Transform root2baselink_tf;
-  tf::transformKDLToTF(robot_model_ptr->forwardKinematics<KDL::Frame>(robot_model_ptr->getBaselinkName(), actuator_state), root2baselink_tf);
+  tf::transformKDLToTF(robot_model_ptr->forwardKinematics<KDL::Frame>(robot_model_ptr->getBaselinkName(), joint_state), root2baselink_tf);
   baselink_desired_att = root_tf * root2baselink_tf.getRotation();
 
   KDL::Rotation kdl_q;
   tf::quaternionTFToKDL(baselink_desired_att, kdl_q);
   robot_model_ptr->setCogDesireOrientation(kdl_q);
-  robot_model_ptr->updateRobotModel(actuator_state);
+  robot_model_ptr->updateRobotModel(joint_state);
 
   tf::Transform root2cog_tf;
   tf::transformKDLToTF(robot_model_ptr->getCog<KDL::Frame>(), root2cog_tf);
@@ -118,24 +118,24 @@ void MultilinkState::convertRootPose2CogPose(boost::shared_ptr<aerial_robot_mode
 
 void MultilinkState::setStatesFromRoot(boost::shared_ptr<aerial_robot_model::RobotModel> robot_model_ptr,
                                        const geometry_msgs::Pose& root_pose,
-                                       const KDL::JntArray& actuator_state)
+                                       const KDL::JntArray& joint_state)
 {
-  if(actuator_map_.empty()) actuator_map_ = robot_model_ptr->getActuatorMap();
+  if(joint_index_map_.empty()) joint_index_map_ = robot_model_ptr->getJointIndexMap();
 
   /* set cog pose */
   root_pose_ = root_pose;
 
-  /* set actuator vector */
-  actuator_state_ = actuator_state;
+  /* set joint vector */
+  joint_state_ = joint_state;
 
   /* set root pose */
-  convertRootPose2CogPose(robot_model_ptr, root_pose, actuator_state, baselink_desired_att_, cog_pose_);
+  convertRootPose2CogPose(robot_model_ptr, root_pose, joint_state, baselink_desired_att_, cog_pose_);
 
   /* special process for model with gimbal module */
-  if(gimbal_module_flag_) actuator_state_ = boost::dynamic_pointer_cast<DragonRobotModel>(robot_model_ptr)->getGimbalProcessedJoint<KDL::JntArray>();
+  if(gimbal_module_flag_) joint_state_ = boost::dynamic_pointer_cast<DragonRobotModel>(robot_model_ptr)->getGimbalProcessedJoint<KDL::JntArray>();
 }
 
-template<> const std::vector<double> MultilinkState::getRootActuatorStateConst() const
+template<> const std::vector<double> MultilinkState::getRootJointStateConst() const
 {
   std::vector<double> states(0);
   states.push_back(root_pose_.position.x);
@@ -146,21 +146,21 @@ template<> const std::vector<double> MultilinkState::getRootActuatorStateConst()
   states.push_back(root_pose_.orientation.z);
   states.push_back(root_pose_.orientation.w);
 
-  for(int i = 0; i < actuator_state_.rows(); i++) states.push_back(actuator_state_(i));
+  for(int i = 0; i < joint_state_.rows(); i++) states.push_back(joint_state_(i));
 
   return states;
 }
 
-template<> const moveit_msgs::RobotState MultilinkState::getRootActuatorStateConst() const
+template<> const moveit_msgs::RobotState MultilinkState::getRootJointStateConst() const
 {
   moveit_msgs::RobotState robot_state;
 
-  robot_state.joint_state.name.reserve(actuator_map_.size());
-  robot_state.joint_state.position.reserve(actuator_map_.size());
-  for(const auto& actuator : actuator_map_)
+  robot_state.joint_state.name.reserve(joint_index_map_.size());
+  robot_state.joint_state.position.reserve(joint_index_map_.size());
+  for(const auto& joint : joint_index_map_)
     {
-      robot_state.joint_state.name.push_back(actuator.first);
-      robot_state.joint_state.position.push_back(actuator_state_(actuator.second));
+      robot_state.joint_state.name.push_back(joint.first);
+      robot_state.joint_state.position.push_back(joint_state_(joint.second));
     }
 
   robot_state.multi_dof_joint_state.header.frame_id = "world";

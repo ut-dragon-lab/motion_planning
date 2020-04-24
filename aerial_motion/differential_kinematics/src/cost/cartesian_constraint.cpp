@@ -42,7 +42,7 @@ namespace differential_kinematics
 
       // TODO: check the validity
       for(int i = 0; i < chain_joint_index_.size(); i++)
-        joint_positions(i) = planner_->getTargetActuatorVector<KDL::JntArray>()(chain_joint_index_.at(i));
+        joint_positions(i) = planner_->getTargetJointVector<KDL::JntArray>()(chain_joint_index_.at(i));
       fk_solver.JntToCart(joint_positions, end_frame);
 
       tf::Transform end_tf;
@@ -192,12 +192,12 @@ namespace differential_kinematics
 
     bool CartersianConstraint::calcJointJacobian(Eigen::MatrixXd& jacobian, bool debug)
     {
-      Eigen::MatrixXd jacobian_root_link = Eigen::MatrixXd::Zero(6, planner_->getRobotModelPtr()->getLinkJointIndex().size() + 6);
+      Eigen::MatrixXd jacobian_root_link = Eigen::MatrixXd::Zero(6, planner_->getRobotModelPtr()->getLinkJointIndices().size() + 6);
 
       /* fill the joint state */
       KDL::JntArray joint_positions(chain_.getNrOfJoints());
       for(int i = 0; i < chain_joint_index_.size(); i++)
-        joint_positions(i) = planner_->getTargetActuatorVector<KDL::JntArray>()(chain_joint_index_.at(i));
+        joint_positions(i) = planner_->getTargetJointVector<KDL::JntArray>()(chain_joint_index_.at(i));
 
       if(chain_.getNrOfJoints() > 0 )
         {
@@ -238,9 +238,10 @@ namespace differential_kinematics
       /* change to reference frame */
       Eigen::MatrixXd jacobian_ref = jacobian_root_link; //init set
       Eigen::Matrix3d ref_rot;
+      int q_size = planner_->getRobotModelPtr()->getLinkJointIndices().size() + 6;
       tf::matrixTFToEigen((target_reference_frame_.inverse() * planner_->getTargetRootPose()).getBasis(), ref_rot);
-      jacobian_ref.block(0, 0, 3, planner_->getRobotModelPtr()->getLinkJointIndex().size() + 6) = ref_rot * jacobian_root_link.block(0, 0, 3, planner_->getRobotModelPtr()->getLinkJointIndex().size() + 6);
-      jacobian_ref.block(3, 0, 3, planner_->getRobotModelPtr()->getLinkJointIndex().size() + 6) = ref_rot * jacobian_root_link.block(3, 0, 3, planner_->getRobotModelPtr()->getLinkJointIndex().size() + 6);
+      jacobian_ref.block(0, 0, 3, q_size) = ref_rot * jacobian_root_link.block(0, 0, 3, q_size);
+      jacobian_ref.block(3, 0, 3, q_size) = ref_rot * jacobian_root_link.block(3, 0, 3, q_size);
       /* applay free axis mask */
       jacobian = (Eigen::Map<Eigen::VectorXd>(free_axis_mask_.data(), free_axis_mask_.size())).asDiagonal() * jacobian_ref;
 

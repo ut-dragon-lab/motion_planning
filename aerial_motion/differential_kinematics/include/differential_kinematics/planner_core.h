@@ -77,20 +77,20 @@ namespace differential_kinematics
     /* kinematics */
     boost::shared_ptr<HydrusRobotModel> getRobotModelPtr() {return robot_model_ptr_;}
     const tf::Transform& getTargetRootPose() const {return target_root_pose_;}
-    template<class T> const T getTargetActuatorVector() const;
-    template<class T> void setTargetActuatorVector(const T& target_actuator_vector);
+    template<class T> const T getTargetJointVector() const;
+    template<class T> void setTargetJointVector(const T& target_joint_vector);
     inline void setTargetRootPose(const tf::Transform& target_root_pose) { target_root_pose_ = target_root_pose;}
     const int getMultilinkType() const {return multilink_type_;}
 
     const std::vector<tf::Transform>& getRootPoseSequence() const {return target_root_pose_sequence_;}
-    const std::vector<KDL::JntArray>& getActuatorStateSequence() const {return target_actuator_vector_sequence_;}
+    const std::vector<KDL::JntArray>& getJointStateSequence() const {return target_joint_vector_sequence_;}
 
     /* special for gimbal model */
     const bool getGimbalModuleFlag() const { return gimbal_module_flag_; }
   private:
     ros::NodeHandle nh_;
     ros::NodeHandle nhp_;
-    ros::Publisher actuator_state_pub_;
+    ros::Publisher joint_state_pub_;
     tf::TransformBroadcaster br_;
     ros::Timer  motion_timer_;
 
@@ -100,13 +100,13 @@ namespace differential_kinematics
     bool gimbal_module_flag_; // TODO: hard-coding
 
     /* result  */
-    KDL::JntArray target_actuator_vector_;
+    KDL::JntArray target_joint_vector_;
     tf::Transform target_root_pose_;
     bool solved_;
     int differential_kinematics_count_;
 
     int sequence_;
-    std::vector<KDL::JntArray> target_actuator_vector_sequence_;
+    std::vector<KDL::JntArray> target_joint_vector_sequence_;
     std::vector<tf::Transform> target_root_pose_sequence_;
 
     /* update function for each loop of the differential kinematics */

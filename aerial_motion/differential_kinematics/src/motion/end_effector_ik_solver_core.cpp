@@ -52,9 +52,9 @@ EndEffectorIKSolverCore::EndEffectorIKSolverCore(ros::NodeHandle nh, ros::NodeHa
       {
         planner_core_ptr_->registerMotionFunc(std::bind(&EndEffectorIKSolverCore::motionFunc, this));
 
-        std::string actuator_state_sub_name;
-        nhp_.param("actuator_state_sub_name", actuator_state_sub_name, std::string("joint_state"));
-        actuator_state_sub_ = nh_.subscribe(actuator_state_sub_name, 1, &EndEffectorIKSolverCore::actuatorStateCallback, this);
+        std::string joint_state_sub_name;
+        nhp_.param("joint_state_sub_name", joint_state_sub_name, std::string("joint_state"));
+        joint_state_sub_ = nh_.subscribe(joint_state_sub_name, 1, &EndEffectorIKSolverCore::jointStateCallback, this);
         end_effector_ik_service_ = nh_.advertiseService("end_effector_ik", &EndEffectorIKSolverCore::endEffectorIkCallback, this);
         env_collision_sub_ = nh_.subscribe("/env_collision", 1, &EndEffectorIKSolverCore::envCollision, this);
       }
@@ -64,8 +64,8 @@ bool EndEffectorIKSolverCore::endEffectorIkCallback(differential_kinematics::Tar
                                                     differential_kinematics::TargetPose::Response &res)
 {
   /* stop rosnode: joint_state_publisher, and publisher from this node instead */
-  std::string actuator_state_publisher_node_name = actuator_state_sub_.getTopic().substr(0, actuator_state_sub_.getTopic().find("/joint")) + std::string("/joint_state_publisher_");
-  std::string command_string = std::string("rosnode kill ") + actuator_state_publisher_node_name.c_str();
+  std::string joint_state_publisher_node_name = joint_state_sub_.getTopic().substr(0, joint_state_sub_.getTopic().find("/joint")) + std::string("/joint_state_publisher_");
+  std::string command_string = std::string("rosnode kill ") + joint_state_publisher_node_name.c_str();
   system(command_string.c_str());
 
   collision_avoidance_ = req.collision_avoidance;
@@ -81,7 +81,7 @@ bool EndEffectorIKSolverCore::endEffectorIkCallback(differential_kinematics::Tar
                      tf::Transform(tf::createIdentityQuaternion(),
                                    tf::Vector3(planner_core_ptr_->getRobotModelPtr()->getLinkLength(), 0, 0)));
 
-  if(!inverseKinematics(target_ee_pose, init_actuator_vector_, init_root_pose,
+  if(!inverseKinematics(target_ee_pose, init_joint_vector_, init_root_pose,
                         req.orientation, req.full_body, req.tran_free_axis, req.rot_free_axis,
                         req.collision_avoidance, req.debug))
     return false;
@@ -100,7 +100,7 @@ void EndEffectorIKSolverCore::envCollision(const visualization_msgs::MarkerArray
   setCollision(*env_msg);
 }
 
-bool EndEffectorIKSolverCore::inverseKinematics(const tf::Transform& target_ee_pose, const sensor_msgs::JointState& init_actuator_vector, const tf::Transform& init_root_pose, bool orientation, bool full_body, std::string tran_free_axis, std::string rot_free_axis, bool collision_avoidance, bool debug)
+bool EndEffectorIKSolverCore::inverseKinematics(const tf::Transform& target_ee_pose, const sensor_msgs::JointState& init_joint_vector, const tf::Transform& init_root_pose, bool orientation, bool full_body, std::string tran_free_axis, std::string rot_free_axis, bool collision_avoidance, bool debug)
 {
   /* reset path */
   path_.resize(0);
@@ -165,9 +165,9 @@ bool EndEffectorIKSolverCore::inverseKinematics(const tf::Transform& target_ee_p
       reinterpret_cast<constraint::CollisionAvoidance*>(constraint_container.back().get())->setEnv(env_collision_);
     }
 
-  /* reset the init joint(actuator) state the init root pose for planner */
+  /* reset the init joint(joint) state the init root pose for planner */
   planner_core_ptr_->setTargetRootPose(init_root_pose);
-  planner_core_ptr_->setTargetActuatorVector(init_actuator_vector);
+  planner_core_ptr_->setTargetJointVector(init_joint_vector);
 
   /* start the planning */
   if(planner_core_ptr_->solver(cost_container, constraint_container, debug))
@@ -180,7 +180,7 @@ bool EndEffectorIKSolverCore::inverseKinematics(const tf::Transform& target_ee_p
           /* insert the result discrete path */
           geometry_msgs::Pose root_pose;
           tf::poseTFToMsg(planner_core_ptr_->getRootPoseSequence().at(index), root_pose);
-          path_.push_back(MultilinkState(robot_model_ptr_, root_pose, planner_core_ptr_->getActuatorStateSequence().at(index)));
+          path_.push_back(MultilinkState(robot_model_ptr_, root_pose, planner_core_ptr_->getJointStateSequence().at(index)));
         }
 
       return true;
@@ -202,12 +202,12 @@ void EndEffectorIKSolverCore::motionFunc()
     br_.sendTransform(tf::StampedTransform(end_link_ee_tf, now_time, std::string("link") + std::to_string(rotor_num), "ee"));
   }
 
-void EndEffectorIKSolverCore::actuatorStateCallback(const sensor_msgs::JointStateConstPtr& state)
+void EndEffectorIKSolverCore::jointStateCallback(const sensor_msgs::JointStateConstPtr& state)
 {
-  if(init_actuator_vector_.name.empty())
+  if(init_joint_vector_.name.empty())
     {
-      ROS_ERROR("get init actuator vector");
-      init_actuator_vector_ = *state; /* only use the first angle vector */
+      ROS_ERROR("get init joint vector");
+      init_joint_vector_ = *state; /* only use the first angle vector */
     }
 }
 

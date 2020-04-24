@@ -59,6 +59,9 @@ differential_kinematics_constraint:
                 vebose: true
         stability:
                 verbose: true
+                stability_margin_thre: 0.3
+                f_max: 22.0
+                f_min: 10.0
         collision_avoidance:
                 verbose: true
                 collision_distance_constraint_range: 0.06 # 0.05 (for gap width 0.4); 0.08 (2018.05.10)
@@ -81,6 +84,3 @@ additional_constraint_list:
         - differential_kinematics_constraint/link_attitude
         - differential_kinematics_constraint/overlap
         - differential_kinematics_constraint/cog_motion
-stability_margin_thre: 0.3
-f_max: 22.0
-f_min: 10.0

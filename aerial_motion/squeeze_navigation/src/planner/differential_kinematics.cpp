@@ -99,10 +99,10 @@ namespace squeeze_motion_planner
       nhp_.param("start_state_yaw", y, 0.0);
       pose.orientation = tf::createQuaternionMsgFromRollPitchYaw(r,p,y);
       /* getTree().getNrOfJoints() = link_joint + gimbal + rotor */
-      KDL::JntArray actuator_state(robot_model_ptr_->getTree().getNrOfJoints());
+      KDL::JntArray joint_state(robot_model_ptr_->getTree().getNrOfJoints());
       for(int i = 0; i < robot_model_ptr_->getLinkJointNames().size(); i++)
-        nhp_.param(std::string("start_") + robot_model_ptr_->getLinkJointNames().at(i), actuator_state(robot_model_ptr_->getLinkJointIndex().at(i)), 0.0);
-      start_state_.setStatesFromRoot(robot_model_ptr_, pose, actuator_state);
+        nhp_.param(std::string("start_") + robot_model_ptr_->getLinkJointNames().at(i), joint_state(robot_model_ptr_->getLinkJointIndices().at(i)), 0.0);
+      start_state_.setStatesFromRoot(robot_model_ptr_, pose, joint_state);
 
       /* set goal pose */
       nhp_.param("goal_state_x", pose.position.x, 0.0);
@@ -113,8 +113,8 @@ namespace squeeze_motion_planner
       nhp_.param("goal_state_yaw", y, 0.0);
       pose.orientation = tf::createQuaternionMsgFromRollPitchYaw(r,p,y);
       for(int i = 0; i < robot_model_ptr_->getLinkJointNames().size(); i++)
-        nhp_.param(std::string("goal_") + robot_model_ptr_->getLinkJointNames().at(i), actuator_state(robot_model_ptr_->getLinkJointIndex().at(i)), 0.0);
-      goal_state_.setStatesFromRoot(robot_model_ptr_, pose, actuator_state);
+        nhp_.param(std::string("goal_") + robot_model_ptr_->getLinkJointNames().at(i), joint_state(robot_model_ptr_->getLinkJointIndices().at(i)), 0.0);
+      goal_state_.setStatesFromRoot(robot_model_ptr_, pose, joint_state);
       ROS_WARN("model: %d", planner_core_ptr_->getMultilinkType());
 
       /* get opening center frame from rosparam */
@@ -324,11 +324,11 @@ namespace squeeze_motion_planner
             }
         }
 
-      /* reset the init joint(actuator) state the init root pose for planner */
+      /* reset the init joint(joint) state the init root pose for planner */
       tf::Transform root_pose;
       tf::poseMsgToTF(start_state_.getRootPoseConst(), root_pose);
       planner_core_ptr_->setTargetRootPose(root_pose);
-      planner_core_ptr_->setTargetActuatorVector(start_state_.getActuatorStateConst());
+      planner_core_ptr_->setTargetJointVector(start_state_.getJointStateConst());
 
       /* init the pinch point, shouch be the end point of end link */
       updatePinchPoint();
@@ -344,7 +344,7 @@ namespace squeeze_motion_planner
 
               geometry_msgs::Pose root_pose;
               tf::poseTFToMsg(planner_core_ptr_->getRootPoseSequence().at(index), root_pose);
-              path_.push_back(MultilinkState(robot_model_ptr_, root_pose, planner_core_ptr_->getActuatorStateSequence().at(index)));
+              path_.push_back(MultilinkState(robot_model_ptr_, root_pose, planner_core_ptr_->getJointStateSequence().at(index)));
            }
 
           /* Temporary: add several extra point after squeezing */
@@ -358,7 +358,7 @@ namespace squeeze_motion_planner
               tf::poseTFToMsg(end_state, root_pose);
 
               robot_state.setStatesFromRoot(robot_model_ptr_, root_pose,
-                                            planner_core_ptr_->getActuatorStateSequence().back());
+                                            planner_core_ptr_->getJointStateSequence().back());
               path_.push_back(robot_state);
             }
           ROS_WARN("total path length: %d", (int)path_.size());
@@ -434,10 +434,10 @@ namespace squeeze_motion_planner
       KDL::Rotation root_att;
       tf::quaternionTFToKDL(planner_core_ptr_->getTargetRootPose().getRotation(), root_att);
       robot_model_ptr_->setCogDesireOrientation(root_att);
-      robot_model_ptr_->updateRobotModel(planner_core_ptr_->getTargetActuatorVector<KDL::JntArray>());
+      robot_model_ptr_->updateRobotModel(planner_core_ptr_->getTargetJointVector<KDL::JntArray>());
 
       /* fullFK */
-      auto full_fk_result = planner_core_ptr_->getRobotModelPtr()->fullForwardKinematics(planner_core_ptr_->getTargetActuatorVector<KDL::JntArray>());
+      auto full_fk_result = planner_core_ptr_->getRobotModelPtr()->fullForwardKinematics(planner_core_ptr_->getTargetJointVector<KDL::JntArray>());
 
       /* check the cross situation: case2-2 */
       tf::Transform prev_seg_tf;
