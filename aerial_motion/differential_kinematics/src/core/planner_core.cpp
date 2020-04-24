@@ -112,10 +112,10 @@ namespace differential_kinematics
         tf::quaternionTFToKDL(target_root_pose_.getRotation(), root_att);
         robot_model_ptr_->setCogDesireOrientation(root_att);
         robot_model_ptr_->updateRobotModel(target_joint_vector_);
-        /* special check */
-        if(!robot_model_ptr_->stabilityMarginCheck()) ROS_ERROR("[differential kinematics] update modelling, bad stability margin: %f", robot_model_ptr_->getStabilityMargin());
-        if(!robot_model_ptr_->modelling()) ROS_ERROR("[differential kinematics] update modelling, bad stability from force");
-        if(!robot_model_ptr_->overlapCheck()) ROS_ERROR("[differential kinematics] update overlap check, detect overlap with this form");
+        robot_model_ptr_->updateStatics();
+
+        if(!robot_model_ptr_->stabilityCheck()) ROS_ERROR("[differential kinematics]: invalid stability");
+
         /* update each cost or constraint (e.g. changable ik), if necessary */
         for(auto func_itr = update_func_vector_.begin(); func_itr != update_func_vector_.end(); func_itr++)
           {

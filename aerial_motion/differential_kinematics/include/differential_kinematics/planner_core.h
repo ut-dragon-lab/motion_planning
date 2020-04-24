@@ -75,7 +75,7 @@ namespace differential_kinematics
     void registerMotionFunc(std::function<void(void)> new_func);
 
     /* kinematics */
-    boost::shared_ptr<HydrusRobotModel> getRobotModelPtr() {return robot_model_ptr_;}
+    boost::shared_ptr<aerial_robot_model::RobotModel> getRobotModelPtr() {return robot_model_ptr_;}
     const tf::Transform& getTargetRootPose() const {return target_root_pose_;}
     template<class T> const T getTargetJointVector() const;
     template<class T> void setTargetJointVector(const T& target_joint_vector);
@@ -95,7 +95,7 @@ namespace differential_kinematics
     ros::Timer  motion_timer_;
 
     /* robot model for kinematics */
-    boost::shared_ptr<HydrusRobotModel> robot_model_ptr_;
+    boost::shared_ptr<aerial_robot_model::RobotModel> robot_model_ptr_;
     uint8_t multilink_type_;
     bool gimbal_module_flag_; // TODO: hard-coding
 

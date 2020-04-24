@@ -58,6 +58,9 @@ end_effector:
       vebose: true
     stability:
       verbose: true
+      control_margin_thre: 0.3
+      f_max_thre: 22.0
+      f_min_thre: 10.0
     collision_avoidance:
       verbose: true
       collision_distance_constraint_range: 0.08 #0.05
