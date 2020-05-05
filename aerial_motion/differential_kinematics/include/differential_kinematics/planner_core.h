@@ -39,6 +39,7 @@
 /* ros */
 #include <ros/ros.h>
 #include <tf/transform_broadcaster.h>
+#include <tf_conversions/tf_eigen.h>
 
 /* robot model */
 #include <hydrus/hydrus_robot_model.h>

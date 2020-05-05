@@ -143,7 +143,6 @@ namespace sampling_base
         robot_model_ptr_->setCogDesireOrientation(q);
         robot_model_ptr_->updateRobotModel(joint_state);
 #endif
-        robot_model_ptr_->updateStatics();
         if(!robot_model_ptr_->stabilityCheck()) return false;
       }
 
@@ -605,7 +604,6 @@ namespace sampling_base
     tf::quaternionMsgToKDL(root_pose.orientation, q);
     robot_model_ptr_->setCogDesireOrientation(q);
     robot_model_ptr_->updateRobotModel(joint_state);
-    robot_model_ptr_->updateStatics();
     robot_model_ptr_->stabilityCheck();
 
     if(robot_model_ptr_->getControlMargin() < min_var_)
@@ -615,14 +613,14 @@ namespace sampling_base
       }
 
 
-    if(robot_model_ptr_->getOptimalHoveringThrust().maxCoeff() > max_force_)
+    if(robot_model_ptr_->getStaticThrust().maxCoeff() > max_force_)
       {
-        max_force_ = robot_model_ptr_->getOptimalHoveringThrust().maxCoeff();
+        max_force_ = robot_model_ptr_->getStaticThrust().maxCoeff();
         max_force_state_index_ = path_.size();
       }
-    if(robot_model_ptr_->getOptimalHoveringThrust().minCoeff() > min_force_)
+    if(robot_model_ptr_->getStaticThrust().minCoeff() > min_force_)
       {
-        min_force_ = robot_model_ptr_->getOptimalHoveringThrust().minCoeff();
+        min_force_ = robot_model_ptr_->getStaticThrust().minCoeff();
         min_force_state_index_ = path_.size();
       }
 
@@ -631,7 +629,7 @@ namespace sampling_base
     tf::Quaternion tf_q;
     quaternionMsgToTF(root_pose.orientation, tf_q);
     tf::Matrix3x3(tf_q).getRPY(r, p, y);
-    ROS_INFO("index: %d, dist_var: %f, max_force: %f, base pose: [%f, %f, %f] att: [%f, %f, %f]", (int)path_.size(), robot_model_ptr_->getControlMargin(), robot_model_ptr_->getOptimalHoveringThrust().maxCoeff(), root_pose.position.x, root_pose.position.y, root_pose.position.z, r, p, y);
+    ROS_INFO("index: %d, dist_var: %f, max_force: %f, base pose: [%f, %f, %f] att: [%f, %f, %f]", (int)path_.size(), robot_model_ptr_->getControlMargin(), robot_model_ptr_->getStaticThrust().maxCoeff(), root_pose.position.x, root_pose.position.y, root_pose.position.z, r, p, y);
 
     addState(MultilinkState(robot_model_ptr_, root_pose, joint_state));
   }
@@ -783,13 +781,10 @@ namespace sampling_base
 
         path_.push_back(MultilinkState(robot_model_ptr_, convertPoseFromVector(root_pose_vec), joint_state));
 
-        /* robot model is already updated by the Multilink() func */
-        robot_model_ptr_->updateStatics();
-
-        if(min_force_ > robot_model_ptr_->getOptimalHoveringThrust().minCoeff())
-          min_force_ = robot_model_ptr_->getOptimalHoveringThrust().minCoeff();
-        if(max_force_ < robot_model_ptr_->getOptimalHoveringThrust().maxCoeff())
-          max_force_ = robot_model_ptr_->getOptimalHoveringThrust().maxCoeff();
+        if(min_force_ > robot_model_ptr_->getStaticThrust().minCoeff())
+          min_force_ = robot_model_ptr_->getStaticThrust().minCoeff();
+        if(max_force_ < robot_model_ptr_->getStaticThrust().maxCoeff())
+          max_force_ = robot_model_ptr_->getStaticThrust().maxCoeff();
       }
 
     if(!headless_) sceneInit();

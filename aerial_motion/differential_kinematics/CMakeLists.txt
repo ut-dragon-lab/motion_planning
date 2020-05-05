@@ -12,7 +12,8 @@ find_package(catkin REQUIRED COMPONENTS
   hydrus
   dragon
   aerial_motion_planning_msgs
-  pluginlib)
+  pluginlib
+  tf_conversions)
 
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
 

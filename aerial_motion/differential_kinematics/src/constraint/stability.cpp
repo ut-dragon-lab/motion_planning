@@ -47,7 +47,7 @@ namespace differential_kinematics
     public:
       Stability():
         f_min_(1e6), f_max_(0),
-        p_det_min_(1e6), control_margin_min_(1e6)
+        wrench_mat_det_min_(1e6), control_margin_min_(1e6)
       {}
       ~Stability(){}
 
@@ -58,11 +58,11 @@ namespace differential_kinematics
         Base::initialize(nh, nhp, planner, constraint_name, orientation, full_body);
 
         nc_ = 2 + rotor_num_;
-        const auto hydrus_robot_model = boost::dynamic_pointer_cast<HydrusRobotModel>(planner_->getRobotModelPtr());
-        getParam<double>("f_min_thre", f_min_thre_, hydrus_robot_model->getThrustLowerLimit());
-        getParam<double>("f_max_thre", f_max_thre_, hydrus_robot_model->getThrustUpperLimit());
-        getParam<double>("control_margin_thre", control_margin_thre_, hydrus_robot_model->getControlMarginThresh());
-        getParam<double>("p_det_thre", p_det_thre_, hydrus_robot_model->getPDetThresh());
+        const auto robot_model = boost::dynamic_pointer_cast<HydrusRobotModel>(planner_->getRobotModelPtr());
+        getParam<double>("f_min_thre", f_min_thre_, robot_model->getThrustLowerLimit());
+        getParam<double>("f_max_thre", f_max_thre_, robot_model->getThrustUpperLimit());
+        getParam<double>("control_margin_thre", control_margin_thre_, robot_model->getControlMarginThresh());
+        getParam<double>("wrench_mat_det_thre", wrench_mat_det_thre_, robot_model->getWrenchMatDetThresh());
         getParam<double>("control_margin_decrease_vel_thre", control_margin_decrease_vel_thre_, -0.01);
         getParam<double>("control_margin_constraint_range", control_margin_constraint_range_, 0.02);
         getParam<double>("control_margin_forbidden_range", control_margin_forbidden_range_, 0.005);
@@ -99,7 +99,7 @@ namespace differential_kinematics
       void result()
       {
         std::cout << constraint_name_
-                  << "min p determinant: " << p_det_min_ << "\n"
+                  << "min wremch matrix determinant: " << wrench_mat_det_min_ << "\n"
                   << "min control margin: " << control_margin_min_ << "\n"
                   << "min f: " << f_min_ << " at rotor" << f_min_rotor_ << "\n"
                   << "max f: " << f_max_ << " at rotor" << f_max_rotor_ << std::endl;
@@ -109,7 +109,7 @@ namespace differential_kinematics
 
     protected:
       double control_margin_thre_;
-      double p_det_thre_;
+      double wrench_mat_det_thre_;
       double f_min_thre_, f_max_thre_;
 
       double force_vel_thre_;
@@ -124,7 +124,7 @@ namespace differential_kinematics
       double f_max_;
       Eigen::MatrixXd::Index f_min_rotor_;
       Eigen::MatrixXd::Index f_max_rotor_;
-      double p_det_min_;
+      double wrench_mat_det_min_;
       double control_margin_min_;
 
     public:
@@ -134,111 +134,80 @@ namespace differential_kinematics
           const auto& joint_indices = robot_model->getLinkJointIndices();
           const auto hydrus_robot_model = boost::dynamic_pointer_cast<HydrusRobotModel>(robot_model);
 
-          auto robotModelUpdate = [&hydrus_robot_model](KDL::Rotation root_att, KDL::JntArray joint_vector)
-            {
-              hydrus_robot_model->setCogDesireOrientation(root_att);
-              hydrus_robot_model->updateRobotModel(joint_vector);
-              hydrus_robot_model->updateStatics();
-              hydrus_robot_model->stabilityCheck();
-            };
-
           /* 1. stability margin */
           double nominal_control_margin = hydrus_robot_model->getControlMargin();
           /* fill lb */
-#if 0
-          lb(0) = control_margin_decrease_vel_thre_;
-          if(nominal_control_margin - control_margin_thre_  < control_margin_constraint_range_)
-            lb(0) *=  ((nominal_control_margin - control_margin_thre_ - control_margin_forbidden_range_) / (control_margin_constraint_range_ - control_margin_forbidden_range_));
-#endif
           lb(0) = damplingBound(nominal_control_margin - control_margin_thre_, control_margin_decrease_vel_thre_, control_margin_constraint_range_, control_margin_forbidden_range_);
 
           /* 2. singularity */
-          double nominal_p_det = hydrus_robot_model->getPdeterminant();
+          double nominal_wrench_mat_det = hydrus_robot_model->getWrenchMatDeterminant();
           /* fill ub */
-          lb(1) =  p_det_thre_ - nominal_p_det;
+          lb(1) =  wrench_mat_det_thre_ - nominal_wrench_mat_det;
 
-          /*
-           3. optimal hovering thrust constraint (including singularity check)
-           f_min < F + delta_f < f_max =>   delta_f =  (f(q + d_q) - f(q)) / d_q * delta_q
-          */
-          const Eigen::VectorXd nominal_hovering_f =  hydrus_robot_model->getOptimalHoveringThrust();
+          /* 3. static thrust constraint */
+          const Eigen::VectorXd static_thrust =  hydrus_robot_model->getStaticThrust();
           /* fill the lb/ub */
           lb.segment(2, rotor_num_) = Eigen::VectorXd::Constant(rotor_num_, -force_vel_thre_);
           ub.segment(2, rotor_num_) = Eigen::VectorXd::Constant(rotor_num_, force_vel_thre_);
           for(int index = 0; index < rotor_num_; index++)
             {
-              lb(2 + index) = damplingBound(nominal_hovering_f(index) - f_min_thre_, -force_vel_thre_,  force_constraint_range_,  force_forbidden_range_);
-              ub(2 + index) = damplingBound(f_max_thre_ - nominal_hovering_f(index), force_vel_thre_,  force_constraint_range_,  force_forbidden_range_);
+              lb(2 + index) = damplingBound(static_thrust(index) - f_min_thre_, -force_vel_thre_,  force_constraint_range_,  force_forbidden_range_);
+              ub(2 + index) = damplingBound(f_max_thre_ - static_thrust(index), force_vel_thre_,  force_constraint_range_,  force_forbidden_range_);
             }
 
           if(debug)
             {
               std::cout << "constraint name: " << constraint_name_ << ", nominal control margin : \n" << nominal_control_margin << std::endl;
-              std::cout << "constraint name: " << constraint_name_ << ", nominal p det : \n" << nominal_p_det << std::endl;
-              std::cout << "constraint name: " << constraint_name_ << ", nominal f: \n" << nominal_hovering_f.transpose() << std::endl;
+              std::cout << "constraint name: " << constraint_name_ << ", nominal wrench mat det : \n" << nominal_wrench_mat_det << std::endl;
+              std::cout << "constraint name: " << constraint_name_ << ", nominal static thrust: \n" << static_thrust.transpose() << std::endl;
             }
 
           /* update the result */
-          if(p_det_min_ > nominal_p_det) p_det_min_ = nominal_p_det;
+          if(wrench_mat_det_min_ > nominal_wrench_mat_det) wrench_mat_det_min_ = nominal_wrench_mat_det;
           if(control_margin_min_ > nominal_control_margin) control_margin_min_ = nominal_control_margin;
-          if(f_min_ > nominal_hovering_f.minCoeff())
-            f_min_ = nominal_hovering_f.minCoeff(&f_min_rotor_);
-          if(f_max_ < nominal_hovering_f.maxCoeff())
-            f_max_ = nominal_hovering_f.maxCoeff(&f_max_rotor_);
+          if(f_min_ > static_thrust.minCoeff())
+            f_min_ = static_thrust.minCoeff(&f_min_rotor_);
+          if(f_max_ < static_thrust.maxCoeff())
+            f_max_ = static_thrust.maxCoeff(&f_max_rotor_);
+
+          double delta_angle = 0.0001; // [rad]
+          auto perturbate = [&](int col, KDL::Rotation root_att, KDL::JntArray joint_vector)
+            {
+              hydrus_robot_model->setCogDesireOrientation(root_att);
+              hydrus_robot_model->updateRobotModel(joint_vector);
+              hydrus_robot_model->stabilityCheck();
+
+              A(0, col) = (hydrus_robot_model->getControlMargin() - nominal_control_margin) /delta_angle;  // control margin
+
+              A(1, col) = (hydrus_robot_model->getWrenchMatDeterminant() - nominal_wrench_mat_det) /delta_angle; // singularity
+              A.block(2, col, rotor_num_, 1) = (hydrus_robot_model->getStaticThrust() - static_thrust) / delta_angle; // static thrust
+            };
 
           /* joint */
-          double delta_angle = 0.001; // [rad]
-          for(int index = 0; index < joint_indices.size(); index++)
+          int col_index = 6;
+          for (const auto& joint_index : joint_indices)
             {
               KDL::JntArray perturbation_joint_vector = curr_joint_vector;
-              perturbation_joint_vector(joint_indices.at(index)) += delta_angle;
-              robotModelUpdate(curr_root_att, perturbation_joint_vector);
-
-              /* control margin */
-              A(0, 6 + index) = (hydrus_robot_model->getControlMargin() - nominal_control_margin) /delta_angle;
-              /* singularity */
-              A(1, 6 + index) = (hydrus_robot_model->getPdeterminant() - nominal_p_det) /delta_angle;
-              /* hovering thrust */
-              A.block(2, 6 + index, rotor_num_, 1) = (hydrus_robot_model->getOptimalHoveringThrust() - nominal_hovering_f) / delta_angle;
+              perturbation_joint_vector(joint_index) += delta_angle;
+              perturbate(col_index, curr_root_att, perturbation_joint_vector);
+              col_index++;
             }
-
-          if(debug)
-            std::cout << "constraint (" << constraint_name_.c_str()  << "): matrix A: \n" << A << std::endl;
 
           if(full_body_)
             {
               /* root */
               /* roll */
-              robotModelUpdate(curr_root_att * KDL::Rotation::RPY(delta_angle, 0, 0), curr_joint_vector);
-              /* control margin */
-              A(0, 3) = (hydrus_robot_model->getControlMargin() - nominal_control_margin) / delta_angle;
-              /* singularity */
-              A(1, 3) = (hydrus_robot_model->getPdeterminant() - nominal_p_det) / delta_angle;
-              /* hovering thrust */
-              A.block(2, 3, rotor_num_, 1) = (hydrus_robot_model->getOptimalHoveringThrust() - nominal_hovering_f) / delta_angle;
-
-              /*  pitch */
-              robotModelUpdate(curr_root_att * KDL::Rotation::RPY(0, delta_angle, 0), curr_joint_vector);
-              /* control margin */
-              A(0, 4) = (hydrus_robot_model->getControlMargin() - nominal_control_margin) / delta_angle;
-              /* singularity */
-              A(1, 4) = (hydrus_robot_model->getPdeterminant() - nominal_p_det) / delta_angle;
-              /* hovering thrust */
-              A.block(2, 4, rotor_num_, 1) = (hydrus_robot_model->getOptimalHoveringThrust() - nominal_hovering_f) / delta_angle;
+              perturbate(3, curr_root_att * KDL::Rotation::RPY(delta_angle, 0, 0), curr_joint_vector);
+              /* pitch */
+              perturbate(4, curr_root_att * KDL::Rotation::RPY(0, delta_angle, 0), curr_joint_vector);
 
               /* yaw */
-              robotModelUpdate(curr_root_att * KDL::Rotation::RPY(0, 0, delta_angle), curr_joint_vector);
-
-              /* control margin */
-              A(0, 5) = (hydrus_robot_model->getControlMargin() - nominal_control_margin) / delta_angle;
-              /* singularity */
-              A(1, 5) = (hydrus_robot_model->getPdeterminant() - nominal_p_det) / delta_angle;
-              /* hovering thrust */
-              A.block(2, 5, rotor_num_, 1) = (hydrus_robot_model->getOptimalHoveringThrust() - nominal_hovering_f) / delta_angle;
+              perturbate(5, curr_root_att * KDL::Rotation::RPY(0, 0, delta_angle), curr_joint_vector);
             }
 
           /* 0. revert the robot model with current state */
-          robotModelUpdate(curr_root_att, curr_joint_vector);
+          hydrus_robot_model->setCogDesireOrientation(curr_root_att);
+          hydrus_robot_model->updateRobotModel(curr_joint_vector);
         }
     };
   };
