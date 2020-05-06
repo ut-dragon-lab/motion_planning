@@ -54,7 +54,7 @@ namespace differential_kinematics
     class LinkAttitude :public Base
     {
     public:
-      LinkAttitude(): result_roll_max_(0), result_pitch_max_(0)
+      LinkAttitude(): roll_max_(0), pitch_max_(0)
       {}
       ~LinkAttitude(){}
 
@@ -66,112 +66,62 @@ namespace differential_kinematics
         Base::initialize(nh, nhp, planner, constraint_name, orientation, full_body);
         nc_ = 2 * rotor_num_; //roll + pitch
 
-        nhp_.param ("roll_angle_thre", roll_angle_thre_, 1.0);
-        if(verbose_) std::cout << "roll_angle_thre: " << std::setprecision(3) << roll_angle_thre_ << std::endl;
-        nhp_.param ("pitch_angle_thre", pitch_angle_thre_, 1.0);
-        if(verbose_) std::cout << "pitch_angle_thre: " << std::setprecision(3) << pitch_angle_thre_ << std::endl;
-
-        nhp_.param ("attitude_change_vel_thre", attitude_change_vel_thre_, 0.1);
-        if(verbose_) std::cout << "attitude_change_vel_thre: " << std::setprecision(3) << attitude_change_vel_thre_ << std::endl;
-        nhp_.param ("attitude_constraint_range", attitude_constraint_range_, 0.17);
-        if(verbose_) std::cout << "attitude_constraint_range: " << std::setprecision(3) << attitude_constraint_range_ << std::endl;
-        nhp_.param ("attitude_forbidden_range", attitude_forbidden_range_, 0.02);
-        if(verbose_) std::cout << "attitude_forbidden_range: " << std::setprecision(3) << attitude_forbidden_range_ << std::endl;
-
+        getParam<double>("roll_angle_thre", roll_angle_thre_, 1.0);
+        getParam<double>("pitch_angle_thre", pitch_angle_thre_, 1.0);
+        getParam<double>("attitude_change_vel_thre", attitude_change_vel_thre_, 0.1);
+        getParam<double>("attitude_constraint_range", attitude_constraint_range_, 0.17);
+        getParam<double>("attitude_forbidden_range", attitude_forbidden_range_, 0.02);
       }
 
       bool getConstraint(Eigen::MatrixXd& A, Eigen::VectorXd& lb, Eigen::VectorXd& ub, bool debug = false)
       {
-        double j_ndof = planner_->getRobotModelPtr()->getLinkJointIndices().size();
+        auto robot_model = planner_->getRobotModelPtr();
+        const auto joint_positions = planner_->getTargetJointVector<KDL::JntArray>();
+        const auto& seg_frames = robot_model->getSegmentsTf();
+        const auto root_pose = planner_->getTargetRootPose<KDL::Frame>();
+        double j_ndof = robot_model->getLinkJointIndices().size();
         A = Eigen::MatrixXd::Zero(nc_, j_ndof + 6);
         lb = Eigen::VectorXd::Constant(nc_, -attitude_change_vel_thre_);
         ub = Eigen::VectorXd::Constant(nc_, attitude_change_vel_thre_);
 
-        /* 1. calculate the matrix converting from euler to angular velocity */
-        KDL::Rotation root_att = planner_->getTargetRootPose<KDL::Frame>().M;
-
-        Eigen::Matrix3d r_root = aerial_robot_model::kdlToEigen(root_att);
-
-        /* 2. get jacobian w.r.t root link */
-        Eigen::MatrixXd jacobian = Eigen::MatrixXd::Zero(3, j_ndof + 6);
-
-        /* calculate the jacobian */
-        KDL::TreeJntToJacSolver jac_solver(planner_->getRobotModelPtr()->getTree());
-        KDL::Jacobian jac(planner_->getRobotModelPtr()->getTree().getNrOfJoints());
-
-        if(jac_solver.JntToJac(planner_->getTargetJointVector<KDL::JntArray>(),
-                               jac, std::string("link") + std::to_string(rotor_num_)) == KDL::SolverI::E_NOERROR)
+        for(int i = 0; i < rotor_num_; i++)
           {
-            if(debug) std::cout << "raw jacobian: \n" << jac.data << std::endl;
+            std::string link = std::string("link") + std::to_string(i+1);
+            Eigen::MatrixXd jacobian = robot_model->getJacobian(joint_positions, link).bottomRows(3);
 
-            /* joint reassignment  */
-            for(size_t i = 0; i < j_ndof; i++)
-              jacobian.block(0, 6 + i , 3, 1) = jac.data.block(3, planner_->getRobotModelPtr()->getLinkJointIndices().at(i), 3, 1);
-
-            /* full body */
-            if(full_body_)
-              jacobian.block(0, 3, 3, 3) = Eigen::MatrixXd::Identity(3, 3);
-
-            if(debug) std::cout << "jacobian: \n" << jacobian << std::endl;
-          }
-        else
-          {
-            ROS_WARN("constraint (%s) can not calculate the jacobian", constraint_name_.c_str());
-            return false;
-          }
-
-        /* set A and lb/ub */
-        auto full_fk_result = planner_->getRobotModelPtr()->fullForwardKinematics(planner_->getTargetJointVector<KDL::JntArray>());
-        int joint_offset = j_ndof / (rotor_num_ - 1 );
-        std::vector<double> roll_vec; // for debug
-        std::vector<double> pitch_vec; // for debug
-        std::vector<KDL::Frame> f_link_vec; // for debug
-
-        for(int index = 0; index < rotor_num_; index++)
-          {
-            /* lb/ub */
-            KDL::Frame f_link = full_fk_result.at(std::string("link") + std::to_string(index + 1));
-            f_link_vec.push_back(f_link);
             double r,p,y;
-            (root_att * f_link.M).GetRPY(r, p, y);
-            if(debug) std::cout << std::string("link") + std::to_string(index + 1) << ": roll: " << r << ", pitch: " << p << std::endl;
+            (root_pose.M * seg_frames.at(link).M).GetRPY(r, p, y);
+            if(debug) std::cout << link << ": roll: " << r << ", pitch: " << p << std::endl;
             Eigen::Matrix3d r_convert;
             r_convert << 0, - sin(y), cos(y) * cos(p), 0, cos(y), sin(y) * cos(p), 1, 0, -sin(p);
             if(debug) std::cout << "constraint (" << constraint_name_.c_str()  << "): r_convert inverse: \n" << r_convert.inverse() << std::endl;
-            Eigen::MatrixXd jacobian_euler = r_convert.inverse() * r_root * jacobian;
-            //if(debug) std::cout << "constraint (" << constraint_name_.c_str()  << "): jacobian_euler: \n" << jacobian_euler << std::endl;
+            jacobian = r_convert.inverse() * jacobian;
 
             /* yaw -> pitch -> roll => pitch -> roll */
-            /* pitch -> roll */
-            A.block(index * 2, 0, 2, 6 + index * joint_offset) = jacobian_euler.block(1, 0, 2, 6 + index * joint_offset);
+            A.middleRows(i * 2, 2) = jacobian.bottomRows(2);
 
             /* pitch */
-            if(p - (-pitch_angle_thre_) < attitude_constraint_range_)
-              lb(index * 2 ) *= ((p - (-pitch_angle_thre_) - attitude_forbidden_range_ ) / (attitude_constraint_range_ - attitude_forbidden_range_));
-            if(pitch_angle_thre_ - p < attitude_constraint_range_)
-              ub(index * 2 ) *= ((pitch_angle_thre_ - p - attitude_forbidden_range_ ) / (attitude_constraint_range_ - attitude_forbidden_range_));
+            lb(i * 2) = damplingBound(p - (-pitch_angle_thre_), -attitude_change_vel_thre_, attitude_constraint_range_, attitude_forbidden_range_);
+            ub(i * 2) = damplingBound(pitch_angle_thre_ - p, attitude_change_vel_thre_, attitude_constraint_range_, attitude_forbidden_range_);
             /* roll */
-            if(r - (-roll_angle_thre_) < attitude_constraint_range_)
-              lb(index * 2 + 1) *= ((r - (-roll_angle_thre_) - attitude_forbidden_range_ ) / (attitude_constraint_range_ - attitude_forbidden_range_));
-            if(roll_angle_thre_ - r < attitude_constraint_range_)
-              ub(index * 2 + 1) *= ((roll_angle_thre_ - r - attitude_forbidden_range_ ) / (attitude_constraint_range_ - attitude_forbidden_range_));
+            lb(i * 2 + 1) = damplingBound(r - (-roll_angle_thre_), -attitude_change_vel_thre_, attitude_constraint_range_, attitude_forbidden_range_);
+            ub(i * 2 + 1) = damplingBound(roll_angle_thre_ - r, attitude_change_vel_thre_, attitude_constraint_range_, attitude_forbidden_range_);
+
 
             /* update result */
-            if(result_roll_max_ < fabs(r))
+            if(roll_max_ < fabs(r))
               {
-                result_roll_max_ = fabs(r);
-                result_roll_max_link_ = index + 1;
+                roll_max_ = fabs(r);
+                roll_max_link_ = link;
               }
-            if(result_pitch_max_ < fabs(p))
+            if(pitch_max_ < fabs(p))
               {
-                result_pitch_max_ = fabs(p);
-                result_pitch_max_link_ = index + 1;
+                pitch_max_ = fabs(p);
+                pitch_max_link_ = link;
               }
 
-            /* for debug */
-            roll_vec.push_back(r);
-            pitch_vec.push_back(p);
           }
+
         if(debug)
           {
             std::cout << "constraint (" << constraint_name_.c_str()  << "): matrix A: \n" << A << std::endl;
@@ -185,8 +135,8 @@ namespace differential_kinematics
       void result()
       {
         std::cout << constraint_name_ << "\n"
-                  << "max roll angle: " << result_roll_max_ << " at link" << result_roll_max_link_ << "\n"
-                  << "max pitch angle: " << result_pitch_max_ << " at link" << result_pitch_max_link_
+                  << "max roll angle: " << roll_max_ << " at " << roll_max_link_ << "\n"
+                  << "max pitch angle: " << pitch_max_ << " at " << pitch_max_link_
                   << std::endl;
       }
 
@@ -199,10 +149,10 @@ namespace differential_kinematics
       double attitude_constraint_range_;
       double attitude_forbidden_range_;
 
-      double result_roll_max_;
-      double result_pitch_max_;
-      int result_roll_max_link_;
-      int result_pitch_max_link_;
+      double roll_max_;
+      double pitch_max_;
+      std::string roll_max_link_;
+      std::string pitch_max_link_;
 
     };
   };
