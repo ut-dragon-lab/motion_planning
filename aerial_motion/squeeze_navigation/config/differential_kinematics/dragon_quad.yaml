@@ -14,6 +14,7 @@ filter_rate: 1 # no filtering
 
 # discrete path resampling
 discrete_path_resampling_flag: true
+resampling_angular_rate: 1.0
 
 debug: false
 start_state_x: 0.0
