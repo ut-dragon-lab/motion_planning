@@ -197,8 +197,7 @@ namespace differential_kinematics
 
          */
 
-        KDL::Rotation curr_root_att;
-        tf::quaternionTFToKDL(planner_->getTargetRootPose().getRotation(), curr_root_att);
+        KDL::Rotation curr_root_att = planner_->getTargetRootPose<KDL::Frame>().M;
         const auto& seg_frames =  planner_->getRobotModelPtr()->getSegmentsTf();
         const auto& segment_map = planner_->getRobotModelPtr()->getTree().getSegments();
         const auto& inertia_map = planner_->getRobotModelPtr()->getInertiaMap();

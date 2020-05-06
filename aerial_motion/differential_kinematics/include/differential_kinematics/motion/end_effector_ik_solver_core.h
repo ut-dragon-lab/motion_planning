@@ -48,6 +48,7 @@
 #include <visualization_msgs/MarkerArray.h>
 #include <differential_kinematics/TargetPose.h>
 #include <aerial_motion_planning_msgs/multilink_state.h>
+#include <kdl_conversions/kdl_msg.h>
 
 using namespace differential_kinematics;
 

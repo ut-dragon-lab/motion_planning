@@ -123,8 +123,7 @@ namespace differential_kinematics
       auto full_fk_result = planner_->getRobotModelPtr()->fullForwardKinematics(planner_->getTargetJointVector<KDL::JntArray>());
 
       /* get root tf in world frame */
-      KDL::Frame f_root;
-      tf::transformTFToKDL(planner_->getTargetRootPose(), f_root);
+      KDL::Frame f_root = planner_->getTargetRootPose<KDL::Frame>();
 
       /* check the distance */
       for(auto it = robot_collision_model_.begin(); it != robot_collision_model_.end(); it++)
@@ -266,7 +265,7 @@ namespace differential_kinematics
           /* conver normal to root link: from env to robot */
           tf::Vector3 distance_arrow;
           tf::vectorKDLToTF(p_in_robot - p_in_env, distance_arrow);
-          tf::Vector3 n_in_root_link =  planner_->getTargetRootPose().getBasis().inverse() * distance_arrow.normalized();
+          tf::Vector3 n_in_root_link =  planner_->getTargetRootPose<tf::Transform>().getBasis().inverse() * distance_arrow.normalized();
           Eigen::Vector3d n_in_root_link_eigen;
           tf::vectorTFToEigen(n_in_root_link, n_in_root_link_eigen);
 

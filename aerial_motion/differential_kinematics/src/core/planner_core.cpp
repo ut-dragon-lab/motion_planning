@@ -84,6 +84,18 @@ namespace differential_kinematics
       motion_timer_ = nhp_.createTimer(ros::Duration(1.0 / rate), &Planner::motionFunc, this);
   }
 
+  template<> const KDL::Frame Planner::getTargetRootPose() const
+  {
+    return target_root_pose_;
+  }
+
+  template<> const tf::Transform Planner::getTargetRootPose() const
+  {
+    tf::Transform pose;
+    tf::transformKDLToTF(target_root_pose_, pose);
+    return pose;
+  }
+
   template<> const sensor_msgs::JointState Planner::getTargetJointVector() const
   {
     return robot_model_ptr_->kdlJointToMsg(target_joint_vector_);
@@ -94,12 +106,22 @@ namespace differential_kinematics
     return target_joint_vector_;
   }
 
-  template<> void Planner::setTargetJointVector(const KDL::JntArray& target_joint_vector)
+  template<> void Planner::setTargetRootPose(const KDL::Frame target_root_pose)
+  {
+    target_root_pose_ = target_root_pose;
+  }
+
+  template<> void Planner::setTargetRootPose(const tf::Transform target_root_pose)
+  {
+    tf::transformTFToKDL(target_root_pose, target_root_pose_);
+  }
+
+  template<> void Planner::setTargetJointVector(const KDL::JntArray target_joint_vector)
   {
     target_joint_vector_ = target_joint_vector;
   }
 
-  template<> void Planner::setTargetJointVector(const sensor_msgs::JointState& target_joint_vector)
+  template<> void Planner::setTargetJointVector(const sensor_msgs::JointState target_joint_vector)
   {
     target_joint_vector_ = robot_model_ptr_->jointMsgToKdl(target_joint_vector);
   }
@@ -109,8 +131,7 @@ namespace differential_kinematics
     auto modelUpdate = [this]()
       {
         KDL::Rotation root_att;
-        tf::quaternionTFToKDL(target_root_pose_.getRotation(), root_att);
-        robot_model_ptr_->setCogDesireOrientation(root_att);
+        robot_model_ptr_->setCogDesireOrientation(target_root_pose_.M);
         robot_model_ptr_->updateRobotModel(target_joint_vector_);
         robot_model_ptr_->updateJacobians();
 
@@ -294,15 +315,14 @@ namespace differential_kinematics
 
         /* step5: update the state (root link & joint state) */
         /* root link incremental transformation: */
-        tf::Vector3 delta_pos_from_root_link;
-        tf::vectorEigenToTF(delta_state_vector.head(3), delta_pos_from_root_link);
-        tf::Vector3 delta_rot_from_root_link;
-        tf::vectorEigenToTF(delta_state_vector.segment(3, 3), delta_rot_from_root_link);
+        KDL::Vector delta_pos, delta_rot;
+        tf::vectorEigenToKDL(delta_state_vector.head(3), delta_pos);
+        tf::vectorEigenToKDL(delta_state_vector.segment(3, 3), delta_rot);
 
-        if(delta_rot_from_root_link.length() == 0)
-          target_root_pose_ *= tf::Transform(tf::Quaternion(0, 0, 0, 1), delta_pos_from_root_link);
+        if(delta_rot.Norm() == 0)
+          target_root_pose_ = target_root_pose_ *  KDL::Frame(KDL::Rotation::Identity(), delta_pos);
         else
-          target_root_pose_ *= tf::Transform(tf::Quaternion(delta_rot_from_root_link, delta_rot_from_root_link.length()), delta_pos_from_root_link);
+          target_root_pose_ = target_root_pose_ *  KDL::Frame(KDL::Rotation::Rot(delta_rot, delta_rot.Norm()), delta_pos);
 
         /* udpate the joint angles */
         for(size_t i = 0; i < robot_model_ptr_->getLinkJointIndices().size(); i++) target_joint_vector_(robot_model_ptr_->getLinkJointIndices().at(i)) += delta_state_vector(i + 6);
@@ -345,7 +365,9 @@ namespace differential_kinematics
         sensor_msgs::JointState joint_msg = robot_model_ptr_->kdlJointToMsg(target_joint_vector_sequence_.at(sequence_));
         joint_msg.header.stamp = now_time;
 
-        br_.sendTransform(tf::StampedTransform(target_root_pose_sequence_.at(sequence_), now_time, "world", "root"));
+        tf::Transform root_pose;
+        tf::transformKDLToTF(target_root_pose_sequence_.at(sequence_), root_pose);
+        br_.sendTransform(tf::StampedTransform(root_pose, now_time, "world", "root"));
         joint_state_pub_.publish(joint_msg);
         sequence_++;
         if(sequence_ == target_joint_vector_sequence_.size()) sequence_ = 0;

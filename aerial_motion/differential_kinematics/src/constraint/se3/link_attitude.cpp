@@ -88,12 +88,9 @@ namespace differential_kinematics
         ub = Eigen::VectorXd::Constant(nc_, attitude_change_vel_thre_);
 
         /* 1. calculate the matrix converting from euler to angular velocity */
-        KDL::Rotation root_att;
-        tf::quaternionTFToKDL(planner_->getTargetRootPose().getRotation(), root_att);
+        KDL::Rotation root_att = planner_->getTargetRootPose<KDL::Frame>().M;
 
-        Eigen::Matrix3d r_root;
-        tf::matrixTFToEigen(planner_->getTargetRootPose().getBasis(), r_root);
-        //planner_->getTargetRootPose().getBasis().getRPY(r, p, y);
+        Eigen::Matrix3d r_root = aerial_robot_model::kdlToEigen(root_att);
 
         /* 2. get jacobian w.r.t root link */
         Eigen::MatrixXd jacobian = Eigen::MatrixXd::Zero(3, j_ndof + 6);

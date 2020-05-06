@@ -13,7 +13,8 @@ find_package(catkin REQUIRED COMPONENTS
   dragon
   aerial_motion_planning_msgs
   pluginlib
-  tf_conversions)
+  tf_conversions
+  kdl_conversions)
 
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
 
@@ -67,7 +68,7 @@ generate_messages(
 catkin_package(
   INCLUDE_DIRS include ${QPOASES_INSTALL_DIR}/include ${FCL_INCLUDE_DIRS}
   LIBRARIES  differential_kinematics_planner_core end_effector_ik_solver_core
-  CATKIN_DEPENDS hydrus dragon
+  CATKIN_DEPENDS hydrus dragon kdl_conversions
   DEPENDS fcl_catkin
 )
 
@@ -113,7 +114,7 @@ target_link_libraries (dragon_differential_kinematics_constraint_pluginlib ${cat
 
 # end-effector IK solver core
 add_library (end_effector_ik_solver_core src/motion/end_effector_ik_solver_core.cpp)
-target_link_libraries (end_effector_ik_solver_core ${catkin_LIBRARIES} differential_kinematics_planner_core)
+target_link_libraries (end_effector_ik_solver_core ${catkin_LIBRARIES} differential_kinematics_planner_core differential_kinematics_cost_pluginlib differential_kinematics_constraint_pluginlib)
 add_dependencies(end_effector_ik_solver_core ${PROJECT_NAME}_generate_messages_cpp)
 
 ## specific robots:

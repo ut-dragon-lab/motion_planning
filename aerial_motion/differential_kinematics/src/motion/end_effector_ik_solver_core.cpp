@@ -121,16 +121,11 @@ bool EndEffectorIKSolverCore::inverseKinematics(const tf::Transform& target_ee_p
   cost_container.back()->initialize(nh_, nhp_, planner_core_ptr_, "differential_kinematics_cost/cartesian_constraint", orientation, full_body);
 
   /* special process: definition of end coords */
-  KDL::Frame ee_frame; tf::poseTFToKDL(end_effector_relative_pose_, ee_frame);
-  reinterpret_cast<cost::CartersianConstraint*>(cost_container.back().get())->updateChain("root", parent_seg_, KDL::Segment(std::string("end_effector"), KDL::Joint(KDL::Joint::None), ee_frame));
-  //boost::dynamic_pointer_cast<cost::CartersianConstraint>(cost_container.back())->updateChain("root", std::string("link") + std::to_string(rotor_num), KDL::Segment(std::string("end_effector"), KDL::Joint(KDL::Joint::None), KDL::Frame(KDL::Vector(planner_core_ptr_->getRobotModelPtr()->getLinkLength(), 0, 0))));
-  /* TODO: following end effector is not valid for full-body ik solution, can not figure the reason */
-  //boost::dynamic_pointer_cast<cost::CartersianConstraint>(cost_container.back())->updateChain("root", std::string("link3"), KDL::Segment(std::string("end_effector"), KDL::Joint(KDL::Joint::None), KDL::Frame(KDL::Vector(planner_core_ptr_->getRobotModelPtr()->getLinkLength(), 0, 0))));
+  boost::dynamic_pointer_cast<cost::CartersianConstraint>(cost_container.back())->setReferenceFrame(parent_seg_, end_effector_relative_pose_);
+  //reinterpret_cast<cost::CartersianConstraint*>(cost_container.back().get())->setReferenceFrame(parent_seg_, end_effector_relative_pose_);
 
-
-  //boost::dynamic_pointer_cast<cost::CartersianConstraint>(cost_container.back())->updateTargetFrame(target_ee_pose_);
   target_ee_pose_ = target_ee_pose;
-  reinterpret_cast<cost::CartersianConstraint*>(cost_container.back().get())->updateTargetFrame(target_ee_pose);
+  boost::dynamic_pointer_cast<cost::CartersianConstraint>(cost_container.back())->setTargetFrame(target_ee_pose);
 
   /* set free axis */
   std::vector<int> free_axis_list(0);
@@ -142,7 +137,7 @@ bool EndEffectorIKSolverCore::inverseKinematics(const tf::Transform& target_ee_p
   if(rot_free_axis == std::string("z")) free_axis_list.push_back(MaskAxis::ROT_Z);
 
   if(free_axis_list.size() > 0)
-    reinterpret_cast<cost::CartersianConstraint*>(cost_container.back().get())->setFreeAxis(free_axis_list);
+    boost::dynamic_pointer_cast<cost::CartersianConstraint>(cost_container.back())->setFreeAxis(free_axis_list);
 
   /* declare the differential kinemtiacs constraint */
   pluginlib::ClassLoader<constraint::Base>  constraint_plugin_loader("differential_kinematics", "differential_kinematics::constraint::Base");
@@ -161,8 +156,7 @@ bool EndEffectorIKSolverCore::inverseKinematics(const tf::Transform& target_ee_p
     {
       constraint_container.push_back(constraint_plugin_loader.createInstance("differential_kinematics_constraint/collision_avoidance"));
       constraint_container.back()->initialize(nh_, nhp_, planner_core_ptr_, "differential_kinematics_constraint/collision_avoidance", orientation, full_body);
-      //boost::dynamic_pointer_cast<constraint::CollisionAvoidance>(constraint_container.back())->setEnv(env_collision_);
-      reinterpret_cast<constraint::CollisionAvoidance*>(constraint_container.back().get())->setEnv(env_collision_);
+      boost::dynamic_pointer_cast<constraint::CollisionAvoidance>(constraint_container.back())->setEnv(env_collision_);
     }
 
   /* reset the init joint(joint) state the init root pose for planner */
@@ -179,7 +173,7 @@ bool EndEffectorIKSolverCore::inverseKinematics(const tf::Transform& target_ee_p
         {
           /* insert the result discrete path */
           geometry_msgs::Pose root_pose;
-          tf::poseTFToMsg(planner_core_ptr_->getRootPoseSequence().at(index), root_pose);
+          tf::poseKDLToMsg(planner_core_ptr_->getRootPoseSequence().at(index), root_pose);
           path_.push_back(MultilinkState(robot_model_ptr_, root_pose, planner_core_ptr_->getJointStateSequence().at(index)));
         }
 

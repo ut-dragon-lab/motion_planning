@@ -97,8 +97,7 @@ namespace differential_kinematics
         lb = Eigen::VectorXd::Constant(nc_, -overlap_change_vel_thre_);
         ub = Eigen::VectorXd::Constant(nc_, 1e6);
 
-        KDL::Rotation curr_root_att;
-        tf::quaternionTFToKDL(planner_->getTargetRootPose().getRotation(), curr_root_att);
+        auto curr_root_att = planner_->getTargetRootPose<KDL::Frame>().M;
         auto curr_joint_vector =  planner_->getTargetJointVector<KDL::JntArray>();
         auto edfs_origin_from_cog = dragon_model_ptr->getEdfsOriginFromCog<Eigen::Vector3d>();
 

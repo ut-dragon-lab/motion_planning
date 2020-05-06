@@ -275,7 +275,7 @@ namespace squeeze_motion_planner
       /* defualt reference point is the openning center */
       tf::Transform target_frame = openning_center_frame_;
       target_frame.setOrigin(target_frame.getOrigin() + openning_center_frame_.getBasis() * tf::Vector3(0, 0, delta_pinch_length_));
-      cartersian_constraint_->updateTargetFrame(target_frame);
+      cartersian_constraint_->setTargetFrame(target_frame);
       ROS_WARN("target frame:[%f, %f, %f]", target_frame.getOrigin().x(),
                target_frame.getOrigin().y(), target_frame.getOrigin().z());
 
@@ -343,7 +343,7 @@ namespace squeeze_motion_planner
             {
 
               geometry_msgs::Pose root_pose;
-              tf::poseTFToMsg(planner_core_ptr_->getRootPoseSequence().at(index), root_pose);
+              tf::poseKDLToMsg(planner_core_ptr_->getRootPoseSequence().at(index), root_pose);
               path_.push_back(MultilinkState(robot_model_ptr_, root_pose, planner_core_ptr_->getJointStateSequence().at(index)));
            }
 
@@ -352,7 +352,8 @@ namespace squeeze_motion_planner
           for(int i = 1; i <= 5; i++) // 5 times
             {
               MultilinkState robot_state;
-              tf::Transform end_state = planner_core_ptr_->getRootPoseSequence().back();
+              tf::Transform end_state;
+              tf::transformKDLToTF(planner_core_ptr_->getRootPoseSequence().back(), end_state);
               end_state.getOrigin() += openning_center_frame_.getBasis() * tf::Vector3(0, 0, 0.01 * i);
               geometry_msgs::Pose root_pose;
               tf::poseTFToMsg(end_state, root_pose);
@@ -414,7 +415,7 @@ namespace squeeze_motion_planner
       /* case 3: final phase: the root link is close to the openning_center gap => finish */
 
       /* case3 */
-      if((openning_center_frame_.inverse() * planner_core_ptr_->getTargetRootPose()).getOrigin().z() > -0.01)
+      if((openning_center_frame_.inverse() * planner_core_ptr_->getTargetRootPose<tf::Transform>()).getOrigin().z() > -0.01)
         {
           if(phase_ < CASE2_2)
             {
@@ -425,15 +426,12 @@ namespace squeeze_motion_planner
           if(debug_) ROS_INFO("case 3");
           /* convergence */
           ROS_WARN("complete passing regarding to the cartersian constraint");
-          //cartersian_constraint_->updateTargetFrame(planner_core_ptr_->getTargetRootPose());
-          cartersian_constraint_->updateChain("root", std::string("link1"), KDL::Segment(std::string("pinch_point"), KDL::Joint(KDL::Joint::None), KDL::Frame(KDL::Vector(0, 0, 0))));
+          cartersian_constraint_->setReferenceFrame(std::string("link1"), KDL::Frame::Identity());
           return true;
         }
 
       /* update robot model (maybe duplicated, but necessary) */
-      KDL::Rotation root_att;
-      tf::quaternionTFToKDL(planner_core_ptr_->getTargetRootPose().getRotation(), root_att);
-      robot_model_ptr_->setCogDesireOrientation(root_att);
+      robot_model_ptr_->setCogDesireOrientation(planner_core_ptr_->getTargetRootPose<KDL::Frame>().M);
       robot_model_ptr_->updateRobotModel(planner_core_ptr_->getTargetJointVector<KDL::JntArray>());
 
       /* fullFK */
@@ -443,12 +441,12 @@ namespace squeeze_motion_planner
       tf::Transform prev_seg_tf;
       double prev_seg_z;
       std::string prev_seg_name = squeeze_chain_.segments.front().getName();
-      //for(int index = 1; index <= robot_model_ptr_->getRotorNum(); index++)
+
       for(const auto& segment: squeeze_chain_.segments)
         {
           tf::Transform curr_seg_tf;
           tf::transformKDLToTF(full_fk_result.at(segment.getName()), curr_seg_tf);
-          double curr_seg_z = (openning_center_frame_.inverse() * planner_core_ptr_->getTargetRootPose() * curr_seg_tf).getOrigin().z();
+          double curr_seg_z = (openning_center_frame_.inverse() * planner_core_ptr_->getTargetRootPose<tf::Transform>() * curr_seg_tf).getOrigin().z();
           if(curr_seg_z > 0)
             {
               /* case 2.2 */
@@ -468,7 +466,7 @@ namespace squeeze_motion_planner
 
               assert(segment.getName() !=  prev_seg_name);
 
-              cartersian_constraint_->updateChain("root", prev_seg_name, KDL::Segment(std::string("pinch_point"), KDL::Joint(KDL::Joint::None), KDL::Frame(KDL::Vector(seg_length * ref_point_ratio , 0, 0))));
+              cartersian_constraint_->setReferenceFrame(prev_seg_name, KDL::Frame(KDL::Vector(seg_length * ref_point_ratio , 0, 0)));
 
               return true;
             }
@@ -482,7 +480,7 @@ namespace squeeze_motion_planner
       tf::Transform tail_seg_tf;
       tf::transformKDLToTF(full_fk_result.at(squeeze_chain_.segments.back().getName()),tail_seg_tf);
       tf::Vector3 tail_pos_in_root_link; tail_pos_in_root_link = tail_seg_tf * tf::Vector3(robot_model_ptr_->getLinkLength(), 0, 0);
-      double tail_z = (openning_center_frame_.inverse() * planner_core_ptr_->getTargetRootPose() *  tail_pos_in_root_link).z();
+      double tail_z = (openning_center_frame_.inverse() * planner_core_ptr_->getTargetRootPose<tf::Transform>() *  tail_pos_in_root_link).z();
 
       if (tail_z < 0)  /* case 1 */
         {
@@ -493,7 +491,7 @@ namespace squeeze_motion_planner
             }
           if(debug_) ROS_INFO("case 1, the tail does not pass");
 
-          cartersian_constraint_->updateChain("root", squeeze_chain_.segments.back().getName(), KDL::Segment(std::string("pinch_point"), KDL::Joint(KDL::Joint::None), KDL::Frame(KDL::Vector(robot_model_ptr_->getLinkLength(), 0, 0))));
+          cartersian_constraint_->setReferenceFrame(squeeze_chain_.segments.back().getName(), KDL::Frame(KDL::Vector(robot_model_ptr_->getLinkLength(), 0, 0)));
 
         }
       else /* case 2.1 */
@@ -509,7 +507,7 @@ namespace squeeze_motion_planner
           if(debug_) ROS_INFO("case 2.1, tail_z: %f, previous_z: %f, new_ratio: %f, reference_point_ratio_: %f", tail_z, prev_seg_z, ref_point_ratio, reference_point_ratio_);
           if(ref_point_ratio < reference_point_ratio_) reference_point_ratio_ = ref_point_ratio;
 
-          cartersian_constraint_->updateChain("root", squeeze_chain_.segments.back().getName(), KDL::Segment(std::string("pinch_point"), KDL::Joint(KDL::Joint::None), KDL::Frame(KDL::Vector(robot_model_ptr_->getLinkLength() * reference_point_ratio_, 0, 0))));
+          cartersian_constraint_->setReferenceFrame(squeeze_chain_.segments.back().getName(), KDL::Frame(KDL::Vector(robot_model_ptr_->getLinkLength() * reference_point_ratio_, 0, 0)));
         }
 
       return true;

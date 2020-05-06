@@ -68,7 +68,7 @@ namespace differential_kinematics
     {
 
     public:
-      CartersianConstraint(): chain_joint_index_(0)
+      CartersianConstraint()
       {
         free_axis_mask_ = Eigen::VectorXd::Ones(6);
       }
@@ -81,32 +81,29 @@ namespace differential_kinematics
 
       bool getHessianGradient(bool& convergence, Eigen::MatrixXd& H, Eigen::VectorXd& g, bool debug = false);
 
-      /* special process */
-      void updateChain(std::string root_link, std::string parent_link, KDL::Segment referece_frame)
+      void setReferenceFrame(const std::string parent_link, const KDL::Frame reference_frame)
       {
-        planner_->getRobotModelPtr()->getTree().getChain(root_link, parent_link, chain_);
-        chain_.addSegment(referece_frame);
-
-        /* assign the joint name */
-        chain_joint_index_.resize(0);
-
-        auto joint_names = planner_->getRobotModelPtr()->getLinkJointNames();
-
-        for(auto seg : chain_.segments)
-          {
-            if(seg.getJoint().getType() !=  KDL::Joint::JointType::None)
-              {
-                //ROS_INFO("%s", seg.getJoint().getName().c_str()); //debug
-                auto itr = std::find(joint_names.begin(), joint_names.end(), seg.getJoint().getName());
-                assert(itr != joint_names.end());
-                chain_joint_index_.push_back(planner_->getRobotModelPtr()->getLinkJointIndices().at(std::distance(joint_names.begin(), itr)));
-              }
-          }
+        parent_link_ = parent_link;
+        reference_frame_ = reference_frame;
       }
 
-      void updateTargetFrame(const tf::Transform& target_reference_frame)
+      void setReferenceFrame(const std::string parent_link, const tf::Transform reference_frame)
       {
-        target_reference_frame_ = target_reference_frame;
+        KDL::Frame reference_frame_kdl;
+        tf::transformTFToKDL(reference_frame, reference_frame_kdl);
+        setReferenceFrame(parent_link, reference_frame_kdl);
+      }
+
+      void setTargetFrame(const KDL::Frame target_frame)
+      {
+        target_frame_ = target_frame;
+      }
+
+      void setTargetFrame(const tf::Transform target_frame)
+      {
+        KDL::Frame target_frame_kdl;
+        tf::transformTFToKDL(target_frame, target_frame_kdl);
+        setTargetFrame(target_frame_kdl);
       }
 
       void setFreeAxis(const std::vector<int>& free_axis_list)
@@ -144,16 +141,18 @@ namespace differential_kinematics
       double pos_convergence_thre_;
       double rot_convergence_thre_;
       double pos_err_max_;
-      double rot_err_max_;
+      double angle_err_max_;
       double w_pos_err_constraint_;
       double w_att_err_constraint_;
 
-      KDL::Chain chain_;
-      Eigen::MatrixXd W_cartesian_err_constraint_;
-      tf::Transform target_reference_frame_;
-      Eigen::VectorXd free_axis_mask_;
+      // KDL::Chain chain_;
+      //std::vector<int> chain_joint_index_;
 
-      std::vector<int> chain_joint_index_;
+      std::string parent_link_;
+      Eigen::MatrixXd W_cartesian_err_constraint_;
+      KDL::Frame reference_frame_;
+      KDL::Frame target_frame_;
+      Eigen::VectorXd free_axis_mask_;
 
 
       bool calcJointJacobian(Eigen::MatrixXd& jacobian, bool debug);

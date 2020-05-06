@@ -75,8 +75,7 @@ namespace differential_kinematics
       {
         //debug = true;
 
-        KDL::Rotation curr_root_att;
-        tf::quaternionTFToKDL(planner_->getTargetRootPose().getRotation(), curr_root_att);
+        auto curr_root_att = planner_->getTargetRootPose<KDL::Frame>().M;
         auto curr_joint_vector =  planner_->getTargetJointVector<KDL::JntArray>();
         auto robot_model = planner_->getRobotModelPtr();
 
