@@ -60,6 +60,8 @@ differential_kinematics_constraint:
         stability:
                 verbose: true
                 control_margin_thre: 0.3
+                control_margin_constraint_range: 0.03
+                control_margin_forbidden_range: 0.01
                 f_max_thre: 22.0
                 f_min_thre: 10.0
         collision_avoidance:

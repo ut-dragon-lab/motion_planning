@@ -112,6 +112,7 @@ namespace differential_kinematics
         tf::quaternionTFToKDL(target_root_pose_.getRotation(), root_att);
         robot_model_ptr_->setCogDesireOrientation(root_att);
         robot_model_ptr_->updateRobotModel(target_joint_vector_);
+        robot_model_ptr_->updateJacobians();
 
         if(!robot_model_ptr_->stabilityCheck()) ROS_ERROR("[differential kinematics]: invalid stability");
 

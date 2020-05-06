@@ -139,6 +139,7 @@ namespace differential_kinematics
           /* fill lb */
           lb(0) = damplingBound(nominal_control_margin - control_margin_thre_, control_margin_decrease_vel_thre_, control_margin_constraint_range_, control_margin_forbidden_range_);
 
+          // if(lb(0) > 0) ROS_WARN_STREAM("lb0 :" << lb(0) << ", nominal_control_margin: " << nominal_control_margin << ", control_margin_thre :" << control_margin_thre_);
           /* 2. singularity */
           double nominal_wrench_mat_det = hydrus_robot_model->getWrenchMatDeterminant();
           /* fill ub */
@@ -170,6 +171,11 @@ namespace differential_kinematics
           if(f_max_ < static_thrust.maxCoeff())
             f_max_ = static_thrust.maxCoeff(&f_max_rotor_);
 
+
+          A.bottomRows(rotor_num_) = hydrus_robot_model->getLambdaJacobian();
+          if(!full_body_) A.bottomLeftCorner(rotor_num_, 6) = Eigen::MatrixXd::Zero(rotor_num_, 6);
+
+          // numerical solution for control margin and wrench mat determinant
           double delta_angle = 0.0001; // [rad]
           auto perturbate = [&](int col, KDL::Rotation root_att, KDL::JntArray joint_vector)
             {
@@ -180,7 +186,7 @@ namespace differential_kinematics
               A(0, col) = (hydrus_robot_model->getControlMargin() - nominal_control_margin) /delta_angle;  // control margin
 
               A(1, col) = (hydrus_robot_model->getWrenchMatDeterminant() - nominal_wrench_mat_det) /delta_angle; // singularity
-              A.block(2, col, rotor_num_, 1) = (hydrus_robot_model->getStaticThrust() - static_thrust) / delta_angle; // static thrust
+              //A.block(2, col, rotor_num_, 1) = (hydrus_robot_model->getStaticThrust() - static_thrust) / delta_angle; // static thrust
             };
 
           /* joint */
