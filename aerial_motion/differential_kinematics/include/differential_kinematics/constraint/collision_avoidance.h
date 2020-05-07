@@ -152,7 +152,6 @@ namespace differential_kinematics
       double collision_distance_constraint_range_;
       double collision_distance_forbidden_range_;
 
-      bool getJacobian(Eigen::MatrixXd& jacobian, KDL::JntArray joint_positions, std::string parent_link_name, KDL::Frame f_parent_link, KDL::Vector contact_offset, bool debug = false);
 
       /* result */
       double min_dist_;
