@@ -14,7 +14,7 @@ filter_rate: 1 # no filtering
 
 # discrete path resampling
 discrete_path_resampling_flag: true
-resampling_angular_rate: 0.2 # testing
+resampling_angular_rate: 0.25 # 0.25 is smoother for rotation motion, default 1
 
 debug: false
 start_state_x: 0.0
@@ -61,14 +61,14 @@ differential_kinematics_constraint:
         stability:
                 verbose: true
                 control_margin_thre: 0.3
-                control_margin_constraint_range: 0.03
-                control_margin_forbidden_range: 0.01
+                control_margin_constraint_range: 0.02
+                control_margin_forbidden_range: 0.005
                 f_max_thre: 22.0
                 f_min_thre: 10.0
         collision_avoidance:
                 verbose: true
-                collision_distance_constraint_range: 0.06 # 0.05 (for gap width 0.4); 0.08 (2018.05.10)
-                collision_distance_forbidden_range: 0.03  #0.02 (for gap width 0.4); 0.05 (2018.05.10)
+                collision_distance_constraint_range: 0.08 # 0.05 (for gap width 0.4); 0.08 (2018.05.10)
+                collision_distance_forbidden_range: 0.05  #0.02 (for gap width 0.4); 0.05 (2018.05.10)
         link_attitude:
                 verbose: true
                 roll_angle_thre: 1.5
@@ -81,7 +81,7 @@ differential_kinematics_constraint:
                 #joint_vel_limit: 0.02 cog_velocity_limit: [0.01, 0.01, 0.01]  # [x,y,z] (m) in world frame
                 #joint_vel_limit: 0.02 cog_angular_limit: [0.01, 0.01, 0.05]  # [x,y,z] (rad) in world frame
                 cog_velocity_limit: [0.01, 0.01, 0.01]  # [x,y,z] (m) in world frame
-                cog_angular_limit: [0.04, 0.04, 0.04]  # [x,y,z] (rad) in world frame, 0.03 is also OK!
+                cog_angular_limit: [0.04, 0.04, 0.04]  # [x,y,z] (rad) in world frame. related to resampling_angular_rate: (0.2)
 
 additional_constraint_list:
         - differential_kinematics_constraint/link_attitude
