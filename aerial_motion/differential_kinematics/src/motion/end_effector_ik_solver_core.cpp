@@ -142,16 +142,19 @@ bool EndEffectorIKSolverCore::inverseKinematics(const tf::Transform& target_ee_p
   /* declare the differential kinemtiacs constraint */
   pluginlib::ClassLoader<constraint::Base>  constraint_plugin_loader("differential_kinematics", "differential_kinematics::constraint::Base");
   ConstraintContainer constraint_container;
-  /* 1.  state_limit */
+  /* 1.  state limit */
   constraint_container.push_back(constraint_plugin_loader.createInstance("differential_kinematics_constraint/state_limit"));
   constraint_container.back()->initialize(nh_, nhp_, planner_core_ptr_, "differential_kinematics_constraint/state_limit", orientation, full_body);
-  /* 2.  stability */
+  /* 2.  static thrust */
+  constraint_container.push_back(constraint_plugin_loader.createInstance("differential_kinematics_constraint/static_thrust"));
+  constraint_container.back()->initialize(nh_, nhp_, planner_core_ptr_, "differential_kinematics_constraint/static_thrust", orientation, full_body);
+  /* 3.  stability */
   constraint_container.push_back(constraint_plugin_loader.createInstance("differential_kinematics_constraint/stability"));
   constraint_container.back()->initialize(nh_, nhp_, planner_core_ptr_, "differential_kinematics_constraint/stability", orientation, full_body);
-  /* 3. cog motion */
+  /* 4. cog motion */
   constraint_container.push_back(constraint_plugin_loader.createInstance("differential_kinematics_constraint/cog_motion"));
   constraint_container.back()->initialize(nh_, nhp_, planner_core_ptr_, "differential_kinematics_constraint/cog_motion", orientation, full_body);
-  /* 4. collision avoidance */
+  /* 5. collision avoidance */
   if(collision_avoidance)
     {
       constraint_container.push_back(constraint_plugin_loader.createInstance("differential_kinematics_constraint/collision_avoidance"));

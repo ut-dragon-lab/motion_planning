@@ -23,6 +23,8 @@ differential_kinematics_constraint:
                 joint_vel_constraint_range: 0.11
                 joint_vel_forbidden_range: 0.02
                 vebose: true
+        static_thrust:
+                verbose: true
         stability:
                 verbose: true
                 control_margin_thre: 0.35

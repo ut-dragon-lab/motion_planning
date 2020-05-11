@@ -99,6 +99,7 @@ target_link_libraries (differential_kinematics_cost_pluginlib ${catkin_LIBRARIES
 
 # constraint plugin
 add_library (differential_kinematics_constraint_pluginlib
+  src/constraint/static_thrust.cpp
   src/constraint/stability.cpp
   src/constraint/collision_avoidance.cpp
   src/constraint/state_limit.cpp

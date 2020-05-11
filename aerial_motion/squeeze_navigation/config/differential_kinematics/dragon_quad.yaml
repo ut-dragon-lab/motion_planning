@@ -58,13 +58,15 @@ differential_kinematics_constraint:
                 joint_vel_constraint_range: 0.11
                 joint_vel_forbidden_range: 0.02
                 vebose: true
+        static_thrust:
+                verbose: true
+                f_max_thre: 22.0
+                f_min_thre: 10.0
         stability:
                 verbose: true
                 control_margin_thre: 0.3
                 control_margin_constraint_range: 0.02
                 control_margin_forbidden_range: 0.005
-                f_max_thre: 22.0
-                f_min_thre: 10.0
         collision_avoidance:
                 verbose: true
                 collision_distance_constraint_range: 0.08 # 0.05 (for gap width 0.4); 0.08 (2018.05.10)

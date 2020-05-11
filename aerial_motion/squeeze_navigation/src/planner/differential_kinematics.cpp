@@ -285,10 +285,13 @@ namespace squeeze_motion_planner
       /* 1.  state_limit */
       constraint_container.push_back(constraint_plugin_loader.createInstance("differential_kinematics_constraint/state_limit"));
       constraint_container.back()->initialize(nh_, nhp_, planner_core_ptr_, "differential_kinematics_constraint/state_limit", true /* orientation */, true /* full_body */);
-      /* 2.  stability */
+      /* 2.  static thrust */
+      constraint_container.push_back(constraint_plugin_loader.createInstance("differential_kinematics_constraint/static_thrust"));
+      constraint_container.back()->initialize(nh_, nhp_, planner_core_ptr_, "differential_kinematics_constraint/static_thrust", true /* orientation */, true /* full_body */);
+      /* 3.  stability */
       constraint_container.push_back(constraint_plugin_loader.createInstance("differential_kinematics_constraint/stability"));
       constraint_container.back()->initialize(nh_, nhp_, planner_core_ptr_, "differential_kinematics_constraint/stability", true /* orientation */, true /* full_body */);
-      /* 3. collision avoidance */
+      /* 4. collision avoidance */
       constraint_container.push_back(constraint_plugin_loader.createInstance("differential_kinematics_constraint/collision_avoidance"));
       constraint_container.back()->initialize(nh_, nhp_, planner_core_ptr_, "differential_kinematics_constraint/collision_avoidance", true /* orientation */, true /* full_body */);
       /*-- set collision env --*/
@@ -296,7 +299,7 @@ namespace squeeze_motion_planner
       //boost::dynamic_pointer_cast<constraint::CollisionAvoidance>(constraint_container.back())->setEnv(env_collision_);
       reinterpret_cast<constraint::CollisionAvoidance*>(constraint_container.back().get())->setEnv(env_collision_);
 
-      /* 4. additional plugins for cost and constraint, if necessary */
+      /* 5. additional plugins for cost and constraint, if necessary */
       auto pattern_match = [&](std::string &pl, std::string &pl_candidate) -> bool
         {
           int cmp = fnmatch(pl.c_str(), pl_candidate.c_str(), FNM_CASEFOLD);

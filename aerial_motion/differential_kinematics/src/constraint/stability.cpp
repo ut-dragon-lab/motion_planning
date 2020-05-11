@@ -46,8 +46,8 @@ namespace differential_kinematics
     {
     public:
       Stability():
-        f_min_(1e6), f_max_(0),
-        wrench_mat_det_min_(1e6), control_margin_min_(1e6)
+        wrench_mat_det_min_(1e6), control_margin_min_(1e6),
+        wrench_margin_t_min_(1e6), wrench_margin_roll_pitch_min_(1e6)
       {}
       ~Stability(){}
 
@@ -57,24 +57,18 @@ namespace differential_kinematics
       {
         Base::initialize(nh, nhp, planner, constraint_name, orientation, full_body);
 
-        nc_ = 2 + rotor_num_;
+        nc_ = 2;
         const auto robot_model = boost::dynamic_pointer_cast<HydrusRobotModel>(planner_->getRobotModelPtr());
-        getParam<double>("f_min_thre", f_min_thre_, robot_model->getThrustLowerLimit());
-        getParam<double>("f_max_thre", f_max_thre_, robot_model->getThrustUpperLimit());
         getParam<double>("control_margin_thre", control_margin_thre_, robot_model->getControlMarginThresh());
         getParam<double>("wrench_mat_det_thre", wrench_mat_det_thre_, robot_model->getWrenchMatDetThresh());
         getParam<double>("control_margin_decrease_vel_thre", control_margin_decrease_vel_thre_, -0.01);
         getParam<double>("control_margin_constraint_range", control_margin_constraint_range_, 0.02);
         getParam<double>("control_margin_forbidden_range", control_margin_forbidden_range_, 0.005);
-        getParam<double>("force_vel_thre", force_vel_thre_, 0.1);
-        getParam<double>("force_constraint_range", force_constraint_range_, 0.2);
-        getParam<double>("force_forbidden_range", force_forbidden_range_, 0.1);
       }
 
       bool getConstraint(Eigen::MatrixXd& A, Eigen::VectorXd& lb, Eigen::VectorXd& ub, bool debug = false)
       {
         //debug = true;
-
         auto curr_root_att = planner_->getTargetRootPose<KDL::Frame>().M;
         auto curr_joint_vector =  planner_->getTargetJointVector<KDL::JntArray>();
         auto robot_model = planner_->getRobotModelPtr();
@@ -91,7 +85,6 @@ namespace differential_kinematics
             std::cout << "constraint name: " << constraint_name_ << ", lb: \n" << lb.transpose() << std::endl;
             std::cout << "constraint name: " << constraint_name_ << ", ub: \n" << ub.transpose() << std::endl;
           }
-
         return true;
       }
 
@@ -99,9 +92,14 @@ namespace differential_kinematics
       {
         std::cout << constraint_name_
                   << "min wremch matrix determinant: " << wrench_mat_det_min_ << "\n"
-                  << "min control margin: " << control_margin_min_ << "\n"
-                  << "min f: " << f_min_ << " at rotor" << f_min_rotor_ << "\n"
-                  << "max f: " << f_max_ << " at rotor" << f_max_rotor_ << std::endl;
+                  << "min control margin: " << control_margin_min_
+                  << "; control_margin_min_roll_pitch_min_" << control_margin_min_roll_pitch_min_ << std::endl;
+        std::cout << constraint_name_
+                  << "min wrench_margin_t_min_: " << wrench_margin_t_min_
+                  << "; wrench_margin_t_min_control_margin_min_: " << wrench_margin_t_min_control_margin_min_  << std::endl;
+        std::cout << constraint_name_
+                  << "min wrench_margin_roll_pitch_min_: " << wrench_margin_roll_pitch_min_
+                  << "; wrench_margin_roll_pitch_min_control_margin_min_: " << wrench_margin_roll_pitch_min_control_margin_min_  << std::endl;
       }
 
       bool directConstraint(){return false;}
@@ -109,23 +107,19 @@ namespace differential_kinematics
     protected:
       double control_margin_thre_;
       double wrench_mat_det_thre_;
-      double f_min_thre_, f_max_thre_;
-
-      double force_vel_thre_;
-      double force_constraint_range_;
-      double force_forbidden_range_;
 
       double control_margin_decrease_vel_thre_;
       double control_margin_constraint_range_;
       double control_margin_forbidden_range_;
 
-      double f_min_;
-      double f_max_;
-      Eigen::MatrixXd::Index f_min_rotor_;
-      Eigen::MatrixXd::Index f_max_rotor_;
       double wrench_mat_det_min_;
       double control_margin_min_;
+      double control_margin_min_roll_pitch_min_;
 
+      double wrench_margin_t_min_;
+      double wrench_margin_roll_pitch_min_;
+      double wrench_margin_t_min_control_margin_min_;
+      double wrench_margin_roll_pitch_min_control_margin_min_;
     public:
 
       void numericalUpdate(boost::shared_ptr<aerial_robot_model::RobotModel> robot_model, const KDL::Rotation& curr_root_att, const KDL::JntArray& curr_joint_vector, Eigen::MatrixXd& A, Eigen::VectorXd& lb, Eigen::VectorXd& ub, bool debug = false)
@@ -138,41 +132,34 @@ namespace differential_kinematics
           /* fill lb */
           lb(0) = damplingBound(nominal_control_margin - control_margin_thre_, control_margin_decrease_vel_thre_, control_margin_constraint_range_, control_margin_forbidden_range_);
 
-          // if(lb(0) > 0) ROS_WARN_STREAM("lb0 :" << lb(0) << ", nominal_control_margin: " << nominal_control_margin << ", control_margin_thre :" << control_margin_thre_);
           /* 2. singularity */
           double nominal_wrench_mat_det = hydrus_robot_model->getWrenchMatDeterminant();
           /* fill ub */
           lb(1) =  wrench_mat_det_thre_ - nominal_wrench_mat_det;
 
-          /* 3. static thrust constraint */
-          const Eigen::VectorXd static_thrust =  hydrus_robot_model->getStaticThrust();
-          /* fill the lb/ub */
-          lb.segment(2, rotor_num_) = Eigen::VectorXd::Constant(rotor_num_, -force_vel_thre_);
-          ub.segment(2, rotor_num_) = Eigen::VectorXd::Constant(rotor_num_, force_vel_thre_);
-          for(int index = 0; index < rotor_num_; index++)
-            {
-              lb(2 + index) = damplingBound(static_thrust(index) - f_min_thre_, -force_vel_thre_,  force_constraint_range_,  force_forbidden_range_);
-              ub(2 + index) = damplingBound(f_max_thre_ - static_thrust(index), force_vel_thre_,  force_constraint_range_,  force_forbidden_range_);
-            }
-
-          if(debug)
-            {
-              std::cout << "constraint name: " << constraint_name_ << ", nominal control margin : \n" << nominal_control_margin << std::endl;
-              std::cout << "constraint name: " << constraint_name_ << ", nominal wrench mat det : \n" << nominal_wrench_mat_det << std::endl;
-              std::cout << "constraint name: " << constraint_name_ << ", nominal static thrust: \n" << static_thrust.transpose() << std::endl;
-            }
-
           /* update the result */
+          double wrench_margin_t_min = hydrus_robot_model->getWrenchMarginTMin();
+          double wrench_margin_roll_pitch_min = hydrus_robot_model->getWrenchMarginRollPitchMin();
+
           if(wrench_mat_det_min_ > nominal_wrench_mat_det) wrench_mat_det_min_ = nominal_wrench_mat_det;
-          if(control_margin_min_ > nominal_control_margin) control_margin_min_ = nominal_control_margin;
-          if(f_min_ > static_thrust.minCoeff())
-            f_min_ = static_thrust.minCoeff(&f_min_rotor_);
-          if(f_max_ < static_thrust.maxCoeff())
-            f_max_ = static_thrust.maxCoeff(&f_max_rotor_);
+          if(control_margin_min_ > nominal_control_margin)
+            {
+              control_margin_min_ = nominal_control_margin;
+              control_margin_min_roll_pitch_min_ = wrench_margin_roll_pitch_min;
+            }
 
+          if(wrench_margin_t_min < wrench_margin_t_min_)
+            {
+              wrench_margin_t_min_ = wrench_margin_t_min;
+              wrench_margin_t_min_control_margin_min_ = nominal_control_margin;
+              ROS_ERROR("max wrench_margin_roll_pitch_min: %f", wrench_margin_roll_pitch_min);
+            }
+          if(wrench_margin_roll_pitch_min < wrench_margin_roll_pitch_min_)
+            {
+              wrench_margin_roll_pitch_min_ = wrench_margin_roll_pitch_min;
+              wrench_margin_roll_pitch_min_control_margin_min_ = nominal_control_margin;
+            }
 
-          A.bottomRows(rotor_num_) = hydrus_robot_model->getLambdaJacobian();
-          if(!full_body_) A.bottomLeftCorner(rotor_num_, 6) = Eigen::MatrixXd::Zero(rotor_num_, 6);
 
           // numerical solution for control margin and wrench mat determinant
           double delta_angle = 0.0001; // [rad]
@@ -180,12 +167,11 @@ namespace differential_kinematics
             {
               hydrus_robot_model->setCogDesireOrientation(root_att);
               hydrus_robot_model->updateRobotModel(joint_vector);
-              hydrus_robot_model->stabilityCheck();
+              hydrus_robot_model->rollPitchPositionMarginCheck();
+              hydrus_robot_model->wrenchMatrixDeterminantCheck();
 
               A(0, col) = (hydrus_robot_model->getControlMargin() - nominal_control_margin) /delta_angle;  // control margin
-
               A(1, col) = (hydrus_robot_model->getWrenchMatDeterminant() - nominal_wrench_mat_det) /delta_angle; // singularity
-              //A.block(2, col, rotor_num_, 1) = (hydrus_robot_model->getStaticThrust() - static_thrust) / delta_angle; // static thrust
             };
 
           /* joint */
