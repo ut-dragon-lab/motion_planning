@@ -606,9 +606,9 @@ namespace sampling_base
     robot_model_ptr_->updateRobotModel(joint_state);
     robot_model_ptr_->stabilityCheck();
 
-    if(robot_model_ptr_->getControlMargin() < min_var_)
+    if(robot_model_ptr_->getOldControlMargin() < min_var_)
       {
-        min_var_ = robot_model_ptr_->getControlMargin() ;
+        min_var_ = robot_model_ptr_->getOldControlMargin() ;
         min_var_state_index_ = path_.size();
       }
 
@@ -629,7 +629,7 @@ namespace sampling_base
     tf::Quaternion tf_q;
     quaternionMsgToTF(root_pose.orientation, tf_q);
     tf::Matrix3x3(tf_q).getRPY(r, p, y);
-    ROS_INFO("index: %d, dist_var: %f, max_force: %f, base pose: [%f, %f, %f] att: [%f, %f, %f]", (int)path_.size(), robot_model_ptr_->getControlMargin(), robot_model_ptr_->getStaticThrust().maxCoeff(), root_pose.position.x, root_pose.position.y, root_pose.position.z, r, p, y);
+    ROS_INFO("index: %d, dist_var: %f, max_force: %f, base pose: [%f, %f, %f] att: [%f, %f, %f]", (int)path_.size(), robot_model_ptr_->getOldControlMargin(), robot_model_ptr_->getStaticThrust().maxCoeff(), root_pose.position.x, root_pose.position.y, root_pose.position.z, r, p, y);
 
     addState(MultilinkState(robot_model_ptr_, root_pose, joint_state));
   }

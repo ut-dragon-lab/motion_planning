@@ -64,9 +64,14 @@ differential_kinematics_constraint:
                 f_min_thre: 10.0
         stability:
                 verbose: true
-                control_margin_thre: 0.3
-                control_margin_constraint_range: 0.02
-                control_margin_forbidden_range: 0.005
+                check_wrench_margin_t: false
+                wrench_margin_rp_thre: 5.0
+                wrench_margin_rp_decrease_vel_thre: -0.05 # could not be to large.  <= |-0.05|
+                wrench_margin_rp_constraint_range: 0.1
+                wrench_margin_rp_forbidden_range: 0.05
+                old_control_margin_thre: 0.3
+                old_control_margin_constraint_range: 0.02
+                old_control_margin_forbidden_range: 0.005
         collision_avoidance:
                 verbose: true
                 collision_distance_constraint_range: 0.08 # 0.05 (for gap width 0.4); 0.08 (2018.05.10)
