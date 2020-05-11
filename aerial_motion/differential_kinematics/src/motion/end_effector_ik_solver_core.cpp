@@ -162,6 +162,16 @@ bool EndEffectorIKSolverCore::inverseKinematics(const tf::Transform& target_ee_p
       boost::dynamic_pointer_cast<constraint::CollisionAvoidance>(constraint_container.back())->setEnv(env_collision_);
     }
 
+
+  ros::V_string additional_constraint_list{};
+  nhp_.getParam("additional_constraint_list", additional_constraint_list);
+  for (auto &plugin_name : additional_constraint_list)
+    {
+      constraint_container.push_back(constraint_plugin_loader.createInstance(plugin_name));
+      constraint_container.back()->initialize(nh_, nhp_, planner_core_ptr_, plugin_name, orientation, full_body);
+    }
+
+
   /* reset the init joint(joint) state the init root pose for planner */
   planner_core_ptr_->setTargetRootPose(init_root_pose);
   planner_core_ptr_->setTargetJointVector(init_joint_vector);
