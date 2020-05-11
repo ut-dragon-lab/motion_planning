@@ -104,6 +104,7 @@ add_library (differential_kinematics_constraint_pluginlib
   src/constraint/collision_avoidance.cpp
   src/constraint/state_limit.cpp
   src/constraint/cog_motion.cpp
+  src/constraint/joint_torque.cpp
   )
 target_link_libraries (differential_kinematics_constraint_pluginlib ${catkin_LIBRARIES} differential_kinematics_planner_core ${fcl_catkin_LIBRARIES})
 

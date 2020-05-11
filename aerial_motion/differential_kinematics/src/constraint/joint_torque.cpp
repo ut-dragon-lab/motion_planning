@@ -39,13 +39,13 @@ namespace differential_kinematics
 {
   namespace constraint
   {
-    class StaticThrust :public Base
+    class JointTorque :public Base
     {
     public:
-      StaticThrust():
-        f_min_(1e6), f_max_(0)
+      JointTorque():
+        t_min_(1e6), t_max_(0)
       {}
-      ~StaticThrust(){}
+      ~JointTorque(){}
 
       void virtual initialize(ros::NodeHandle nh, ros::NodeHandle nhp,
                               boost::shared_ptr<differential_kinematics::Planner> planner, std::string constraint_name,
@@ -53,35 +53,49 @@ namespace differential_kinematics
       {
         Base::initialize(nh, nhp, planner, constraint_name, orientation, full_body);
 
-        nc_ = rotor_num_;
         const auto robot_model = planner_->getRobotModelPtr();
-        getParam<double>("f_min_thre", f_min_thre_, robot_model->getThrustLowerLimit());
-        getParam<double>("f_max_thre", f_max_thre_, robot_model->getThrustUpperLimit());
-        getParam<double>("force_vel_thre", force_vel_thre_, 0.1);
-        getParam<double>("force_constraint_range", force_constraint_range_, 0.2);
-        getParam<double>("force_forbidden_range", force_forbidden_range_, 0.1);
+
+        nc_ = robot_model->getLinkJointIndices().size();
+
+        getParam<double>("t_min_thre", t_min_thre_, -1.0);
+        getParam<double>("t_max_thre", t_max_thre_, 1.0);
+        getParam<double>("torque_vel_thre", torque_vel_thre_, 0.2);
+        getParam<double>("torque_constraint_range", torque_constraint_range_, 0.2);
+        getParam<double>("torque_forbidden_range", torque_forbidden_range_, 0.1);
       }
 
       bool getConstraint(Eigen::MatrixXd& A, Eigen::VectorXd& lb, Eigen::VectorXd& ub, bool debug = false)
       {
         auto robot_model = planner_->getRobotModelPtr();
-
-        const Eigen::VectorXd& static_thrust = robot_model->getStaticThrust();
+        const auto& joint_indices = robot_model->getJointIndices();
+        const auto& link_joint_indices = robot_model->getLinkJointIndices();
+        const auto& joint_torque = robot_model->getJointTorque();
+        const auto& full_jacobian = robot_model->getJointTorqueJacobian();
         /* fill the lb/ub */
-        lb = Eigen::VectorXd::Constant(nc_, -force_vel_thre_);
-        ub = Eigen::VectorXd::Constant(nc_, force_vel_thre_);
+        lb = Eigen::VectorXd::Constant(nc_, -torque_vel_thre_);
+        ub = Eigen::VectorXd::Constant(nc_, torque_vel_thre_);
+        A = Eigen::MatrixXd::Zero(nc_, full_jacobian.cols());
 
-        for(int index = 0; index < rotor_num_; index++)
+        int index = 0;
+
+        for(int i = 0; i < joint_indices.size(); i++)
           {
-            lb(index) = damplingBound(static_thrust(index) - f_min_thre_, -force_vel_thre_,  force_constraint_range_,  force_forbidden_range_);
-            ub(index) = damplingBound(f_max_thre_ - static_thrust(index), force_vel_thre_,  force_constraint_range_,  force_forbidden_range_);
+            if(link_joint_indices.at(index) == joint_indices.at(i))
+              {
+                A.row(index) = full_jacobian.row(i);
+                lb(index) = damplingBound(joint_torque(i) - t_min_thre_, -torque_vel_thre_,  torque_constraint_range_,  torque_forbidden_range_);
+                ub(index) = damplingBound(t_max_thre_ - joint_torque(i), torque_vel_thre_,  torque_constraint_range_,  torque_forbidden_range_);
+                index++;
+
+                if(index == link_joint_indices.size()) break;
+              }
           }
 
-        A = robot_model->getLambdaJacobian();
+
         if(!full_body_) A.leftCols(6).setZero();
 
-        if(f_min_ > static_thrust.minCoeff()) f_min_ = static_thrust.minCoeff(&f_min_rotor_);
-        if(f_max_ < static_thrust.maxCoeff()) f_max_ = static_thrust.maxCoeff(&f_max_rotor_);
+        if(t_min_ > joint_torque.minCoeff()) t_min_ = joint_torque.minCoeff(&t_min_rotor_);
+        if(t_max_ < joint_torque.maxCoeff()) t_max_ = joint_torque.maxCoeff(&t_max_rotor_);
 
         if(debug)
           {
@@ -95,27 +109,27 @@ namespace differential_kinematics
       void result()
       {
         std::cout << constraint_name_ << "\n"
-                  << "min f: " << f_min_ << " at rotor" << f_min_rotor_ << "\n"
-                  << "max f: " << f_max_ << " at rotor" << f_max_rotor_ << std::endl;
+                  << "min t: " << t_min_ << " at rotor" << t_min_rotor_ << "\n"
+                  << "max t: " << t_max_ << " at rotor" << t_max_rotor_ << std::endl;
       }
 
       bool directConstraint(){return false;}
 
     protected:
-      double f_min_thre_, f_max_thre_;
+      double t_min_thre_, t_max_thre_;
 
-      double force_vel_thre_;
-      double force_constraint_range_;
-      double force_forbidden_range_;
+      double torque_vel_thre_;
+      double torque_constraint_range_;
+      double torque_forbidden_range_;
 
-      double f_min_;
-      double f_max_;
-      Eigen::MatrixXd::Index f_min_rotor_;
-      Eigen::MatrixXd::Index f_max_rotor_;
+      double t_min_;
+      double t_max_;
+      Eigen::MatrixXd::Index t_min_rotor_;
+      Eigen::MatrixXd::Index t_max_rotor_;
     };
   };
 };
 
 #include <pluginlib/class_list_macros.h>
-PLUGINLIB_EXPORT_CLASS(differential_kinematics::constraint::StaticThrust, differential_kinematics::constraint::Base);
+PLUGINLIB_EXPORT_CLASS(differential_kinematics::constraint::JointTorque, differential_kinematics::constraint::Base);
 

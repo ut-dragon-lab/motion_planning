@@ -87,6 +87,12 @@ end_effector:
 
     overlap:
       verbose: true
+    joint_torque:
+      verbose: true
+      t_min_thre: -3.0
+      t_max_thre: 3.0
+      torque_vel_thre: 0.2
 
   additional_constraint_list:
     - differential_kinematics_constraint/overlap
+    - differential_kinematics_constraint/joint_torque

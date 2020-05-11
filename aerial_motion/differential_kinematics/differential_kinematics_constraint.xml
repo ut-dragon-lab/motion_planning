@@ -14,5 +14,8 @@
   <class name="differential_kinematics_constraint/cog_motion" type="differential_kinematics::constraint::CogMotion" base_class_type="differential_kinematics::constraint::Base">
     <description>This is a constraint plugin for cog and momemtum motion </description>
   </class>
+  <class name="differential_kinematics_constraint/joint_torque" type="differential_kinematics::constraint::JointTorque" base_class_type="differential_kinematics::constraint::Base">
+    <description>This is a constraint plugin for flight joint torque </description>
+  </class>
 
 </library>
