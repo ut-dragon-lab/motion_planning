@@ -27,10 +27,10 @@ differential_kinematics_constraint:
                 verbose: true
         stability:
                 verbose: true
-                wrench_margin_t_thre: 0.42 # heuristic
-                wrench_margin_rp_thre: 3.0
-                wrench_margin_rp_decrease_vel_thre: -0.05
-                old_control_margin_thre: 0.35
+                fc_t_min_thre: 0.42 # heuristic
+                fc_rp_min_thre: 3.0
+                fc_rp_dist_decrease_vel_thre: -0.05
+                rp_position_margin_thre: 0.35
         collision_avoidance:
                 verbose: true
                 collision_distance_constraint_range: 0.08 #0.05

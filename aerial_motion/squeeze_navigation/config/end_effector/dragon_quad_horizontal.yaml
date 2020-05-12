@@ -70,11 +70,11 @@ end_effector:
     stability:
       verbose: true
       check_wrench_margin_t: false
-      wrench_margin_rp_min_thre: 4.8
-      wrench_margin_rp_min_decrease_vel_thre: -0.1
-      wrench_margin_rp_min_constraint_range: 0.2
-      wrench_margin_rp_min_forbidden_range: 0.05
-      old_control_margin_thre: 0.3
+      fc_rp_min_thre: 4.9
+      fc_rp_dist_decrease_vel_thre: -0.1
+      fc_rp_dist_constraint_range: 0.2
+      fc_rp_dist_forbidden_range: 0.05
+      rp_position_margin_thre: 0.3 # deprecated
     collision_avoidance:
       verbose: true
       collision_distance_constraint_range: 0.08 #0.05
