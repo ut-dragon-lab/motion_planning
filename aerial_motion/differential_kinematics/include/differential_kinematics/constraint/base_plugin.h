@@ -73,6 +73,15 @@ namespace differential_kinematics
         orientation_ = orientation;
         full_body_ = full_body;
       }
+
+      template<class T> void getParam(std::string param_name, T& param, T default_value)
+      {
+        nhp_.param<T>(param_name, param, default_value);
+        if(verbose_)
+          ROS_INFO_STREAM("[" << nhp_.getNamespace() << "] " << param_name << ": " << param);
+      }
+
+
       virtual bool getConstraint(Eigen::MatrixXd& A, Eigen::VectorXd& lb, Eigen::VectorXd& ub, bool debug = false) = 0;
       virtual bool directConstraint(){return false;}
 
@@ -95,6 +104,13 @@ namespace differential_kinematics
       bool orientation_;
       bool full_body_;
 
+
+      inline double damplingBound(double delta, double d_bound, double cons_range, double forbid_range)
+      {
+        if(delta  < cons_range) d_bound *=  ((delta - forbid_range) / (cons_range - forbid_range));
+
+        return d_bound;
+      }
     };
   };
 };

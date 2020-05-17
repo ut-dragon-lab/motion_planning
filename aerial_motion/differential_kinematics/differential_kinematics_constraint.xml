@@ -5,11 +5,17 @@
   <class name="differential_kinematics_constraint/stability" type="differential_kinematics::constraint::Stability" base_class_type="differential_kinematics::constraint::Base">
     <description>This is a constraint plugin for flight stability </description>
   </class>
+  <class name="differential_kinematics_constraint/static_thrust" type="differential_kinematics::constraint::StaticThrust" base_class_type="differential_kinematics::constraint::Base">
+    <description>This is a constraint plugin for flight static thrust </description>
+  </class>
   <class name="differential_kinematics_constraint/collision_avoidance" type="differential_kinematics::constraint::CollisionAvoidance" base_class_type="differential_kinematics::constraint::Base">
     <description>This is a constraint plugin for  collision avoidance </description>
   </class>
   <class name="differential_kinematics_constraint/cog_motion" type="differential_kinematics::constraint::CogMotion" base_class_type="differential_kinematics::constraint::Base">
-    <description>This is a constraint plugin for  collision avoidance </description>
+    <description>This is a constraint plugin for cog and momemtum motion </description>
+  </class>
+  <class name="differential_kinematics_constraint/joint_torque" type="differential_kinematics::constraint::JointTorque" base_class_type="differential_kinematics::constraint::Base">
+    <description>This is a constraint plugin for flight joint torque </description>
   </class>
 
 </library>

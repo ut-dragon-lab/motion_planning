@@ -57,51 +57,38 @@ namespace differential_kinematics
         {
           if(link.second->collision)
             {
-
               robot_collision_model_.push_back(new fcl::CollisionObject<double>(createGeometryObject(link.second)));
               /* add additional data */
               robot_collision_model_.back()->setUserData(link.second.get());
-              /* debug */
-              // ROS_ERROR("link %s has collision model, pose: [%f, %f, %f]", link.first.c_str(),
-              //           link.second->collision->origin.position.x,
-              //           link.second->collision->origin.position.y, link.second->collision->origin.position.z);
             }
         }
 
       nc_ = robot_collision_model_.size();
 
-      nhp_.param ("collision_damping_gain", collision_damping_gain_, 0.01);
-      if(verbose_) std::cout << "collision_damping_gain: " << std::setprecision(3) << collision_damping_gain_ << std::endl;
-      nhp_.param ("collision_distance_constraint_range", collision_distance_constraint_range_, 0.03);
-      if(verbose_) std::cout << "collision_distance_constraint_range: " << std::setprecision(3) << collision_distance_constraint_range_ << std::endl;
-      nhp_.param ("collision_distance_forbidden_range", collision_distance_forbidden_range_, 0.01);
-      if(verbose_) std::cout << "collision_distance_forbidden_range: " << std::setprecision(3) << collision_distance_forbidden_range_ << std::endl;
-    }
+      getParam<double>("collision_damping_gain", collision_damping_gain_, 0.01);
+      getParam<double>("collision_distance_constraint_range", collision_distance_constraint_range_, 0.03);
+      getParam<double>("collision_distance_forbidden_range", collision_distance_forbidden_range_, 0.01);    }
 
     std::shared_ptr<fcl::CollisionGeometry<double>> CollisionAvoidance::createGeometryObject(urdf::LinkSharedPtr link)
     {
       urdf::GeometrySharedPtr geom = link->collision->geometry;
-      ROS_ASSERT(geom);
 
       if(geom->type == urdf::Geometry::BOX)
         {
-          //ROS_INFO("%s: BOX", link->name.c_str());
           urdf::Vector3 dim = urdf::dynamic_pointer_cast<urdf::Box>(geom)->dim;
           return std::shared_ptr<fcl::CollisionGeometry<double> >(new fcl::Box<double>(dim.x, dim.y, dim.z));
         }
       else if(geom->type == urdf::Geometry::SPHERE)
         {
-          //ROS_INFO("%s: SPHERE", link->name.c_str());
           return std::shared_ptr<fcl::CollisionGeometry<double> >(new fcl::Sphere<double>(urdf::dynamic_pointer_cast<urdf::Sphere>(geom)->radius));
         }
       else if(geom->type == urdf::Geometry::CYLINDER)
         {
-          //ROS_INFO("CYLINDER: %f, %f", boost::dynamic_pointer_cast<urdf::Cylinder>(geom)->radius, boost::dynamic_pointer_cast<urdf::Cylinder>(geom)->length);
           return std::shared_ptr<fcl::CollisionGeometry<double> >(new fcl::Cylinder<double>(urdf::dynamic_pointer_cast<urdf::Cylinder>(geom)->radius, urdf::dynamic_pointer_cast<urdf::Cylinder>(geom)->length));
         }
       else if(geom->type == urdf::Geometry::MESH)
         {
-          ROS_WARN("MESH --- currently not supported");
+          ROS_WARN_STREAM("MESH --- currently not supported");
           /* TODO implement the mesh type */
         }
       else
@@ -114,24 +101,23 @@ namespace differential_kinematics
 
     bool CollisionAvoidance::getConstraint(Eigen::MatrixXd& A, Eigen::VectorXd& lb, Eigen::VectorXd& ub, bool debug)
     {
-      //debug = true;
-      A = Eigen::MatrixXd::Zero(nc_, planner_->getRobotModelPtr()->getLinkJointIndex().size() + 6);
+      const auto robot_model = planner_->getRobotModelPtr();
+      const auto joint_positions =  planner_->getTargetJointVector<KDL::JntArray>();
+      const auto& seg_frames = robot_model->getSegmentsTf();
+
+      A = Eigen::MatrixXd::Zero(nc_, robot_model->getLinkJointIndices().size() + 6);
       lb = Eigen::VectorXd::Constant(nc_, -1e6);
       ub = Eigen::VectorXd::Constant(nc_, 1e6);
 
-      // fullFK
-      auto full_fk_result = planner_->getRobotModelPtr()->fullForwardKinematics(planner_->getTargetActuatorVector<KDL::JntArray>());
-
       /* get root tf in world frame */
-      KDL::Frame f_root;
-      tf::transformTFToKDL(planner_->getTargetRootPose(), f_root);
+      KDL::Frame f_root = planner_->getTargetRootPose<KDL::Frame>();
 
       /* check the distance */
       for(auto it = robot_collision_model_.begin(); it != robot_collision_model_.end(); it++)
         {
           /* get collision-included link tf in root frame */
-          urdf::Link link_info = *(reinterpret_cast<urdf::Link *>((*it)->getUserData())); /* OK */
-          KDL::Frame f_link = full_fk_result.at(link_info.name);
+          urdf::Link link_info = *(reinterpret_cast<urdf::Link *>((*it)->getUserData()));
+          KDL::Frame f_link = seg_frames.at(link_info.name);
 
           /* get collision model offset tf in collision-included link frame */
           KDL::Frame f_collision_obj_offset(KDL::Rotation::Quaternion(link_info.collision->origin.rotation.x,
@@ -222,19 +208,21 @@ namespace differential_kinematics
             }
 
           /* closest points in local object frame */
-          if(debug) ROS_WARN("distance = %f", distance_data.result.min_distance);
+          double min_dist = distance_data.result.min_distance;
+          if(debug) ROS_WARN("distance = %f", min_dist);
 
-          if(distance_data.result.min_distance <= 0)
+          if(min_dist <= 0)
             {
-              ROS_ERROR("distance: %f is negative", distance_data.result.min_distance);
+              ROS_ERROR("distance: %f is negative", min_dist);
               return false;
             }
 
           /* update the min distance */
-          if(distance_data.result.min_distance < min_dist_)
+          if(min_dist < min_dist_)
             {
-              min_dist_ = distance_data.result.min_distance;
+              min_dist_ = min_dist;
               min_dist_link_ = link_info.name;
+              ROS_DEBUG_STREAM("update min dist, " << min_dist_link_ << ": " << min_dist_);
             }
 
           // fcl::DistanceDta::nearest_points is described in the world coordinates
@@ -264,29 +252,19 @@ namespace differential_kinematics
 
 
           /* conver normal to root link: from env to robot */
-          tf::Vector3 distance_arrow;
-          tf::vectorKDLToTF(p_in_robot - p_in_env, distance_arrow);
-          tf::Vector3 n_in_root_link =  planner_->getTargetRootPose().getBasis().inverse() * distance_arrow.normalized();
-          Eigen::Vector3d n_in_root_link_eigen;
-          tf::vectorTFToEigen(n_in_root_link, n_in_root_link_eigen);
+          Eigen::Vector3d distance_normal = aerial_robot_model::kdlToEigen(p_in_robot - p_in_env).normalized();
 
           /* update jacobian and update constraint */
           int index = std::distance(robot_collision_model_.begin(), it);
+          Eigen::MatrixXd jacobian = robot_model->getJacobian(joint_positions, link_info.name.c_str(), f_collision_obj_offset * p_in_robot_local_frame);
+          A.row(index) = distance_normal.transpose() * jacobian.topRows(3);
 
-          Eigen::MatrixXd jacobian;
-          if(!getJacobian(jacobian, planner_->getTargetActuatorVector<KDL::JntArray>(),
-                          link_info.name.c_str(), f_link,
-                          f_collision_obj_offset * p_in_robot_local_frame, debug))
-            {
-              ROS_ERROR("collision constraint: invalid link: %s", link_info.name.c_str());
-              return false;
-            }
-
-          A.block(index, 0, 1, A.cols()) = n_in_root_link_eigen.transpose() * jacobian;
-
-          if (distance_data.result.min_distance < collision_distance_constraint_range_)
-            lb(index) = - collision_damping_gain_ *  (distance_data.result.min_distance - collision_distance_forbidden_range_)/ (collision_distance_constraint_range_ - collision_distance_forbidden_range_);
+          if(min_dist < collision_distance_constraint_range_)
+            lb(index) = damplingBound(min_dist, - collision_damping_gain_, collision_distance_constraint_range_, collision_distance_forbidden_range_);
+          else
+            lb(index) = -1e6;
         }
+      if(!full_body_) A.leftCols(6).setZero(); // good
 
       if(debug)
         {
@@ -313,47 +291,6 @@ namespace differential_kinematics
       if(dist <= 0) return true; // in collision or in touch
 
       return cdata->done;
-    }
-
-    bool CollisionAvoidance::getJacobian(Eigen::MatrixXd& jacobian, KDL::JntArray joint_positions, std::string parent_link_name, KDL::Frame f_parent_link, KDL::Vector contact_offset, bool debug)
-    {
-      jacobian = Eigen::MatrixXd::Zero(3, planner_->getRobotModelPtr()->getLinkJointIndex().size() + 6);
-
-      /* calculate the jacobian */
-      KDL::TreeJntToJacSolver jac_solver(planner_->getRobotModelPtr()->getTree());
-      KDL::Jacobian jac(planner_->getRobotModelPtr()->getTree().getNrOfJoints());
-      if(jac_solver.JntToJac(joint_positions, jac, parent_link_name) == KDL::SolverI::E_NOERROR)
-        {
-          /* offset for jacobian */
-          jac.changeRefPoint(f_parent_link.M * contact_offset);
-          if(debug) std::cout << "raw jacobian for " << parent_link_name << " (only joints):\n" << jac.data << std::endl;
-          /* joint reassignment  */
-          for(size_t i = 0; i < planner_->getRobotModelPtr()->getLinkJointIndex().size(); i++)
-            jacobian.block(0, 6 + i , 3, 1) = jac.data.block(0, planner_->getRobotModelPtr()->getLinkJointIndex().at(i), 3, 1);
-
-          /* full body */
-          if(full_body_)
-            {
-              /* consider root is attached with a 6Dof free joint */
-
-              /* get end frame position from root */
-              KDL::Vector end_frame = f_parent_link * contact_offset;
-              if(debug)
-                ROS_INFO("collision avoidance end pose from root link: [%f %f %f]", end_frame.x(), end_frame.y(), end_frame.z());
-
-              /* root link */
-              jacobian.block(0, 0, 3, 3) = Eigen::MatrixXd::Identity(3, 3);
-              jacobian.block(0, 3, 3, 1) = (Eigen::Vector3d(1, 0, 0)).cross(Eigen::Vector3d(end_frame.data));
-              jacobian.block(0, 4, 3, 1) = (Eigen::Vector3d(0, 1, 0)).cross(Eigen::Vector3d(end_frame.data));
-              jacobian.block(0, 5, 3, 1) = (Eigen::Vector3d(0, 0, 1)).cross(Eigen::Vector3d(end_frame.data));
-            }
-
-          if(debug) std::cout << "jacobian: \n" << jacobian << std::endl;
-          return true;
-        }
-
-      ROS_WARN("constraint (%s) can not calculate the jacobian", constraint_name_.c_str());
-      return false;
     }
 
     void CollisionAvoidance::result()

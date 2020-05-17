@@ -2,7 +2,7 @@
 /*********************************************************************
  * Software License Agreement (BSD License)
  *
- *  Copyright (c) 2018, JSK Lab
+ *  Copyright (c) 2020, JSK Lab
  *  All rights reserved.
  *
  *  Redistribution and use in source and binary forms, with or without
@@ -35,100 +35,87 @@
 
 #include <differential_kinematics/constraint/base_plugin.h>
 
-#include <tf_conversions/tf_kdl.h>
-#include <sensor_msgs/JointState.h>
-
 namespace differential_kinematics
 {
   namespace constraint
   {
-    class CogMotion :public Base
+    class StaticThrust :public Base
     {
     public:
-      CogMotion()
+      StaticThrust():
+        f_min_(1e6), f_max_(0)
       {}
-      ~CogMotion(){}
+      ~StaticThrust(){}
 
       void virtual initialize(ros::NodeHandle nh, ros::NodeHandle nhp,
-                              boost::shared_ptr<differential_kinematics::Planner> planner,
-                              std::string constraint_name,
+                              boost::shared_ptr<differential_kinematics::Planner> planner, std::string constraint_name,
                               bool orientation, bool full_body)
       {
         Base::initialize(nh, nhp, planner, constraint_name, orientation, full_body);
 
-        nc_ = 6; // cog velocity  cog angular velocity
-
-        nhp_.getParam("cog_velocity_limit", velocity_limit_);
-        nhp_.getParam("cog_angular_limit", angular_limit_);
-
-        if(velocity_limit_.size() == 0 || angular_limit_.size() == 0)
-          throw std::runtime_error("the size of velocity limit or angular limit is zero");
-
-        /* heuristic condition */
-        if(!full_body)
-          {
-            double relax_rate = 100;
-            for_each(velocity_limit_.begin(), velocity_limit_.end(),
-                     [&](double &i){i *= relax_rate;});
-            for_each(angular_limit_.begin(), angular_limit_.end(),
-                     [&](double &i){i *= relax_rate;});
-          }
-
-        std::cout << "cog velocity limit: [";
-        for(const auto& it: velocity_limit_) std::cout << std::setprecision(3) << it << ", ";
-        std::cout <<  "]" << std::endl;
-
-        std::cout << "cog angular limit: [";
-        for(const auto& it: angular_limit_) std::cout << std::setprecision(3) << it << ", ";
-        std::cout <<  "]" << std::endl;
+        nc_ = rotor_num_;
+        const auto robot_model = planner_->getRobotModelPtr();
+        getParam<double>("f_min_thre", f_min_thre_, robot_model->getThrustLowerLimit());
+        getParam<double>("f_max_thre", f_max_thre_, robot_model->getThrustUpperLimit());
+        getParam<double>("force_vel_thre", force_vel_thre_, 0.1);
+        getParam<double>("force_constraint_range", force_constraint_range_, 0.2);
+        getParam<double>("force_forbidden_range", force_forbidden_range_, 0.1);
       }
-
 
       bool getConstraint(Eigen::MatrixXd& A, Eigen::VectorXd& lb, Eigen::VectorXd& ub, bool debug = false)
       {
-        const auto robot_model = planner_->getRobotModelPtr();
-        const auto inertia = robot_model->getInertia<Eigen::Matrix3d>();
+        auto robot_model = planner_->getRobotModelPtr();
 
-        lb = Eigen::VectorXd::Constant(nc_, 0);
-        ub = Eigen::VectorXd::Constant(nc_, 0);
+        const Eigen::VectorXd& static_thrust = robot_model->getStaticThrust();
+        /* fill the lb/ub */
+        lb = Eigen::VectorXd::Constant(nc_, -force_vel_thre_);
+        ub = Eigen::VectorXd::Constant(nc_, force_vel_thre_);
 
-        /* cog */
-        ub.head(3) = Eigen::Map<Eigen::Vector3d>(velocity_limit_.data(), 3);
-        lb.head(3) = - ub.head(3);
+        for(int index = 0; index < rotor_num_; index++)
+          {
+            lb(index) = damplingBound(static_thrust(index) - f_min_thre_, -force_vel_thre_,  force_constraint_range_,  force_forbidden_range_);
+            ub(index) = damplingBound(f_max_thre_ - static_thrust(index), force_vel_thre_,  force_constraint_range_,  force_forbidden_range_);
+          }
 
-        /* L momentum: approximate to a rigid body has a inertial same with the robot model */
-        ub.tail(3) = inertia * Eigen::Map<Eigen::Vector3d>(angular_limit_.data(), 3);
-        lb.tail(3) = - ub.tail(3);
-
-        A = Eigen::MatrixXd::Zero(nc_, robot_model->getLinkJointIndices().size() + 6);
-        A.topRows(3) = robot_model->getCOGJacobian();
-        A.bottomRows(3) = robot_model->getLMomentumJacobian();
+        A = robot_model->getLambdaJacobian();
         if(!full_body_) A.leftCols(6).setZero();
-        if(planner_->getMultilinkType() == motion_type::SE2) A.middleRows(2, 3).setZero();
+
+        if(f_min_ > static_thrust.minCoeff()) f_min_ = static_thrust.minCoeff(&f_min_rotor_);
+        if(f_max_ < static_thrust.maxCoeff()) f_max_ = static_thrust.maxCoeff(&f_max_rotor_);
 
         if(debug)
           {
-            std::cout << "constraint name: " << constraint_name_  << ", A: \n" << A << std::endl;
+            std::cout << "constraint (" << constraint_name_.c_str()  << "): matrix A: \n" << A << std::endl;
             std::cout << "constraint name: " << constraint_name_ << ", lb: \n" << lb.transpose() << std::endl;
             std::cout << "constraint name: " << constraint_name_ << ", ub: \n" << ub.transpose() << std::endl;
           }
-
         return true;
       }
 
       void result()
       {
+        std::cout << constraint_name_ << "\n"
+                  << "min f: " << f_min_ << " at rotor" << f_min_rotor_ << "\n"
+                  << "max f: " << f_max_ << " at rotor" << f_max_rotor_ << std::endl;
       }
 
       bool directConstraint(){return false;}
 
     protected:
-      std::vector<double> velocity_limit_, angular_limit_;
+      double f_min_thre_, f_max_thre_;
 
+      double force_vel_thre_;
+      double force_constraint_range_;
+      double force_forbidden_range_;
+
+      double f_min_;
+      double f_max_;
+      Eigen::MatrixXd::Index f_min_rotor_;
+      Eigen::MatrixXd::Index f_max_rotor_;
     };
   };
 };
 
 #include <pluginlib/class_list_macros.h>
-PLUGINLIB_EXPORT_CLASS(differential_kinematics::constraint::CogMotion, differential_kinematics::constraint::Base);
+PLUGINLIB_EXPORT_CLASS(differential_kinematics::constraint::StaticThrust, differential_kinematics::constraint::Base);
 

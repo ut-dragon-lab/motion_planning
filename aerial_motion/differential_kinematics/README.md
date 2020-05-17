@@ -35,7 +35,7 @@ rosservice call /end_effector_ik "target_pos: {x: -0.6, y: 0.6, z: 0.4}
 target_rot: {x: 0.0, y: 1.0, z: 3.14}
 orientation: true
 full_body: true 
-collision_avoidance: true 
+collision_avoidance: false 
 tran_free_axis: ''
 rot_free_axis: 'x'
 debug: false"

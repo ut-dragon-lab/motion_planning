@@ -46,8 +46,8 @@ namespace differential_kinematics
     {
     public:
       Stability():
-        result_f_min_(1e6), result_f_max_(0),
-        result_p_det_min_(1e6), result_stability_margin_min_(1e6)
+        wrench_mat_det_min_(1e6), rp_position_margin_min_(1e6),
+        fc_t_min_(1e6), fc_rp_min_(1e6)
       {}
       ~Stability(){}
 
@@ -57,190 +57,248 @@ namespace differential_kinematics
       {
         Base::initialize(nh, nhp, planner, constraint_name, orientation, full_body);
 
-        nc_ = 2 + rotor_num_;
+        nc_ = rotor_num_;
 
-        stability_margin_thre_ = planner_->getRobotModelPtr()->getStabilityMaginThresh();
-        p_det_thre_ = planner_->getRobotModelPtr()->getPDetThresh();
-        f_min_ = planner_->getRobotModelPtr()->getThrustLowerLimit();
-        f_max_ = planner_->getRobotModelPtr()->getThrustUpperLimit();
+        const auto robot_model = boost::dynamic_pointer_cast<HydrusRobotModel>(planner_->getRobotModelPtr());
 
-        nhp_.param ("stability_margin_decrease_vel_thre", stability_margin_decrease_vel_thre_, -0.01);
-        if(verbose_) std::cout << "stability_margin_decrease_vel_thre: " << std::setprecision(3) << stability_margin_decrease_vel_thre_ << std::endl;
-        nhp_.param ("stability_margin_constraint_range", stability_margin_constraint_range_, 0.02);
-        if(verbose_) std::cout << "stability_margin_constraint_range: " << std::setprecision(3) << stability_margin_constraint_range_ << std::endl;
-        nhp_.param ("stability_margin_forbidden_range", stability_margin_forbidden_range_, 0.005);
-        if(verbose_) std::cout << "stability_margin_forbidden_range: " << std::setprecision(3) << stability_margin_forbidden_range_ << std::endl;
+        getParam<bool>("check_fc_t", check_fc_t_, true);
+        getParam<double>("fc_t_min_thre", fc_t_min_thre_, robot_model->getFeasibleControlTMinThre());
+        getParam<double>("fc_t_dist_decrease_vel_thre", fc_t_dist_decrease_vel_thre_, -0.1);
 
-        nhp_.param ("force_vel_thre", force_vel_thre_, 0.1);
-        if(verbose_) std::cout << "force_vel_thre: " << std::setprecision(3) << force_vel_thre_ << std::endl;
-        nhp_.param ("force_constraint_range", force_constraint_range_, 0.2);
-        if(verbose_) std::cout << "force_constraint_range: " << std::setprecision(3) << force_constraint_range_ << std::endl;
-        nhp_.param ("force_forbidden_range", force_forbidden_range_, 0.1);
-        if(verbose_) std::cout << "force_forbidden_range: " << std::setprecision(3) << force_forbidden_range_ << std::endl;
+        getParam<double>("fc_rp_min_thre", fc_rp_min_thre_, robot_model->getFeasibleControlRollPitchMinThre());
+        getParam<double>("fc_rp_dist_decrease_vel_thre", fc_rp_dist_decrease_vel_thre_, -0.1);
+        getParam<double>("fc_rp_dist_constraint_range", fc_rp_dist_constraint_range_, 0.2);
+        getParam<double>("fc_rp_dist_forbidden_range", fc_rp_dist_forbidden_range_, 0.05);
 
+        if(check_fc_t_) nc_ += rotor_num_;
+
+        getParam<bool>("old_method", old_method_, false);
+        getParam<double>("rp_position_margin_thre", rp_position_margin_thre_, robot_model->getRollPitchPositionMarginThresh());
+        getParam<double>("wrench_mat_det_thre", wrench_mat_det_thre_, robot_model->getWrenchMatDetThresh());
+        getParam<double>("rp_position_margin_decrease_vel_thre", rp_position_margin_decrease_vel_thre_, -0.01);
+        getParam<double>("rp_position_margin_constraint_range", rp_position_margin_constraint_range_, 0.02);
+        getParam<double>("rp_position_margin_forbidden_range", rp_position_margin_forbidden_range_, 0.005);
+
+        if(old_method_) nc_ = 2;
       }
 
       bool getConstraint(Eigen::MatrixXd& A, Eigen::VectorXd& lb, Eigen::VectorXd& ub, bool debug = false)
       {
-        auto robotModelUpdate = [this](KDL::Rotation root_att, KDL::JntArray actuator_vector)
-          {
-            planner_->getRobotModelPtr()->setCogDesireOrientation(root_att);
-            planner_->getRobotModelPtr()->updateRobotModel(actuator_vector);
-            planner_->getRobotModelPtr()->stabilityMarginCheck();
-            planner_->getRobotModelPtr()->modelling();
-          };
-
-        KDL::Rotation curr_root_att;
-        tf::quaternionTFToKDL(planner_->getTargetRootPose().getRotation(), curr_root_att);
-        auto curr_actuator_vector =  planner_->getTargetActuatorVector<KDL::JntArray>();
-
-
         //debug = true;
-        A = Eigen::MatrixXd::Zero(nc_, planner_->getRobotModelPtr()->getLinkJointIndex().size() + 6);
+        const auto robot_model = boost::dynamic_pointer_cast<HydrusRobotModel>(planner_->getRobotModelPtr());
+
+        A = Eigen::MatrixXd::Zero(nc_, robot_model->getLinkJointIndices().size() + 6);
         lb = Eigen::VectorXd::Constant(nc_, -0.1);
-        ub = Eigen::VectorXd::Constant(nc_, 0.1);
+        ub = Eigen::VectorXd::Constant(nc_, 1e6);
 
-        /* 1. stability margin */
-        double nominal_stability_margin = planner_->getRobotModelPtr()->getStabilityMargin();
-        /* fill lb */
-        lb(0) = stability_margin_decrease_vel_thre_;
-        if(nominal_stability_margin - stability_margin_thre_  < stability_margin_constraint_range_)
-          lb(0) *=  ((nominal_stability_margin - stability_margin_thre_ - stability_margin_forbidden_range_) / (stability_margin_constraint_range_ - stability_margin_forbidden_range_));
+        const auto& fc_rp_dists_jacobian = robot_model->getFeasibleControlRollPitchDistsJacobian();
 
-        /* 2. singularity */
-        double nominal_p_det = planner_->getRobotModelPtr()->getPdeterminant();
-        /* fill ub */
-        lb(1) =  p_det_thre_ - nominal_p_det;
-
-        /*************************************************************************************
-        3. optimal hovering thrust constraint (including singularity check)
-           f_min < F + delta_f < f_max =>   delta_f =  (f(q + d_q) - f(q)) / d_q * delta_q
-           TODO: use virutal state (beta) to maximize the flight stability
-        ****************************************************************************************/
-
-        Eigen::VectorXd nominal_hovering_f =  planner_->getRobotModelPtr()->getOptimalHoveringThrust();
-        /* fill the lb/ub */
-        lb.segment(2, rotor_num_) = Eigen::VectorXd::Constant(rotor_num_, -force_vel_thre_);
-        ub.segment(2, rotor_num_) = Eigen::VectorXd::Constant(rotor_num_, force_vel_thre_);
-        for(int index = 0; index < rotor_num_; index++)
+        if(!old_method_)
           {
-            if(nominal_hovering_f(index) - f_min_ < force_constraint_range_)
-              lb(2 + index) *= ((nominal_hovering_f(index) - f_min_ - force_forbidden_range_)/ (force_constraint_range_ - force_forbidden_range_));
-            if(f_max_ - nominal_hovering_f(index)  < force_constraint_range_)
-              ub(2 + index) *= ((f_max_ - nominal_hovering_f(index) - force_forbidden_range_)/ (force_constraint_range_ - force_forbidden_range_));
+            Eigen::VectorXd fc_rp_dists = robot_model->getFeasibleControlRollPitchDists();
+            for(int i = 0; i < rotor_num_; i++)
+              {
+                Eigen::MatrixXd::Index index;
+                double rp_min = fc_rp_dists.minCoeff(&index);
+                if(i == 0)
+                  {
+                    if(rp_min < fc_rp_min_)
+                      {
+                        fc_rp_min_ = rp_min;
+                        fc_rp_min_rp_position_margin_ = robot_model->getRollPitchPositionMargin();
+                      }
+                  }
+                A.row(i) = fc_rp_dists_jacobian.row(index);
+                lb(i) = damplingBound(rp_min - fc_rp_min_thre_,
+                                      fc_rp_dist_decrease_vel_thre_,
+                                      fc_rp_dist_constraint_range_,
+                                      fc_rp_dist_forbidden_range_);
+
+                fc_rp_dists(index) = 1e6; // reset
+              }
+
+            if(debug)
+              {
+                std::cout << "constraint (" << constraint_name_.c_str()  << "): feasible control roll pitch convex distances: \n" << robot_model->getFeasibleControlRollPitchDists().transpose() << std::endl;
+                std::cout << "constraint (" << constraint_name_.c_str()  << "): fc_rp_jacobian: \n" << fc_rp_dists_jacobian << std::endl;
+              }
+
+            if(check_fc_t_)
+              {
+                Eigen::VectorXd fc_t_dists = robot_model->getFeasibleControlTDists();
+                const auto& fc_t_dists_jacobian = robot_model->getFeasibleControlTDistsJacobian();
+
+                // only choose rotor_num component
+                for(int i = 0; i < rotor_num_; i++)
+                  {
+                    Eigen::MatrixXd::Index index;
+                    double t_min = fc_t_dists.minCoeff(&index);
+                    if(i == 0)
+                      {
+                        if(t_min < fc_t_min_)
+                          {
+                            fc_t_min_ = t_min;
+                            fc_t_min_rp_position_margin_ = robot_model->getRollPitchPositionMargin();
+                          }
+                      }
+                    A.row(i + rotor_num_) = fc_t_dists_jacobian.row(index);
+                    double diff = fc_t_min_thre_ - t_min;
+                    lb(i + rotor_num_) =  diff < fc_t_dist_decrease_vel_thre_? fc_t_dist_decrease_vel_thre_:diff;
+                    fc_t_dists(index) = 1e6; // reset
+                  }
+
+                if(debug)
+                  {
+                    std::cout << "constraint (" << constraint_name_.c_str()  << "): feasible control torque convex distances: \n" << robot_model->getFeasibleControlTDists().transpose() << std::endl;
+                    std::cout << "constraint (" << constraint_name_.c_str()  << "): fc_t_dists_jacobian: \n" << fc_t_dists_jacobian << std::endl;
+                  }
+              }
+          }
+        else
+          {
+            numericalUpdate(robot_model, A, lb, ub);
           }
 
         if(debug)
           {
-            std::cout << "constraint name: " << constraint_name_ << ", nominal stability margin : \n" << nominal_stability_margin << std::endl;
-            std::cout << "constraint name: " << constraint_name_ << ", nominal p det : \n" << nominal_p_det << std::endl;
-            std::cout << "constraint name: " << constraint_name_ << ", nominal f: \n" << nominal_hovering_f.transpose() << std::endl;
-          }
-
-        /* update the result */
-        if(result_p_det_min_ > nominal_p_det) result_p_det_min_ = nominal_p_det;
-        if(result_stability_margin_min_ > nominal_stability_margin) result_stability_margin_min_ = nominal_stability_margin;
-        if(result_f_min_ > nominal_hovering_f.minCoeff())
-          result_f_min_ = nominal_hovering_f.minCoeff(&result_f_min_rotor_);
-        if(result_f_max_ < nominal_hovering_f.maxCoeff())
-          result_f_max_ = nominal_hovering_f.maxCoeff(&result_f_max_rotor_);
-
-        /* joint */
-        double delta_angle = 0.001; // [rad]
-        for(int index = 0; index < planner_->getRobotModelPtr()->getLinkJointIndex().size(); index++)
-          {
-            KDL::JntArray perturbation_actuator_vector = curr_actuator_vector;
-            perturbation_actuator_vector(planner_->getRobotModelPtr()->getLinkJointIndex().at(index)) += delta_angle;
-            robotModelUpdate(curr_root_att, perturbation_actuator_vector);
-
-            /* stability margin */
-            A(0, 6 + index) = (planner_->getRobotModelPtr()->getStabilityMargin() - nominal_stability_margin) /delta_angle;
-            /* singularity */
-            A(1, 6 + index) = (planner_->getRobotModelPtr()->getPdeterminant() - nominal_p_det) /delta_angle;
-            /* hovering thrust */
-            A.block(2, 6 + index, rotor_num_, 1) = (planner_->getRobotModelPtr()->getOptimalHoveringThrust() - nominal_hovering_f) / delta_angle;
-          }
-
-        if(debug)
-          std::cout << "constraint (" << constraint_name_.c_str()  << "): matrix A: \n" << A << std::endl;
-
-        if(full_body_)
-          {
-            /* root */
-            /* roll */
-            robotModelUpdate(curr_root_att * KDL::Rotation::RPY(delta_angle, 0, 0), curr_actuator_vector);
-            /* stability margin */
-            A(0, 3) = (planner_->getRobotModelPtr()->getStabilityMargin() - nominal_stability_margin) / delta_angle;
-            /* singularity */
-            A(1, 3) = (planner_->getRobotModelPtr()->getPdeterminant() - nominal_p_det) / delta_angle;
-            /* hovering thrust */
-            A.block(2, 3, rotor_num_, 1) = (planner_->getRobotModelPtr()->getOptimalHoveringThrust() - nominal_hovering_f) / delta_angle;
-
-            /*  pitch */
-            robotModelUpdate(curr_root_att * KDL::Rotation::RPY(0, delta_angle, 0), curr_actuator_vector);
-            /* stability margin */
-            A(0, 4) = (planner_->getRobotModelPtr()->getStabilityMargin() - nominal_stability_margin) / delta_angle;
-            /* singularity */
-            A(1, 4) = (planner_->getRobotModelPtr()->getPdeterminant() - nominal_p_det) / delta_angle;
-            /* hovering thrust */
-            A.block(2, 4, rotor_num_, 1) = (planner_->getRobotModelPtr()->getOptimalHoveringThrust() - nominal_hovering_f) / delta_angle;
-
-            /* yaw */
-            robotModelUpdate(curr_root_att * KDL::Rotation::RPY(0, 0, delta_angle), curr_actuator_vector);
-
-            /* stability margin */
-            A(0, 5) = (planner_->getRobotModelPtr()->getStabilityMargin() - nominal_stability_margin) / delta_angle;
-            /* singularity */
-            A(1, 5) = (planner_->getRobotModelPtr()->getPdeterminant() - nominal_p_det) / delta_angle;
-            /* hovering thrust */
-            A.block(2, 5, rotor_num_, 1) = (planner_->getRobotModelPtr()->getOptimalHoveringThrust() - nominal_hovering_f) / delta_angle;
-          }
-
-        /* 0. revert the robot model with current state */
-        robotModelUpdate(curr_root_att, curr_actuator_vector);
-
-        if(debug)
-          std::cout << "constraint (" << constraint_name_.c_str()  << "): matrix A: \n" << A << std::endl;
-        if(debug)
-          {
+            std::cout << "constraint (" << constraint_name_.c_str()  << "): matrix A: \n" << A << std::endl;
             std::cout << "constraint name: " << constraint_name_ << ", lb: \n" << lb.transpose() << std::endl;
             std::cout << "constraint name: " << constraint_name_ << ", ub: \n" << ub.transpose() << std::endl;
           }
-
         return true;
       }
 
       void result()
       {
         std::cout << constraint_name_
-                  << "min p determinant: " << result_p_det_min_ << "\n"
-                  << "min stability margin: " << result_stability_margin_min_ << "\n"
-                  << "min f: " << result_f_min_ << " at rotor" << result_f_min_rotor_ << "\n"
-                  << "max f: " << result_f_max_ << " at rotor" << result_f_max_rotor_ << std::endl;
+                  << "min fc_rp_min_: " << fc_rp_min_
+                  << "; fc_rp_min_rp_position_margin_: " << fc_rp_min_rp_position_margin_  << std::endl;
+        if(check_fc_t_)
+          {
+            std::cout << constraint_name_
+                      << "min fc_t_min_: " << fc_t_min_
+                      << "; fc_t_min_rp_position_margin_: " << fc_t_min_rp_position_margin_  << std::endl;
+          }
+
+        if(old_method_)
+          {
+            std::cout << constraint_name_
+                      << "min wremch matrix determinant: " << wrench_mat_det_min_ << "\n"
+                      << "min control margin: " << rp_position_margin_min_
+                      << "; rp_position_margin_min_rp_" << rp_position_margin_min_rp_ << std::endl;
+          }
       }
 
       bool directConstraint(){return false;}
 
     protected:
-      double stability_margin_thre_;
-      double p_det_thre_;
-      double f_min_, f_max_;
 
-      double force_vel_thre_;
-      double force_constraint_range_;
-      double force_forbidden_range_;
+      bool check_fc_t_;
+      double fc_t_min_thre_;
+      double fc_t_dist_decrease_vel_thre_;
+      double fc_rp_min_thre_;
+      double fc_rp_dist_decrease_vel_thre_;
+      double fc_rp_dist_constraint_range_;
+      double fc_rp_dist_forbidden_range_;
 
-      double stability_margin_decrease_vel_thre_;
-      double stability_margin_constraint_range_;
-      double stability_margin_forbidden_range_;
+      double fc_t_min_;
+      double fc_rp_min_;
+      double fc_t_min_rp_position_margin_;
+      double fc_rp_min_rp_position_margin_;
 
-      double result_f_min_;
-      double result_f_max_;
-      Eigen::MatrixXd::Index result_f_min_rotor_;
-      Eigen::MatrixXd::Index result_f_max_rotor_;
+      bool old_method_;
+      double rp_position_margin_thre_;
+      double wrench_mat_det_thre_;
 
-      double result_p_det_min_;
-      double result_stability_margin_min_;
+      double rp_position_margin_decrease_vel_thre_;
+      double rp_position_margin_constraint_range_;
+      double rp_position_margin_forbidden_range_;
+
+      double wrench_mat_det_min_;
+      double rp_position_margin_min_;
+      double rp_position_margin_min_rp_;
+
+    public:
+
+      void numericalUpdate(boost::shared_ptr<aerial_robot_model::RobotModel> robot_model, Eigen::MatrixXd& A, Eigen::VectorXd& lb, Eigen::VectorXd& ub)
+      {
+          const auto& joint_indices = robot_model->getLinkJointIndices();
+          const auto hydrus_robot_model = boost::dynamic_pointer_cast<HydrusRobotModel>(robot_model);
+          auto curr_root_att = planner_->getTargetRootPose<KDL::Frame>().M;
+          auto curr_joint_vector =  planner_->getTargetJointVector<KDL::JntArray>();
+
+          /* 1. stability margin */
+          double nominal_rp_position_margin = hydrus_robot_model->getRollPitchPositionMargin();
+          /* fill lb */
+          lb(0) = damplingBound(nominal_rp_position_margin - rp_position_margin_thre_, rp_position_margin_decrease_vel_thre_, rp_position_margin_constraint_range_, rp_position_margin_forbidden_range_);
+
+          /* 2. singularity */
+          double nominal_wrench_mat_det = hydrus_robot_model->getWrenchMatDeterminant();
+          /* fill ub */
+          lb(1) =  wrench_mat_det_thre_ - nominal_wrench_mat_det;
+
+          /* update the result */
+          double fc_t_min = hydrus_robot_model->getFeasibleControlTMin();
+          double fc_rp_min = hydrus_robot_model->getFeasibleControlRollPitchMin();
+
+          if(wrench_mat_det_min_ > nominal_wrench_mat_det) wrench_mat_det_min_ = nominal_wrench_mat_det;
+          if(rp_position_margin_min_ > nominal_rp_position_margin)
+            {
+              rp_position_margin_min_ = nominal_rp_position_margin;
+              rp_position_margin_min_rp_ = fc_rp_min;
+            }
+
+          if(fc_t_min < fc_t_min_)
+            {
+              fc_t_min_ = fc_t_min;
+              fc_t_min_rp_position_margin_ = nominal_rp_position_margin;
+            }
+          if(fc_rp_min < fc_rp_min_)
+            {
+              fc_rp_min_ = fc_rp_min;
+              fc_rp_min_rp_position_margin_ = nominal_rp_position_margin;
+            }
+
+
+          // numerical solution for control margin and wrench mat determinant
+          double delta_angle = 0.0001; // [rad]
+          auto perturbate = [&](int col, KDL::Rotation root_att, KDL::JntArray joint_vector)
+            {
+              hydrus_robot_model->setCogDesireOrientation(root_att);
+              hydrus_robot_model->updateRobotModel(joint_vector);
+              hydrus_robot_model->rollPitchPositionMarginCheck();
+              hydrus_robot_model->wrenchMatrixDeterminantCheck();
+
+              A(0, col) = (hydrus_robot_model->getRollPitchPositionMargin() - nominal_rp_position_margin) /delta_angle;  // control margin
+              A(1, col) = (hydrus_robot_model->getWrenchMatDeterminant() - nominal_wrench_mat_det) /delta_angle; // singularity
+            };
+
+          /* joint */
+          int col_index = 6;
+          for (const auto& joint_index : joint_indices)
+            {
+              KDL::JntArray perturbation_joint_vector = curr_joint_vector;
+              perturbation_joint_vector(joint_index) += delta_angle;
+              perturbate(col_index, curr_root_att, perturbation_joint_vector);
+              col_index++;
+            }
+
+          if(full_body_)
+            {
+              /* root */
+              /* roll */
+              perturbate(3, curr_root_att * KDL::Rotation::RPY(delta_angle, 0, 0), curr_joint_vector);
+              /* pitch */
+              perturbate(4, curr_root_att * KDL::Rotation::RPY(0, delta_angle, 0), curr_joint_vector);
+
+              /* yaw */
+              perturbate(5, curr_root_att * KDL::Rotation::RPY(0, 0, delta_angle), curr_joint_vector);
+            }
+
+          /* 0. revert the robot model with current state */
+          hydrus_robot_model->setCogDesireOrientation(curr_root_att);
+          hydrus_robot_model->updateRobotModel(curr_joint_vector);
+        }
     };
   };
 };

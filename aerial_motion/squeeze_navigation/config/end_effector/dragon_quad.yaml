@@ -56,8 +56,18 @@ end_effector:
       joint_vel_constraint_range: 0.11
       joint_vel_forbidden_range: 0.02
       vebose: true
+    static_thrust:
+      verbose: true
+      f_max_thre: 22.0
+      f_min_thre: 10.0
     stability:
       verbose: true
+      check_fc_t: false
+      fc_rp_min_thre: 4.9
+      fc_rp_dist_decrease_vel_thre: -0.1
+      fc_rp_dist_constraint_range: 0.2
+      fc_rp_dist_forbidden_range: 0.05
+      rp_positiono_margin_thre: 0.3
     collision_avoidance:
       verbose: true
       collision_distance_constraint_range: 0.08 #0.05
@@ -67,3 +77,14 @@ end_effector:
       cog_omega_limit_flag: false
       cog_velocity_limit: [0.05, 0.05, 0.01]  # [x,y,z] (m) in world frame
       cog_angular_limit: [0.05, 0.05, 0.05]  # [x,y,z] (rad) in world frame
+    overlap:
+      verbose: true
+    joint_torque:
+      verbose: true
+      t_min_thre: -3.0
+      t_max_thre: 3.0
+      torque_vel_thre: 0.2
+
+  additional_constraint_list:
+    - differential_kinematics_constraint/overlap
+    - differential_kinematics_constraint/joint_torque

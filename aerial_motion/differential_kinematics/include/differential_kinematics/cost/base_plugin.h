@@ -98,6 +98,13 @@ namespace differential_kinematics
       bool orientation_;
       bool full_body_;
 
+      template<class T> void getParam(std::string param_name, T& param, T default_value)
+      {
+        nhp_.param<T>(param_name, param, default_value);
+        if(verbose_)
+          ROS_INFO_STREAM("[" << nhp_.getNamespace() << "] " << param_name << ": " << param);
+      }
+
     };
   };
 };

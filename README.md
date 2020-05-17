@@ -4,7 +4,7 @@ Motion planning for aerial robot and other robot
 ## dependency
 - aeiral_robot:
    - url: https://github.com/tongtybj/aerial_robot
-   - version: `tag = 1.1.1`
+   - version: [05e87e2](https://github.com/tongtybj/aerial_robot/tree/05e87e2619d76aad0a65f4b7e2fee0ea07e635bd)
 
 ## packages:
 ### aerial_manipulation

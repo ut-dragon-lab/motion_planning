@@ -51,7 +51,7 @@ namespace differential_kinematics
                               bool orientation, bool full_body)
       {
         Base::initialize(nh, nhp, planner, constraint_name, orientation, full_body);
-        nc_ = 6 + planner_->getRobotModelPtr()->getLinkJointIndex().size();
+        nc_ = 6 + planner_->getRobotModelPtr()->getLinkJointIndices().size();
 
         nhp_.param ("root_translational_vel_thre", root_translational_vel_thre_, 0.05);
         if(verbose_) std::cout << "root_translational_vel_thre: " << std::setprecision(3) << root_translational_vel_thre_ << std::endl;
@@ -79,7 +79,7 @@ namespace differential_kinematics
 
       bool getConstraint(Eigen::MatrixXd& A, Eigen::VectorXd& lb, Eigen::VectorXd& ub, bool debug = false)
       {
-        int j_ndof = planner_->getRobotModelPtr()->getLinkJointIndex().size();
+        int j_ndof = planner_->getRobotModelPtr()->getLinkJointIndices().size();
         A = Eigen::MatrixXd::Zero(nc_, j_ndof + 6);
         lb = Eigen::VectorXd::Constant(nc_, 1);
         ub = Eigen::VectorXd::Constant(nc_, 1);
@@ -105,21 +105,21 @@ namespace differential_kinematics
           }
 
         /* joint */
-        auto actuator_vector = planner_->getTargetActuatorVector<KDL::JntArray>();
+        auto joint_vector = planner_->getTargetJointVector<KDL::JntArray>();
 
         lb.tail(j_ndof) *= -joint_vel_thre_;
         ub.tail(j_ndof) *= joint_vel_thre_;
         for(int i = 0; i < j_ndof; i ++)
           {
-            auto index = planner_->getRobotModelPtr()->getLinkJointIndex().at(i);
+            auto index = planner_->getRobotModelPtr()->getLinkJointIndices().at(i);
 
             /* min */
-            if(actuator_vector(index) - planner_->getRobotModelPtr()->getLinkJointLowerLimits().at(i) < joint_vel_constraint_range_)
-              lb(i + 6) *= (actuator_vector(index) - planner_->getRobotModelPtr()->getLinkJointLowerLimits().at(i) - joint_vel_forbidden_range_) / (joint_vel_constraint_range_ - joint_vel_forbidden_range_);
+            if(joint_vector(index) - planner_->getRobotModelPtr()->getLinkJointLowerLimits().at(i) < joint_vel_constraint_range_)
+              lb(i + 6) *= (joint_vector(index) - planner_->getRobotModelPtr()->getLinkJointLowerLimits().at(i) - joint_vel_forbidden_range_) / (joint_vel_constraint_range_ - joint_vel_forbidden_range_);
 
             /* max */
-            if(planner_->getRobotModelPtr()->getLinkJointUpperLimits().at(i) - actuator_vector(index)  < joint_vel_constraint_range_)
-              ub(i + 6) *= (planner_->getRobotModelPtr()->getLinkJointUpperLimits().at(i) - actuator_vector(index) - joint_vel_forbidden_range_) / (joint_vel_constraint_range_ - joint_vel_forbidden_range_);
+            if(planner_->getRobotModelPtr()->getLinkJointUpperLimits().at(i) - joint_vector(index)  < joint_vel_constraint_range_)
+              ub(i + 6) *= (planner_->getRobotModelPtr()->getLinkJointUpperLimits().at(i) - joint_vector(index) - joint_vel_forbidden_range_) / (joint_vel_constraint_range_ - joint_vel_forbidden_range_);
           }
 
         if(debug)

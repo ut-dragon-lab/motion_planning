@@ -48,6 +48,7 @@
 #include <visualization_msgs/MarkerArray.h>
 #include <differential_kinematics/TargetPose.h>
 #include <aerial_motion_planning_msgs/multilink_state.h>
+#include <kdl_conversions/kdl_msg.h>
 
 using namespace differential_kinematics;
 
@@ -67,14 +68,14 @@ public:
     env_collision_ = env_collision;
   }
 
-  bool inverseKinematics(const tf::Transform& target_ee_pose, const sensor_msgs::JointState& init_actuator_vector, const tf::Transform& init_root_pose, bool orientation, bool full_body, std::string tran_free_axis, std::string rot_free_axis, bool collision_avoidance, bool debug);
+  bool inverseKinematics(const tf::Transform& target_ee_pose, const sensor_msgs::JointState& init_joint_vector, const tf::Transform& init_root_pose, bool orientation, bool full_body, std::string tran_free_axis, std::string rot_free_axis, bool collision_avoidance, bool debug);
 
 private:
 
   ros::NodeHandle nh_;
   ros::NodeHandle nhp_;
   ros::ServiceServer end_effector_ik_service_;
-  ros::Subscriber actuator_state_sub_;
+  ros::Subscriber joint_state_sub_;
   ros::Subscriber env_collision_sub_;
   tf::TransformBroadcaster br_;
 
@@ -86,13 +87,13 @@ private:
   boost::shared_ptr<Planner> planner_core_ptr_;
   std::vector<MultilinkState> path_;
   tf::Transform target_ee_pose_;
-  sensor_msgs::JointState init_actuator_vector_;
+  sensor_msgs::JointState init_joint_vector_;
 
   /* collision avoidance */
   bool collision_avoidance_;
   visualization_msgs::MarkerArray env_collision_;
 
-  void actuatorStateCallback(const sensor_msgs::JointStateConstPtr& state);
+  void jointStateCallback(const sensor_msgs::JointStateConstPtr& state);
   bool endEffectorIkCallback(differential_kinematics::TargetPose::Request  &req,
                              differential_kinematics::TargetPose::Response &res);
 

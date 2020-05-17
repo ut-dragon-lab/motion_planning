@@ -2,7 +2,7 @@
 openning_pos_z: 0.775 # consider the bending from 0.8
 
 
-openning_width: 0.5 #default: 0.4, can be 0.5
+openning_width: 0.5 #default: 0.5, can be 0.4
 ceiling_offset: 0.45 #default: 0.45
 wall_thickness: 0.02 #default: 0.45
 
