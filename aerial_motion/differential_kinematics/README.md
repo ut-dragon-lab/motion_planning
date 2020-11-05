@@ -1,5 +1,11 @@
 ## Samples for end-effecotr IK
 
+### dependency
+- aeiral_robot:
+   - url: https://github.com/tongtybj/aerial_robot
+   - version: [1.2.0](https://github.com/tongtybj/aerial_robot/tree/1.2.0)
+
+
 ### Hydrus (SE2 model)
 1. start ``` $ roscore```
 2.  create the environment obstacle. following command will create a simple cylinder in the environment.
