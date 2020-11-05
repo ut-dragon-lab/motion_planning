@@ -44,7 +44,7 @@
 #include <sensor_msgs/JointState.h>
 #include <nav_msgs/Odometry.h>
 #include <aerial_robot_msgs/FlightNav.h>
-#include <aerial_robot_msgs/FlatnessPid.h>
+#include <aerial_robot_msgs/PoseControlPid.h>
 #include <spinal/DesireCoord.h>
 #include <spinal/FlightConfigCmd.h>
 #include <moveit_msgs/DisplayRobotState.h>
@@ -53,7 +53,7 @@
 
 /* robot model */
 #include <dragon/dragon_robot_model.h>
-#include <aerial_robot_base/flight_navigation.h>
+#include <dragon/dragon_navigation.h>
 
 /* discrete path search */
 #include <pluginlib/class_loader.h>
@@ -154,7 +154,7 @@ private:
   /* robot real state */
   void robotOdomCallback(const nav_msgs::OdometryConstPtr& msg);
   void robotJointStatesCallback(const sensor_msgs::JointStateConstPtr& joint_msg);
-  void controlDebugCallback(const aerial_robot_msgs::FlatnessPidConstPtr& control_msg);
+  void controlDebugCallback(const aerial_robot_msgs::PoseControlPidConstPtr& control_msg);
 
   /* teleop & debug */
   void moveStartCallback(const std_msgs::Empty msg);

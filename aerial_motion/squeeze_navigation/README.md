@@ -9,20 +9,20 @@
 #### - do online planning and check the planning discrete path
 ```
 $ roslaunch squeeze_navigation dragon_passing_planning.launch load_path_flag:=false discrete_path_debug_flag:=true  path_file_name:=dragon_planning_log_new_vertial_gap_0p5_ceil_1p4_with_side_wall3_best.txt
-$ rostopic pub -1 /plan_start std_msgs/Empty "{}"
+$ rostopic pub -1 /dragon/plan_start std_msgs/Empty "{}"
 ```
 
 #### - load the planned path from file and check the discrete path
 ```
 $ roslaunch squeeze_navigation dragon_passing_planning.launch load_path_flag:=true discrete_path_debug_flag:=true  path_file_name:=dragon_planning_log_new_vertial_gap_0p5_ceil_1p4_with_side_wall3_best.txt
-$ rostopic pub -1 /plan_start std_msgs/Empty "{}"
+$ rostopic pub -1 /dragon/plan_start std_msgs/Empty "{}"
 ```
 
 #### - load the planned path from file and check the continuous path 
 ```
 $ roslaunch squeeze_navigation dragon_passing_planning.launch load_path_flag:=true discrete_path_debug_flag:=true  path_file_name:=dragon_planning_log_new_vertial_gap_0p5_ceil_1p4_with_side_wall3_best.txt
-$ rostopic pub -1 /plan_start std_msgs/Empty "{}"
-$ rostopic pub -1 /move_start std_msgs/Empty "{}"
+$ rostopic pub -1 /dragon/plan_start std_msgs/Empty "{}"
+$ rostopic pub -1 /dragon/move_start std_msgs/Empty "{}"
 ```
 
 #### - do path tracking from the loaded path from
@@ -41,9 +41,9 @@ $ rostopic pub -1 /move_start std_msgs/Empty "{}"
 
   **common commands**:
   ```
-  $ rostopic pub -1 /plan_start std_msgs/Empty "{}"
-  $ rostopic pub -1 /adjust_robot_initial_state std_msgs/Empty "{}"
-  $ rostopic pub -1 /move_start std_msgs/Empty "{}"
+  $ rostopic pub -1 /dragon/plan_start std_msgs/Empty "{}"
+  $ rostopic pub -1 /dragon/adjust_robot_initial_state std_msgs/Empty "{}"
+  $ rostopic pub -1 /dragon/move_start std_msgs/Empty "{}"
   ```
   **return motion**: `$ rostopic pub -1 /return std_msgs/Empty "{}"`
 
@@ -52,15 +52,15 @@ $ rostopic pub -1 /move_start std_msgs/Empty "{}"
 #### - do online planning and check the planning discrete path
 ```
 $ roslaunch squeeze_navigation dragon_passing_planning.launch  discrete_path_debug_flag:=true
-$ rostopic pub -1 /plan_start std_msgs/Empty "{}"
-$ rostopic pub -1 /move_start std_msgs/Empty "{}"
+$ rostopic pub -1 /dragon/plan_start std_msgs/Empty "{}"
+$ rostopic pub -1 /dragon/move_start std_msgs/Empty "{}"
 ```
 
 #### - do online planning and check the planning continuous path
 ```
 $ roslaunch squeeze_navigation dragon_passing_planning.launch start_squeeze_path_from_real_state:=false
-$ rostopic pub -1 /plan_start std_msgs/Empty "{}"
-$ rostopic pub -1 /move_start std_msgs/Empty "{}"
+$ rostopic pub -1 /dragon/plan_start std_msgs/Empty "{}"
+$ rostopic pub -1 /dragon/move_start std_msgs/Empty "{}"
 ```
 
 #### - online planing and do path tracking
@@ -79,9 +79,9 @@ $ rostopic pub -1 /move_start std_msgs/Empty "{}"
 
   **common commands**:
   ```
-  $ rostopic pub -1 /plan_start std_msgs/Empty "{}"
-  $ rostopic pub -1 /adjust_robot_initial_state std_msgs/Empty "{}"
-  $ rostopic pub -1 /move_start std_msgs/Empty "{}"
+  $ rostopic pub -1 /dragon/plan_start std_msgs/Empty "{}"
+  $ rostopic pub -1 /dragon/adjust_robot_initial_state std_msgs/Empty "{}"
+  $ rostopic pub -1 /dragon/move_start std_msgs/Empty "{}"
   ```
 
 ### other important parameters:
@@ -91,9 +91,9 @@ $ rostopic pub -1 /move_start std_msgs/Empty "{}"
 ### replay rosbag in rviz:
 ```
 $ roslaunch squeeze_navigation dragon_passing_planning.launch replay:=true
-$ rosbag play xxxx.bag /plan_start:=/plan_start_temp
+$ rosbag play xxxx.bag /dragon/plan_start:=/dragon/plan_start_temp
 ```
-**note**: the ros topic `=/plan_start_temp` should be renamed to avoid the replaning
+**note**: the ros topic `=/dragon/plan_start_temp` should be renamed to avoid the replaning
 
 ### plot in rqt_plot from rosbag
 
@@ -101,22 +101,22 @@ $ rosbag play xxxx.bag /plan_start:=/plan_start_temp
 
 1. path position error
   ```
-  $ rosrun squeeze_navigation pos_path_error.py
-  $ rqt_plot /pos_err/vector/x /pos_err/vector/y /pos_err/vector/z
+  $ rqt_plot /dragon/debug/pose/pid/x/err_p /dragon/debug/pose/pid/y/err_p /dragon/debug/pose/pid/z/err_p
   ```
+
 2. path attitude error
   ```
-  $ rqt_plot /uav/full_state/states[6]/state[0]/x /uav/full_state/states[7]/state[0]/x /controller/debug/yaw/pos_err
+  $ rqt_plot /dragon/uav/full_state/states[6]/state[0]/x /dragon/uav/full_state/states[7]/state[0]/x /dragon/debug/pose/pid/yaw/err_p
   ```
 
 3. position desired/current trajectory plot
    ```
-    $ rqt_plot /uav/nav/target_pos_x /uav/nav/target_pos_y /u/nav/target_pos_z /uav/cog/odom/pose/pose/position/x /uav/cog/odom/pose/pose/position/y /uav/cog/odom/pose/pose/position/z
+    $ rqt_plot /dragon/uav/nav/target_pos_x /dragon/uav/nav/target_pos_y /dragon/uav/nav/target_pos_z /dragon/uav/cog/odom/pose/pose/position/x /dragon/uav/cog/odom/pose/pose/position/y /dragon/uav/cog/odom/pose/pose/position/z
    ```
 
 4. attitude desired/current trajectory plot
    ```
-   $ rqt_plot /imu/angles[0] /imu/angles[1] /uav/full_statates[8]/state[2]/x /desire_coordinate/roll /desire_coordinate/pitch /uav/nav/target_psi
+   $ rqt_plot /dragon/imu/angles[0] /dragon/imu/angles[1] /dragon/uav/full_statates[8]/state[2]/x /dragon/desire_coordinate/roll /dragon/desire_coordinate/pitch /dragon/uav/nav/target_psi
    ```
 
 5. joint state current trajectory plot
@@ -133,7 +133,7 @@ $ roslaunch squeeze_navigation dragon_passing_planning.launch headless:=true sta
 
 ### use following command to proceed the phase 
 ```
-$ rostopic pub -1 /phase_proceed std_msgs/Empty "{}"
+$ rostopic pub -1 /dragon/phase_proceed std_msgs/Empty "{}"
 ```
 #### Phase:
 - phase0: hovering

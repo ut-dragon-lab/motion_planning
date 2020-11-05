@@ -51,7 +51,7 @@ namespace
   boost::shared_ptr<EndEffectorIKSolverCore> end_effector_ik_solver_;
 
   nav_msgs::Odometry robot_baselink_odom_;
-  aerial_robot_msgs::FlatnessPid controller_debug_;
+  aerial_robot_msgs::PoseControlPid controller_debug_;
   KDL::JntArray joint_vector_;
   sensor_msgs::JointState joint_state_;
   bool real_odom_flag_ = false;
@@ -77,26 +77,23 @@ SqueezeNavigation::SqueezeNavigation(ros::NodeHandle nh, ros::NodeHandle nhp):
   rosParamInit();
 
   /* ros pub/sub, srv */
-  move_start_flag_sub_ = nh_.subscribe("/move_start", 1, &SqueezeNavigation::moveStartCallback, this);
-  return_flag_sub_ = nh_.subscribe("/return", 1, &SqueezeNavigation::returnCallback, this);
-  phase_up_sub_ = nh_.subscribe("/phase_proceed", 1, &SqueezeNavigation::phaseUpCallback, this);
-  adjust_initial_state_sub_ = nh_.subscribe("/adjust_robot_initial_state", 1, &SqueezeNavigation::adjustInitalStateCallback, this);
-  plan_start_flag_sub_ = nh_.subscribe("/plan_start", 1, &SqueezeNavigation::planSqueezeMotionCallback, this);
-  joy_stick_sub_ = nh_.subscribe<sensor_msgs::Joy>("/joy", 1, &SqueezeNavigation::joyStickControl, this, ros::TransportHints().udp());
+  move_start_flag_sub_ = nh_.subscribe("move_start", 1, &SqueezeNavigation::moveStartCallback, this);
+  return_flag_sub_ = nh_.subscribe("return", 1, &SqueezeNavigation::returnCallback, this);
+  phase_up_sub_ = nh_.subscribe("phase_proceed", 1, &SqueezeNavigation::phaseUpCallback, this);
+  adjust_initial_state_sub_ = nh_.subscribe("adjust_robot_initial_state", 1, &SqueezeNavigation::adjustInitalStateCallback, this);
+  plan_start_flag_sub_ = nh_.subscribe("plan_start", 1, &SqueezeNavigation::planSqueezeMotionCallback, this);
+  joy_stick_sub_ = nh_.subscribe<sensor_msgs::Joy>("joy", 1, &SqueezeNavigation::joyStickControl, this);
 
-  std::string topic_name;
-  nhp_.param("joint_control_topic_name", topic_name, std::string("joints_ctrl"));
-  joints_ctrl_pub_ = nh_.advertise<sensor_msgs::JointState>(topic_name, 1);
-  flight_nav_pub_ = nh_.advertise<aerial_robot_msgs::FlightNav>("/uav/nav", 1);
-  se3_roll_pitch_nav_pub_ = nh_.advertise<spinal::DesireCoord>("/desire_coordinate", 1);
-  desired_path_pub_ = nh_.advertise<moveit_msgs::DisplayRobotState>("/desired_robot_state", 1);
-  debug_pub_ = nh_.advertise<moveit_msgs::DisplayRobotState>("/debug_robot_state", 1);
+  joints_ctrl_pub_ = nh_.advertise<sensor_msgs::JointState>("joints_ctrl", 1);
+  flight_nav_pub_ = nh_.advertise<aerial_robot_msgs::FlightNav>("uav/nav", 1);
+  se3_roll_pitch_nav_pub_ = nh_.advertise<spinal::DesireCoord>("desire_coordinate", 1);
+  desired_path_pub_ = nh_.advertise<moveit_msgs::DisplayRobotState>("desired_robot_state", 1);
+  debug_pub_ = nh_.advertise<moveit_msgs::DisplayRobotState>("debug_robot_state", 1);
   end_effector_pos_pub_ = nh_.advertise<geometry_msgs::Vector3Stamped>("end_effector_pos", 1);
 
-  robot_baselink_odom_sub_ = nh_.subscribe("/uav/baselink/odom", 1, &SqueezeNavigation::robotOdomCallback, this);
-  nhp_.param("joint_state_topic_name", topic_name, std::string("joint_states"));
-  robot_joint_states_sub_ = nh_.subscribe(topic_name, 1, &SqueezeNavigation::robotJointStatesCallback, this);
-  controller_debug_sub_ = nh_.subscribe("/controller/debug", 1, &SqueezeNavigation::controlDebugCallback, this);
+  robot_baselink_odom_sub_ = nh_.subscribe("uav/baselink/odom", 1, &SqueezeNavigation::robotOdomCallback, this);
+  robot_joint_states_sub_ = nh_.subscribe("joint_states", 1, &SqueezeNavigation::robotJointStatesCallback, this);
+  controller_debug_sub_ = nh_.subscribe("debug/pose/pid", 1, &SqueezeNavigation::controlDebugCallback, this);
 
   /* robot model */
   // TODO: temporary
@@ -277,11 +274,11 @@ void SqueezeNavigation::stateMachine(const ros::TimerEvent& event)
 #if 0 //get init state from real robot state
             MultilinkState::convertBaselinkPose2RootPose(robot_model_ptr_, robot_baselink_odom_.pose.pose, joint_vector_, root_pose);
 #else //get init state from target state
-            tf::Quaternion desired_att = tf::createQuaternionFromRPY(0, 0, controller_debug_.yaw.target_pos);//CoG roll&pitch is zero, only yaw
+            tf::Quaternion desired_att = tf::createQuaternionFromRPY(0, 0, controller_debug_.yaw.target_p);//CoG roll&pitch is zero, only yaw
             geometry_msgs::Pose cog_pose;
-            cog_pose.position.x = controller_debug_.pitch.target_pos;
-            cog_pose.position.y = controller_debug_.roll.target_pos;
-            cog_pose.position.z = controller_debug_.throttle.target_pos;
+            cog_pose.position.x = controller_debug_.x.target_p;
+            cog_pose.position.y = controller_debug_.y.target_p;
+            cog_pose.position.z = controller_debug_.z.target_p;
             cog_pose.orientation.w = 1;
             MultilinkState::convertCogPose2RootPose(robot_model_ptr_, desired_att, cog_pose, joint_vector_, root_pose);
 #endif
@@ -373,10 +370,10 @@ void SqueezeNavigation::stateMachine(const ros::TimerEvent& event)
             nav_msg.control_frame = nav_msg.WORLD_FRAME;
             nav_msg.target = nav_msg.COG;
             nav_msg.pos_xy_nav_mode = nav_msg.POS_MODE;
-            nav_msg.target_pos_x = controller_debug_.pitch.target_pos + diff_vec.x();
-            nav_msg.target_pos_y = controller_debug_.roll.target_pos + diff_vec.y();
+            nav_msg.target_pos_x = controller_debug_.x.target_p + diff_vec.x();
+            nav_msg.target_pos_y = controller_debug_.y.target_p + diff_vec.y();
             nav_msg.pos_z_nav_mode = nav_msg.POS_MODE;
-            nav_msg.target_pos_z = controller_debug_.throttle.target_pos + diff_vec.z();
+            nav_msg.target_pos_z = controller_debug_.z.target_p + diff_vec.z();
 
             if(!replay_) flight_nav_pub_.publish(nav_msg);
 
@@ -701,8 +698,8 @@ void SqueezeNavigation::stateMachine(const ros::TimerEvent& event)
                     nav_msg.target_pos_x = final_pos_x;
                     nav_msg.target_pos_y = final_pos_y;
                     /* yaw */
-                    nav_msg.psi_nav_mode = nav_msg.POS_MODE;
-                    nav_msg.target_psi = final_yaw;
+                    nav_msg.yaw_nav_mode = nav_msg.POS_MODE;
+                    nav_msg.target_yaw = final_yaw;
                     flight_nav_pub_.publish(nav_msg);
                   }
 
@@ -985,8 +982,8 @@ void SqueezeNavigation::adjustInitalStateCallback(const std_msgs::Empty msg)
   double r, p, y; att.getRPY(r, p, y);
 
   /* yaw */
-  nav_msg.psi_nav_mode = nav_msg.POS_MODE;
-  nav_msg.target_psi = y;
+  nav_msg.yaw_nav_mode = nav_msg.POS_MODE;
+  nav_msg.target_yaw = y;
   flight_nav_pub_.publish(nav_msg);
 
   /* se3: roll & pitch */
@@ -1119,9 +1116,9 @@ void SqueezeNavigation::pathNavigate()
       nav_msg.target_vel_z = des_vel[2];
     }
   /* yaw */
-  nav_msg.psi_nav_mode = nav_msg.POS_VEL_MODE;
-  nav_msg.target_psi = des_pos[5];
-  nav_msg.target_vel_psi = des_vel[5];
+  nav_msg.yaw_nav_mode = nav_msg.POS_VEL_MODE;
+  nav_msg.target_yaw = des_pos[5];
+  nav_msg.target_omega_z = des_vel[5];
   flight_nav_pub_.publish(nav_msg);
 
   /* joint states */
@@ -1193,7 +1190,7 @@ void SqueezeNavigation::robotOdomCallback(const nav_msgs::OdometryConstPtr& msg)
   real_odom_flag_ = true;
 }
 
-void SqueezeNavigation::controlDebugCallback(const aerial_robot_msgs::FlatnessPidConstPtr& control_msg)
+void SqueezeNavigation::controlDebugCallback(const aerial_robot_msgs::PoseControlPidConstPtr& control_msg)
 {
   controller_debug_ = *control_msg;
 }
@@ -1220,14 +1217,15 @@ void SqueezeNavigation::robotJointStatesCallback(const sensor_msgs::JointStateCo
 
 void SqueezeNavigation::joyStickControl(const sensor_msgs::JoyConstPtr & joy_msg)
 {
+  using namespace aerial_robot_navigation;
   sensor_msgs::Joy joy_cmd;
-  if(joy_msg->axes.size() == Navigator::PS3_AXES && joy_msg->buttons.size() == Navigator::PS3_BUTTONS)
+  if(joy_msg->axes.size() == BaseNavigator::PS3_AXES && joy_msg->buttons.size() == BaseNavigator::PS3_BUTTONS)
     {
       joy_cmd = (*joy_msg);
     }
-  else if(joy_msg->axes.size() == Navigator::PS4_AXES && joy_msg->buttons.size() == Navigator::PS4_BUTTONS)
+  else if(joy_msg->axes.size() == BaseNavigator::PS4_AXES && joy_msg->buttons.size() == BaseNavigator::PS4_BUTTONS)
     {
-      joy_cmd = Navigator::ps4joyToPs3joyConvert(*joy_msg);
+      joy_cmd = BaseNavigator::ps4joyToPs3joyConvert(*joy_msg);
     }
   else
     {
@@ -1236,7 +1234,7 @@ void SqueezeNavigation::joyStickControl(const sensor_msgs::JoyConstPtr & joy_msg
     }
 
   /* force landing */
-  if(joy_cmd.buttons[Navigator::PS3_BUTTON_SELECT] == 1 && move_start_flag_)
+  if(joy_cmd.buttons[BaseNavigator::PS3_BUTTON_SELECT] == 1 && move_start_flag_)
     {
       ROS_INFO("[SqueezeNavigation] Receive force landing command, stop navigation.");
       move_start_flag_ = false;
@@ -1244,7 +1242,7 @@ void SqueezeNavigation::joyStickControl(const sensor_msgs::JoyConstPtr & joy_msg
     }
 
   /* landing */
-  if(joy_cmd.buttons[Navigator::PS3_BUTTON_CROSS_RIGHT] == 1 && joy_cmd.buttons[Navigator::PS3_BUTTON_ACTION_SQUARE] == 1 && move_start_flag_)
+  if(joy_cmd.buttons[BaseNavigator::PS3_BUTTON_CROSS_RIGHT] == 1 && joy_cmd.buttons[BaseNavigator::PS3_BUTTON_ACTION_SQUARE] == 1 && move_start_flag_)
     {
       ROS_INFO("[SqueezeNavigation] Receive normal landing command, stop navigation.");
       move_start_flag_ = false;

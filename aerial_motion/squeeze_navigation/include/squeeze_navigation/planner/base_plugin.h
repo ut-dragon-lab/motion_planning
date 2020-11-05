@@ -49,7 +49,7 @@ namespace squeeze_motion_planner
     Base() {}
     ~Base() {}
 
-    void virtual initialize(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<HydrusRobotModel> robot_model_ptr)
+    void virtual initialize(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<aerial_robot_model::RobotModel> robot_model_ptr)
     {
       nh_ = nh;
       nhp_ = nhp;
@@ -77,7 +77,7 @@ namespace squeeze_motion_planner
     ros::NodeHandle nh_;
     ros::NodeHandle nhp_;
 
-    boost::shared_ptr<HydrusRobotModel> robot_model_ptr_;
+    boost::shared_ptr<aerial_robot_model::RobotModel> robot_model_ptr_;
     std::string baselink_name_;
   };
 };

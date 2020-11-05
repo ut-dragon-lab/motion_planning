@@ -35,6 +35,10 @@
 
 #include <sampling_based_method/motion_planning.h>
 
+/* TODO: this is an workaround */
+#include <hydrus/hydrus_robot_model.h>
+
+
 namespace
 {
   int state_index = 0;
@@ -42,7 +46,7 @@ namespace
 
 namespace sampling_base
 {
-  MotionPlanning::MotionPlanning(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<HydrusRobotModel> robot_model_ptr):
+  MotionPlanning::MotionPlanning(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<aerial_robot_model::RobotModel> robot_model_ptr):
     nh_(nh), nhp_(nhp), robot_model_ptr_(robot_model_ptr),
     path_(0), calculation_time_(0),
     best_cost_(-1), min_var_(1e6),
@@ -606,9 +610,12 @@ namespace sampling_base
     robot_model_ptr_->updateRobotModel(joint_state);
     robot_model_ptr_->stabilityCheck();
 
-    if(robot_model_ptr_->getRollPitchPositionMargin() < min_var_)
+
+    /* workaround for old method wich using roll/pitch position margin */
+    auto hydrus_model_ptr = boost::dynamic_pointer_cast<HydrusRobotModel>(robot_model_ptr_);
+    if(hydrus_model_ptr->getRollPitchPositionMargin() < min_var_)
       {
-        min_var_ = robot_model_ptr_->getRollPitchPositionMargin() ;
+        min_var_ = hydrus_model_ptr->getRollPitchPositionMargin() ;
         min_var_state_index_ = path_.size();
       }
 
@@ -629,7 +636,7 @@ namespace sampling_base
     tf::Quaternion tf_q;
     quaternionMsgToTF(root_pose.orientation, tf_q);
     tf::Matrix3x3(tf_q).getRPY(r, p, y);
-    ROS_INFO("index: %d, dist_var: %f, max_force: %f, base pose: [%f, %f, %f] att: [%f, %f, %f]", (int)path_.size(), robot_model_ptr_->getRollPitchPositionMargin(), robot_model_ptr_->getStaticThrust().maxCoeff(), root_pose.position.x, root_pose.position.y, root_pose.position.z, r, p, y);
+    ROS_INFO("index: %d, dist_var: %f, max_force: %f, base pose: [%f, %f, %f] att: [%f, %f, %f]", (int)path_.size(), hydrus_model_ptr->getRollPitchPositionMargin(), robot_model_ptr_->getStaticThrust().maxCoeff(), root_pose.position.x, root_pose.position.y, root_pose.position.z, r, p, y);
 
     addState(MultilinkState(robot_model_ptr_, root_pose, joint_state));
   }

@@ -95,10 +95,10 @@ namespace aerial_transportation
                 nav_msg.target_pos_y = object_position_.y + object_offset_.y();
                 nav_msg.pos_z_nav_mode = aerial_robot_msgs::FlightNav::POS_MODE;
                 nav_msg.target_pos_z = object_height_;
-                nav_msg.psi_nav_mode = aerial_robot_msgs::FlightNav::POS_MODE;
-                nav_msg.target_psi = object_position_.theta + object_offset_.z();
-                if(nav_msg.target_psi > M_PI) nav_msg.target_psi -= (2 * M_PI);
-                if(nav_msg.target_psi < -M_PI) nav_msg.target_psi += (2 * M_PI);
+                nav_msg.yaw_nav_mode = aerial_robot_msgs::FlightNav::POS_MODE;
+                nav_msg.target_yaw = object_position_.theta + object_offset_.z();
+                if(nav_msg.target_yaw > M_PI) nav_msg.target_yaw -= (2 * M_PI);
+                if(nav_msg.target_yaw < -M_PI) nav_msg.target_yaw += (2 * M_PI);
                 uav_nav_pub_.publish(nav_msg);
               }
           }
@@ -264,7 +264,7 @@ namespace aerial_transportation
             nav_msg.target_pos_x = 0;
             nav_msg.target_pos_y = 0;
             nav_msg.pos_z_nav_mode = aerial_robot_msgs::FlightNav::NO_NAVIGATION;
-            nav_msg.psi_nav_mode = aerial_robot_msgs::FlightNav::NO_NAVIGATION;
+            nav_msg.yaw_nav_mode = aerial_robot_msgs::FlightNav::NO_NAVIGATION;
 
             uav_nav_pub_.publish(nav_msg);
 
@@ -417,7 +417,7 @@ namespace aerial_transportation
             nav_msg.target_pos_x = 0;
             nav_msg.target_pos_y = 0;
             nav_msg.pos_z_nav_mode = aerial_robot_msgs::FlightNav::NO_NAVIGATION;
-            nav_msg.psi_nav_mode = aerial_robot_msgs::FlightNav::NO_NAVIGATION;
+            nav_msg.yaw_nav_mode = aerial_robot_msgs::FlightNav::NO_NAVIGATION;
             uav_nav_pub_.publish(nav_msg);
           }
       }

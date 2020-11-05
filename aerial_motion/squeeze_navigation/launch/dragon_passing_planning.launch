@@ -2,6 +2,7 @@
 <launch>
   <arg name="headless" default="false" />
 
+  <arg name="robot_ns" value="dragon" />
   <arg name="type" default="quad" />
 
   <arg name="discrete_path_search_method_name" default="differential_kinematics" />
@@ -19,32 +20,29 @@
 
   ###########  Robot Model  ###########
   <group unless="$(arg headless)">
-    <include file="$(find dragon)/launch/robot_model.launch" >
-      <arg name="type" value="$(arg type)" />
-      <arg name="onboards_model" value="euclid_201709" />
-      <arg name="headless" value="true" />
+    <include file="$(find aerial_robot_model)/launch/aerial_robot_model.launch" >
+      <arg name="headless" value="$(arg headless)" />
+      <arg name="robot_model" value="$(find squeeze_navigation)/robots/dragon/quad.urdf.xacro" />
+      <arg name="robot_ns" value="$(arg robot_ns)" />
+      <arg name="rviz_config" value="$(find sampling_based_method)/config/planning.rviz" />
+      <arg name="rviz_init_pose" value="$(find dragon)/config/$(arg type)/RvizInit.yaml" />
       <arg name="need_joint_state" value="false"/>
-      <arg name="node_suffix" value="planning"/>
-      <arg name="direct_model" value="True" />
-      <arg name="direct_model_name" value="$(find squeeze_navigation)/robots/dragon/quad.urdf.xacro"/>
-    </include >
-
-    <node name="rviz" pkg="rviz" type="rviz"
-    args="-d $(find sampling_based_method)/config/planning.rviz" respawn="false" />
+    </include>
   </group>
 
   ########## Sampling based method (Moveit) ###########
-  <param name="/robot_description_semantic" textfile="$(find sampling_based_method)/config/dragon/$(arg type)/moveit.srdf" />
+  <group ns="$(arg robot_ns)">
+    <param name="robot_description_semantic" textfile="$(find sampling_based_method)/config/dragon/$(arg type)/moveit.srdf" />
+    <rosparam file="$(find dragon)/config/$(arg type)/RobotModel.yaml" command="load" />
+  </group>
 
   ###########  Path Planning and Navigation  ###########
-  <node pkg="squeeze_navigation" type="squeeze_navigation_node" name="squeeze_navigation_node" output="screen">
+  <node pkg="squeeze_navigation" type="squeeze_navigation_node" name="squeeze_navigation_node" output="screen" ns="$(arg robot_ns)">
 
     <param name="debug_verbose" value="false" />
     <param name="headless" value="$(arg headless)" />
 
     <param name="teleop_flag" value="$(arg teleop_flag)" />
-    <!-- robot model -->
-    <rosparam file="$(find dragon)/config/$(arg type)/AttitudeControl.yaml" command="load" />
 
     <!-- discrete path search -->
     <param name="discrete_path_search_method_name" value="squeeze_navigation/$(arg discrete_path_search_method_name)" />
@@ -87,8 +85,6 @@
 
     <!-- navigation -->
     <param name="control_frequency" value="40.0" />
-    <param name="joint_control_topic_name" value="/dragon/joints_ctrl" />
-    <param name="joint_state_topic_name" value="/dragon/joint_states" />
 
     <!-- replay -->
     <param name="replay" value="$(arg replay)"/>

@@ -2,8 +2,6 @@ motion_func_rate: 0
 
 # inverse kinematics
 differential_kinematics_count: 1000
-#actuator_state_sub_name: /dragon/joint_states
-#actuator_state_pub_name: /dragon/joint_states
 
 # gap target offset
 delta_pinch_length: 0.02
@@ -89,8 +87,3 @@ differential_kinematics_constraint:
                 #joint_vel_limit: 0.02 cog_angular_limit: [0.01, 0.01, 0.05]  # [x,y,z] (rad) in world frame
                 cog_velocity_limit: [0.01, 0.01, 0.01]  # [x,y,z] (m) in world frame
                 cog_angular_limit: [0.04, 0.04, 0.04]  # [x,y,z] (rad) in world frame. related to resampling_angular_rate: (0.2)
-
-additional_constraint_list:
-        - differential_kinematics_constraint/link_attitude
-        - differential_kinematics_constraint/overlap
-        - differential_kinematics_constraint/cog_motion
