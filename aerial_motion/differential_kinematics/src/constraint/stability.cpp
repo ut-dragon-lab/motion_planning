@@ -37,6 +37,7 @@
 
 #include <tf_conversions/tf_kdl.h>
 #include <sensor_msgs/JointState.h>
+#include <hydrus/hydrus_robot_model.h>
 
 namespace differential_kinematics
 {
@@ -91,10 +92,9 @@ namespace differential_kinematics
         lb = Eigen::VectorXd::Constant(nc_, -0.1);
         ub = Eigen::VectorXd::Constant(nc_, 1e6);
 
-        const auto& fc_rp_dists_jacobian = robot_model->getFeasibleControlRollPitchDistsJacobian();
-
         if(!old_method_)
           {
+            const auto& fc_rp_dists_jacobian = robot_model->getFeasibleControlRollPitchDistsJacobian();
             Eigen::VectorXd fc_rp_dists = robot_model->getFeasibleControlRollPitchDists();
             for(int i = 0; i < rotor_num_; i++)
               {

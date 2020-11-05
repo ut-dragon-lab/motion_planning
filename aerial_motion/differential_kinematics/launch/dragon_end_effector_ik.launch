@@ -4,18 +4,22 @@
   <arg name="type" default="quad" />
   <arg name="headless" default="false" />
   <arg name="onboards_model"  default = "euclid_201709" />
+  <arg name="robot_ns" value="dragon" />
 
   ###########  Robot Model  ###########
-  <include file="$(find dragon)/launch/robot_model.launch" >
-    <arg name="type" value="$(arg type)" />
+  <include file="$(find aerial_robot_model)/launch/aerial_robot_model.launch" >
     <arg name="headless" value="$(arg headless)" />
-    <arg name="need_joint_state" value="true"/>
-    <arg name="onboards_model" value="$(arg onboards_model)" />
-  </include >
+    <arg name="robot_model" value="$(find dragon)/robots/$(arg type)/$(arg onboards_model).urdf.xacro" />
+    <arg name="robot_ns" value="$(arg robot_ns)" />
+    <arg name="rviz_config" value="$(find dragon)/config/rviz_config" />
+    <arg name="rviz_init_pose" value="$(find dragon)/config/$(arg type)/RvizInit.yaml" />
+    <arg name="need_joint_state" value="false"/>
+  </include>
 
   ###########  Differential Motion Planner  ###########
-  <node pkg="differential_kinematics" type="se3_end_effector_ik_node" name="end_effector_ik_node"  output="screen" >
-    <rosparam file="$(find dragon)/config/$(arg type)/AttitudeControl.yaml" command="load" />
+  <node pkg="differential_kinematics" type="se3_end_effector_ik_node" name="end_effector_ik_node"  output="screen"  ns="$(arg robot_ns)">
+    <param name = "tf_prefix" value = "$(arg robot_ns)" />
+    <rosparam file="$(find dragon)/config/$(arg type)/RvizInit.yaml" command="load" />
     <rosparam file="$(find differential_kinematics)/config/dragon/$(arg type)/EndEffectorIK.yaml" command="load" />
   </node>
 

@@ -42,8 +42,7 @@
 #include <tf_conversions/tf_eigen.h>
 
 /* robot model */
-#include <hydrus/hydrus_robot_model.h>
-#include <dragon/dragon_robot_model.h>
+#include <aerial_robot_model/transformable_aerial_robot_model.h>
 #include <aerial_motion_planning_msgs/multilink_state.h>
 
 /* for QP solution for force-closure */
@@ -67,7 +66,7 @@ namespace differential_kinematics
     using ConstraintContainer = std::vector<boost::shared_ptr<constraint::Base> >;
 
   public:
-    Planner(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<HydrusRobotModel> robot_model_ptr );
+    Planner(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<aerial_robot_model::RobotModel> robot_model_ptr);
     ~Planner(){}
 
     bool solver(CostContainer cost_container, ConstraintContainer constraint_container, bool debug);
@@ -97,6 +96,7 @@ namespace differential_kinematics
 
     /* robot model for kinematics */
     boost::shared_ptr<aerial_robot_model::RobotModel> robot_model_ptr_;
+    std::string tf_prefix_;
     uint8_t multilink_type_;
     bool gimbal_module_flag_; // TODO: hard-coding
 

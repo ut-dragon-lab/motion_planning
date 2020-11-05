@@ -55,7 +55,7 @@ using namespace differential_kinematics;
 class EndEffectorIKSolverCore
 {
 public:
-  EndEffectorIKSolverCore(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<HydrusRobotModel> robot_model_ptr, bool simulation);
+  EndEffectorIKSolverCore(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<aerial_robot_model::RobotModel> robot_model_ptr, bool simulation);
   ~EndEffectorIKSolverCore(){}
 
   const std::string getParentSegName() const {return parent_seg_;}
@@ -75,12 +75,13 @@ private:
   ros::NodeHandle nh_;
   ros::NodeHandle nhp_;
   ros::ServiceServer end_effector_ik_service_;
-  ros::Subscriber joint_state_sub_;
   ros::Subscriber env_collision_sub_;
   tf::TransformBroadcaster br_;
 
-  boost::shared_ptr<HydrusRobotModel> robot_model_ptr_;
+  boost::shared_ptr<aerial_robot_model::RobotModel> robot_model_ptr_;
   std::string baselink_name_;
+  std::string root_link_;
+  std::string tf_prefix_;
   std::string parent_seg_;
   tf::Transform end_effector_relative_pose_;
 
@@ -93,7 +94,6 @@ private:
   bool collision_avoidance_;
   visualization_msgs::MarkerArray env_collision_;
 
-  void jointStateCallback(const sensor_msgs::JointStateConstPtr& state);
   bool endEffectorIkCallback(differential_kinematics::TargetPose::Request  &req,
                              differential_kinematics::TargetPose::Response &res);
 
