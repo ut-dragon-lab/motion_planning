@@ -1,4 +1,4 @@
 - git:
     local-name: aerial_robot
     uri: https://github.com/tongtybj/aerial_robot.git
-    version: 05e87e2
+    version: 1.2.0

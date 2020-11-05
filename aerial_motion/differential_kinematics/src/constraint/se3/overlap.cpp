@@ -38,7 +38,7 @@
 #include <differential_kinematics/constraint/base_plugin.h>
 
 /* dragon model */
-#include <dragon/transform_control.h>
+#include <dragon/dragon_robot_model.h>
 
 
 namespace differential_kinematics

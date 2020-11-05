@@ -39,6 +39,8 @@
 #include <differential_kinematics/cost/base_plugin.h>
 #include <differential_kinematics/constraint/base_plugin.h>
 
+/* TODO: this is an workaround */
+#include <dragon/dragon_robot_model.h>
 
 namespace differential_kinematics
 {
@@ -46,12 +48,14 @@ namespace differential_kinematics
   using CostContainer = std::vector<boost::shared_ptr<cost::Base> >;
   using ConstraintContainer = std::vector<boost::shared_ptr<constraint::Base> >;
 
-  Planner::Planner(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<HydrusRobotModel> robot_model_ptr): nh_(nh), nhp_(nhp), robot_model_ptr_(robot_model_ptr), multilink_type_(motion_type::SE2), gimbal_module_flag_(false), motion_func_vector_(), solved_(false)
+  Planner::Planner(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<aerial_robot_model::RobotModel> robot_model_ptr): nh_(nh), nhp_(nhp), robot_model_ptr_(robot_model_ptr), multilink_type_(motion_type::SE2), gimbal_module_flag_(false), motion_func_vector_(), solved_(false)
   {
     target_joint_vector_.resize(robot_model_ptr_->getTree().getNrOfJoints());
     for(auto tree_itr : robot_model_ptr_->getTree().getSegments())
       {
         std::string joint_name = tree_itr.second.segment.getJoint().getName();
+
+        /* TODO: workaround to detect whether this is a SE2 model or a SE3 model */
         if(joint_name.find("joint") == 0 &&
            tree_itr.second.segment.getJoint().getType() != KDL::Joint::JointType::None)
           {
@@ -61,6 +65,7 @@ namespace differential_kinematics
               }
           }
 
+        /* TODO: workaround to detect whether this is a model with gimbal moduel (e.g. dragon) */
         if(joint_name.find("gimbal") == 0 &&
            (joint_name.find("roll") != std::string::npos ||
             joint_name.find("pitch") != std::string::npos) &&
@@ -74,8 +79,9 @@ namespace differential_kinematics
 
     /* publisher for joint state */
     std::string joint_state_pub_name;
-    nhp_.param("joint_state_pub_name", joint_state_pub_name, std::string("joint_state"));
+    nhp_.param("joint_state_pub_name", joint_state_pub_name, std::string("joint_states"));
     joint_state_pub_ = nh_.advertise<sensor_msgs::JointState>(joint_state_pub_name, 1);
+    nhp_.param("tf_prefix", tf_prefix_, std::string(""));
 
     /* motion timer */
     double rate;
@@ -148,7 +154,7 @@ namespace differential_kinematics
             }
           }
 
-        /* special process for model which has gimbal module (e.g. dragon) */
+        /* workaround: special process for model which has gimbal module (e.g. dragon) */
         if(gimbal_module_flag_)
           {
             auto dragon_model_ptr = boost::dynamic_pointer_cast<DragonRobotModel>(robot_model_ptr_);
@@ -367,7 +373,7 @@ namespace differential_kinematics
 
         tf::Transform root_pose;
         tf::transformKDLToTF(target_root_pose_sequence_.at(sequence_), root_pose);
-        br_.sendTransform(tf::StampedTransform(root_pose, now_time, "world", "root"));
+        br_.sendTransform(tf::StampedTransform(root_pose, now_time, "world", tf::resolve(tf_prefix_, "root")));
         joint_state_pub_.publish(joint_msg);
         sequence_++;
         if(sequence_ == target_joint_vector_sequence_.size()) sequence_ = 0;

@@ -5,7 +5,8 @@ project(aerial_transportation)
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
-  aerial_robot_base
+  aerial_robot_msgs
+  aerial_robot_model
   dynamic_reconfigure
   geometry_msgs
   nav_msgs

@@ -111,7 +111,7 @@ namespace aerial_transportation
     nav_msg.target_pos_y = object_position_.y + object_offset_.y();
     nav_msg.pos_z_nav_mode = aerial_robot_msgs::FlightNav::POS_MODE;
     nav_msg.target_pos_z = target_height_;
-    nav_msg.psi_nav_mode = aerial_robot_msgs::FlightNav::NO_NAVIGATION;
+    nav_msg.yaw_nav_mode = aerial_robot_msgs::FlightNav::NO_NAVIGATION;
     uav_nav_pub_.publish(nav_msg);
   }
 

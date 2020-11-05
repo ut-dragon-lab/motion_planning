@@ -67,7 +67,7 @@ namespace squeeze_motion_planner
     DifferentialKinematics(): path_(0) {}
     ~DifferentialKinematics(){}
 
-    void initialize(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<HydrusRobotModel> robot_model_ptr)
+    void initialize(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<aerial_robot_model::RobotModel> robot_model_ptr)
     {
       Base::initialize(nh, nhp, robot_model_ptr);
 
@@ -264,14 +264,27 @@ namespace squeeze_motion_planner
       /* declare the differential kinemtiacs const */
       pluginlib::ClassLoader<cost::Base>  cost_plugin_loader("differential_kinematics", "differential_kinematics::cost::Base");
       CostContainer cost_container;
-      /* 1. statevel */
-      cost_container.push_back(cost_plugin_loader.createInstance("differential_kinematics_cost/state_vel"));
-      cost_container.back()->initialize(nh_, nhp_, planner_core_ptr_, "differential_kinematics_cost/state_vel", true /* orientation */, true /* full_body */);
-      /* 2. reference point cartesian error constraint (cost) */
-      cost_container.push_back(cost_plugin_loader.createInstance("differential_kinematics_cost/cartesian_constraint"));
-      cost_container.back()->initialize(nh_, nhp_, planner_core_ptr_, "differential_kinematics_cost/cartesian_constraint", false /* orientation */, true /* full_body */);
-      //cartersian_constraint_ = boost::dynamic_pointer_cast<cost::CartersianConstraint>(cost_container.back());
-      cartersian_constraint_ = reinterpret_cast<cost::CartersianConstraint*>(cost_container.back().get());
+
+      XmlRpc::XmlRpcValue costs;
+      nhp_.getParam("differential_kinematics_cost", costs);
+
+      for(auto cost: costs)
+        {
+          ROS_INFO_STREAM("squeezing based on differential kinematics, add cost: " << cost.first);
+
+          bool orientation = true;
+          cost_container.push_back(cost_plugin_loader.createInstance("differential_kinematics_cost/" + cost.first));
+
+          /* sequeezing cartesian error constraint (cost) */
+          if(cost.first == std::string("cartesian_constraint"))
+            {
+              orientation = false;
+              cartersian_constraint_ = reinterpret_cast<cost::CartersianConstraint*>(cost_container.back().get());
+            }
+
+          cost_container.back()->initialize(nh_, nhp_, planner_core_ptr_, "differential_kinematics_cost/" + cost.first, orientation, true /* full_body */);
+        }
+
       /* defualt reference point is the openning center */
       tf::Transform target_frame = openning_center_frame_;
       target_frame.setOrigin(target_frame.getOrigin() + openning_center_frame_.getBasis() * tf::Vector3(0, 0, delta_pinch_length_));
@@ -282,48 +295,21 @@ namespace squeeze_motion_planner
       /* declare the differential kinemtiacs constraint */
       pluginlib::ClassLoader<constraint::Base>  constraint_plugin_loader("differential_kinematics", "differential_kinematics::constraint::Base");
       ConstraintContainer constraint_container;
-      /* 1.  state_limit */
-      constraint_container.push_back(constraint_plugin_loader.createInstance("differential_kinematics_constraint/state_limit"));
-      constraint_container.back()->initialize(nh_, nhp_, planner_core_ptr_, "differential_kinematics_constraint/state_limit", true /* orientation */, true /* full_body */);
-      /* 2.  static thrust */
-      constraint_container.push_back(constraint_plugin_loader.createInstance("differential_kinematics_constraint/static_thrust"));
-      constraint_container.back()->initialize(nh_, nhp_, planner_core_ptr_, "differential_kinematics_constraint/static_thrust", true /* orientation */, true /* full_body */);
-      /* 3.  stability */
-      constraint_container.push_back(constraint_plugin_loader.createInstance("differential_kinematics_constraint/stability"));
-      constraint_container.back()->initialize(nh_, nhp_, planner_core_ptr_, "differential_kinematics_constraint/stability", true /* orientation */, true /* full_body */);
-      /* 4. collision avoidance */
-      constraint_container.push_back(constraint_plugin_loader.createInstance("differential_kinematics_constraint/collision_avoidance"));
-      constraint_container.back()->initialize(nh_, nhp_, planner_core_ptr_, "differential_kinematics_constraint/collision_avoidance", true /* orientation */, true /* full_body */);
-      /*-- set collision env --*/
-      setCollisionEnv();
-      //boost::dynamic_pointer_cast<constraint::CollisionAvoidance>(constraint_container.back())->setEnv(env_collision_);
-      reinterpret_cast<constraint::CollisionAvoidance*>(constraint_container.back().get())->setEnv(env_collision_);
 
-      /* 5. additional plugins for cost and constraint, if necessary */
-      auto pattern_match = [&](std::string &pl, std::string &pl_candidate) -> bool
+      XmlRpc::XmlRpcValue constraints;
+      nhp_.getParam("differential_kinematics_constraint", constraints);
+      for(auto constraint: constraints)
         {
-          int cmp = fnmatch(pl.c_str(), pl_candidate.c_str(), FNM_CASEFOLD);
-          if (cmp == 0)
-            return true;
-          else if (cmp != FNM_NOMATCH) {
-            // never see that, i think that it is fatal error.
-            ROS_FATAL("Plugin list check error! fnmatch('%s', '%s', FNM_CASEFOLD) -> %d",
-                      pl.c_str(), pl_candidate.c_str(), cmp);
-          }
-          return false;
-        };
+          ROS_INFO_STREAM("squeezing based on differential kinematics, add constraint: " << constraint.first);
+          constraint_container.push_back(constraint_plugin_loader.createInstance("differential_kinematics_constraint/" +  constraint.first));
+          constraint_container.back()->initialize(nh_, nhp_, planner_core_ptr_, "differential_kinematics_constraint/" + constraint.first, true /* orientation */, true /* full_body */);
 
-      ros::V_string additional_constraint_list{};
-      nhp_.getParam("additional_constraint_list", additional_constraint_list);
-      for (auto &plugin_name : additional_constraint_list)
-        {
-          for (auto &name : constraint_plugin_loader.getDeclaredClasses())
+          /* speical case for collision avoidance */
+          if(constraint.first ==  std::string("collision_avoidance"))
             {
-              if(!pattern_match(plugin_name, name)) continue;
-
-              constraint_container.push_back(constraint_plugin_loader.createInstance(name));
-              constraint_container.back()->initialize(nh_, nhp_, planner_core_ptr_, name, true, true);
-              break;
+              /*-- set collision env --*/
+              setCollisionEnv();
+              boost::dynamic_pointer_cast<constraint::CollisionAvoidance>(constraint_container.back())->setEnv(env_collision_);
             }
         }
 
@@ -405,7 +391,6 @@ namespace squeeze_motion_planner
 
     KDL::Chain squeeze_chain_;
 
-    //boost::shared_ptr<cost::CartersianConstraint> cartersian_constraint_;
     cost::CartersianConstraint* cartersian_constraint_;
 
     visualization_msgs::MarkerArray env_collision_;

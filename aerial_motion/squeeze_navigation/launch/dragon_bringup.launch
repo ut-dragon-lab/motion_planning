@@ -3,14 +3,12 @@
   ###########  launch config  ###########
   <arg name="real_machine" default="True" />
   <arg name="simulation" default="False" />
-  <arg name="control_mode" default="0" />
   <arg name="estimate_mode"  default= "2" />
   <arg name="headless" default="True" />
 
   <include file="$(find dragon)/launch/bringup.launch" >
     <arg name="real_machine" value="$(arg real_machine)" />
     <arg name="simulation" value="$(arg simulation)" />
-    <arg name="control_mode" value="$(arg control_mode)" />
     <arg name="estimate_mode"  value= "$(arg estimate_mode)" />
     <arg name="headless" value="$(arg headless)" />
 
@@ -20,7 +18,7 @@
   </include>
 
   <!-- overwrite the takeoff param -->
-  <param name="/aerial_robot_base_node/navigator/takeoff_height" value="0.3" />  <!-- down to up -->
-  <!-- <param name="/aerial_robot_base_node/navigator/takeoff_height" value="1.1" /> --> <!-- up to down -->
+  <param name="dragon/navigation/takeoff_height" value="0.3" />  <!-- down to up -->
+  <!-- <param name="dragon/navigation/takeoff_height" value="1.1" /> --> <!-- up to down -->
 
 </launch>

@@ -7,6 +7,7 @@ Panels:
         - /Global Options1
         - /Status1
         - /TF1/Frames1
+        - /RobotModel1
         - /PlanningScene1
         - /PlanningScene1/Scene Geometry1
         - /PlanningScene1/Scene Robot1
@@ -15,7 +16,7 @@ Panels:
         - /RobotState1
         - /MarkerArray2
       Splitter Ratio: 0.5
-    Tree Height: 631
+    Tree Height: 603
   - Class: rviz/Selection
     Name: Selection
   - Class: rviz/Tool Properties
@@ -37,10 +38,10 @@ Panels:
     SyncSource: ""
   - Class: jsk_rviz_plugin/PublishTopic
     Name: PublishTopic
-    Topic: /plan_start
+    Topic: /dragon/plan_start
   - Class: jsk_rviz_plugin/PublishTopic
     Name: PublishTopic
-    Topic: /move_start
+    Topic: /dragon/move_start
 Visualization Manager:
   Class: ""
   Displays:
@@ -223,8 +224,8 @@ Visualization Manager:
           Show Axes: false
           Show Trail: false
       Name: RobotModel
-      Robot Description: robot_description
-      TF Prefix: ""
+      Robot Description: dragon/robot_description
+      TF Prefix: dragon
       Update Interval: 0
       Value: true
       Visual Enabled: true
@@ -233,7 +234,7 @@ Visualization Manager:
       Move Group Namespace: ""
       Name: PlanningScene
       Planning Scene Topic: /planning_scene
-      Robot Description: robot_description
+      Robot Description: dragon/robot_description
       Scene Geometry:
         Scene Alpha: 0.800000012
         Scene Color: 50; 230; 50
@@ -424,7 +425,7 @@ Visualization Manager:
       Marker Topic: /env_collision
       Name: MarkerArray
       Namespaces:
-        "": true
+        {}
       Queue Size: 100
       Value: true
     - Class: rviz/TF
@@ -432,49 +433,69 @@ Visualization Manager:
       Frame Timeout: 15
       Frames:
         All Enabled: true
-        edf1_left:
+        dragon/cog:
           Value: true
-        edf1_right:
+        dragon/edf1_left:
           Value: true
-        edf2_left:
+        dragon/edf1_right:
           Value: true
-        edf2_right:
+        dragon/edf2_left:
           Value: true
-        edf3_left:
+        dragon/edf2_right:
           Value: true
-        edf3_right:
+        dragon/edf3_left:
           Value: true
-        edf4_left:
+        dragon/edf3_right:
           Value: true
-        edf4_right:
+        dragon/edf4_left:
           Value: true
-        fc:
+        dragon/edf4_right:
           Value: true
-        gimbal1_pitch_module:
+        dragon/fc:
           Value: true
-        gimbal2_pitch_module:
+        dragon/gimbal1_pitch_module:
           Value: true
-        gimbal3_pitch_module:
+        dragon/gimbal1_roll_module:
           Value: true
-        gimbal4_pitch_module:
+        dragon/gimbal2_pitch_module:
           Value: true
-        link1:
+        dragon/gimbal2_roll_module:
           Value: true
-        link2:
+        dragon/gimbal3_pitch_module:
           Value: true
-        link4:
+        dragon/gimbal3_roll_module:
           Value: true
-        root:
+        dragon/gimbal4_pitch_module:
           Value: true
-        tail_ball:
+        dragon/gimbal4_roll_module:
           Value: true
-        thrust1:
+        dragon/inter_joint1:
           Value: true
-        thrust2:
+        dragon/inter_joint2:
           Value: true
-        thrust3:
+        dragon/inter_joint3:
           Value: true
-        thrust4:
+        dragon/link1:
+          Value: true
+        dragon/link2:
+          Value: true
+        dragon/link3:
+          Value: true
+        dragon/link4:
+          Value: true
+        dragon/root:
+          Value: true
+        dragon/tail_ball:
+          Value: true
+        dragon/thrust1:
+          Value: true
+        dragon/thrust2:
+          Value: true
+        dragon/thrust3:
+          Value: true
+        dragon/thrust4:
+          Value: true
+        world:
           Value: true
       Marker Scale: 0.5
       Name: TF
@@ -482,7 +503,53 @@ Visualization Manager:
       Show Axes: true
       Show Names: true
       Tree:
-        {}
+        world:
+          dragon/root:
+            dragon/cog:
+              {}
+            dragon/link1:
+              dragon/gimbal1_roll_module:
+                dragon/gimbal1_pitch_module:
+                  dragon/edf1_left:
+                    {}
+                  dragon/edf1_right:
+                    {}
+                  dragon/thrust1:
+                    {}
+              dragon/inter_joint1:
+                dragon/link2:
+                  dragon/fc:
+                    {}
+                  dragon/gimbal2_roll_module:
+                    dragon/gimbal2_pitch_module:
+                      dragon/edf2_left:
+                        {}
+                      dragon/edf2_right:
+                        {}
+                      dragon/thrust2:
+                        {}
+                  dragon/inter_joint2:
+                    dragon/link3:
+                      dragon/gimbal3_roll_module:
+                        dragon/gimbal3_pitch_module:
+                          dragon/edf3_left:
+                            {}
+                          dragon/edf3_right:
+                            {}
+                          dragon/thrust3:
+                            {}
+                      dragon/inter_joint3:
+                        dragon/link4:
+                          dragon/gimbal4_roll_module:
+                            dragon/gimbal4_pitch_module:
+                              dragon/edf4_left:
+                                {}
+                              dragon/edf4_right:
+                                {}
+                              dragon/thrust4:
+                                {}
+                          dragon/tail_ball:
+                            {}
       Update Interval: 0
       Value: true
     - Attached Body Color: 150; 50; 150
@@ -633,8 +700,8 @@ Visualization Manager:
           Show Trail: false
       Name: RobotState
       Robot Alpha: 1
-      Robot Description: robot_description
-      Robot State Topic: /desired_robot_state
+      Robot Description: dragon/robot_description
+      Robot State Topic: /dragon/desired_robot_state
       Show All Links: true
       Show Highlights: true
       Value: true
@@ -644,7 +711,7 @@ Visualization Manager:
       Marker Topic: /reconstructed_path_markers
       Name: MarkerArray
       Namespaces:
-        control_polygon: true
+        {}
       Queue Size: 100
       Value: true
   Enabled: true
@@ -687,20 +754,20 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.00999999978
-      Pitch: 0.195398152
+      Pitch: 0.495398045
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 1.06040084
+      Yaw: 0.735401094
     Saved: ~
 Window Geometry:
   Displays:
     collapsed: false
-  Height: 1056
+  Height: 1028
   Hide Left Dock: false
   Hide Right Dock: false
   PublishTopic:
     collapsed: false
-  QMainWindow State: 000000ff00000000fd00000004000000000000016a000003dafc020000000afb0000001200530065006c0065006300740069006f006e00000001e10000009b0000006100fffffffb0000001e0054006f006f006c002000500072006f007000650072007400690065007302000001ed000001df00000185000000a3fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb000000100044006900730070006c006100790073010000002800000306000000d700fffffffb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261fb00000018005000750062006c0069007300680054006f0070006900630100000334000000640000006400fffffffb00000018005000750062006c0069007300680054006f007000690063010000039e000000640000006400ffffff000000010000010f000003befc0200000003fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000000a005600690065007700730000000028000003be000000ad00fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b200000000000000000000000200000490000000a9fc0100000001fb0000000a00560069006500770073030000004e00000080000002e100000197000000030000073f0000003efc0100000002fb0000000800540069006d006500000000000000073f0000030000fffffffb0000000800540069006d00650100000000000004500000000000000000000005cf000003da00000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  QMainWindow State: 000000ff00000000fd00000004000000000000016a000003befc020000000afb0000001200530065006c0065006300740069006f006e00000001e10000009b0000006100fffffffb0000001e0054006f006f006c002000500072006f007000650072007400690065007302000001ed000001df00000185000000a3fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb000000100044006900730070006c0061007900730100000028000002ea000000d700fffffffb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261fb00000018005000750062006c0069007300680054006f0070006900630100000318000000640000006400fffffffb00000018005000750062006c0069007300680054006f0070006900630100000382000000640000006400ffffff000000010000010f000003befc0200000003fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000000a005600690065007700730000000028000003be000000ad00fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b200000000000000000000000200000490000000a9fc0100000001fb0000000a00560069006500770073030000004e00000080000002e100000197000000030000073f0000003efc0100000002fb0000000800540069006d006500000000000000073f0000030000fffffffb0000000800540069006d0065010000000000000450000000000000000000000230000003be00000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
   Selection:
     collapsed: false
   Time:
@@ -709,6 +776,6 @@ Window Geometry:
     collapsed: false
   Views:
     collapsed: false
-  Width: 1855
-  X: 65
+  Width: 928
+  X: 992
   Y: 24

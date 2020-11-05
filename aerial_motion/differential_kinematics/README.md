@@ -1,5 +1,11 @@
 ## Samples for end-effecotr IK
 
+### dependency
+- aeiral_robot:
+   - url: https://github.com/tongtybj/aerial_robot
+   - version: [1.2.0](https://github.com/tongtybj/aerial_robot/tree/1.2.0)
+
+
 ### Hydrus (SE2 model)
 1. start ``` $ roscore```
 2.  create the environment obstacle. following command will create a simple cylinder in the environment.
@@ -11,7 +17,7 @@
 4. send the IK target point to this solver via rosservice.
 ```
 $
-rosservice call /end_effector_ik "target_pos: {x: -0.6, y: 0.6, z: 0.0}
+rosservice call /hydrus/end_effector_ik "target_pos: {x: -0.6, y: 0.6, z: 0.0}
 target_rot: {x: 0.0, y: 0.0, z: 3.14}
 orientation: true
 full_body: true 
@@ -31,7 +37,7 @@ status: False
 4. send the IK target point to this solver via rosservice.
 ```
 $
-rosservice call /end_effector_ik "target_pos: {x: -0.6, y: 0.6, z: 0.4}
+rosservice call /dragon/end_effector_ik "target_pos: {x: -0.6, y: 0.6, z: 0.4}
 target_rot: {x: 0.0, y: 1.0, z: 3.14}
 orientation: true
 full_body: true 
