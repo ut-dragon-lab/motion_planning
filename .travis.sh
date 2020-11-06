@@ -19,6 +19,10 @@ rosdep update
 mkdir -p ~/catkin_ws/src
 cd ~/catkin_ws
 ln -sf ${CI_SOURCE_PATH} src/${REPOSITORY_NAME}
+
+# add token to clone private repository
+echo -e "machine github.com\n  login b67e7a1d22222c72ae0660bd83fab43264b76c75" > ~/.netrc
+
 wstool init src
 wstool merge -t src src/motion_planning/${ROS_DISTRO}.rosinstall
 wstool merge -t src src/motion_planning/travis.rosinstall
