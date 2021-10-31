@@ -69,7 +69,7 @@ private:
   int motion_phase_;
   ros::Timer motion_timer_;
 
-  boost::shared_ptr<DragonRobotModel> robot_model_ptr_;
+  boost::shared_ptr<Dragon::HydrusLikeRobotModel> robot_model_;
   std::unique_ptr<GraspVectoringThrust> planner_;
   geometry_msgs::Inertia object_inertia_;
 

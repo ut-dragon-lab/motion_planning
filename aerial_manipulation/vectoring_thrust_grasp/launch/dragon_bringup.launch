@@ -3,23 +3,26 @@
   ###########  launch config  ###########
   <arg name="real_machine" default="True" />
   <arg name="simulation" default="False" />
-  <arg name="control_mode" default="0" />
-  <arg name="estimate_mode"  default= "2" />
+  <arg name="estimate_mode"  default= "1" />
+  <arg name="sim_estimate_mode"  default= "2" />
   <arg name="headless" default="True" />
+  <arg name="full_vectoring_mode"  default= "True" />
 
   <include file="$(find dragon)/launch/bringup.launch" >
     <arg name="real_machine" value="$(arg real_machine)" />
     <arg name="simulation" value="$(arg simulation)" />
-    <arg name="control_mode" value="$(arg control_mode)" />
+    <arg name="sim_estimate_mode"  value= "$(arg sim_estimate_mode)" />
     <arg name="estimate_mode"  value= "$(arg estimate_mode)" />
     <arg name="headless" value="$(arg headless)" />
+    <arg name="full_vectoring_mode"  value= "$(arg full_vectoring_mode)" />
 
     <arg name="direct_model" value="True" />
     <arg name="direct_model_name" value="$(find vectoring_thrust_grasp)/robots/dragon/quad.gazebo.xacro" if="$(arg simulation)"/>
     <arg name="direct_model_name" value="$(find vectoring_thrust_grasp)/robots/dragon/quad.urdf.xacro" unless="$(arg simulation)"/>
   </include>
 
-  <!-- overwrite the takeoff param -->
-  <param name="/aerial_robot_base_node/navigator/takeoff_height" value="0.3" if="$(arg simulation)"/>
-  <param name="/aerial_robot_base_node/navigator/takeoff_height" value="0.8" unless="$(arg simulation)"/>
+
+  <!-- overwrite the takeoff param for object grasping -->
+  <!-- <param name="/aerial_robot_base_node/navigator/takeoff_height" value="0.3" if="$(arg simulation)"/> -->
+
 </launch>

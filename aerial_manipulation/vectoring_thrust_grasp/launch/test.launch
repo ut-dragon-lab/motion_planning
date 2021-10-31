@@ -2,9 +2,10 @@
 <launch>
 
   <arg name="from_real_joint_angle" default="false" />
+  <arg name="search_maximum" default="true" />
   <arg name="verbose" default="false" />
 
-  <node pkg="vectoring_thrust_grasp" type="vectoring_thrust_test_node" name="vectoring_thrust_test_node" output="screen" >
+  <node pkg="vectoring_thrust_grasp" type="vectoring_thrust_test_node" name="vectoring_thrust_test_node" output="screen" ns="dragon">
     <param name="weight_torque" value="4.0" />
     <param name="weight_force" value="1.0" />
     <param name="grasp_force_norm" value="10.0" />
@@ -13,12 +14,9 @@
 
     <param name="verbose" value="$(arg verbose)" />
 
-    <param name="from_real_joint_angle" value="true" if="$(arg from_real_joint_angle)" />
-    <param name="from_real_joint_angle" value="false" unless="$(arg from_real_joint_angle)" />
-    <param name="test" value="true" unless="$(arg from_real_joint_angle)" />
-    <param name="test" value="false" if="$(arg from_real_joint_angle)" />
-
-    <remap from="joint_states" to="/dragon/joint_states" />
+    <param name="from_real_joint_angle" value="$(arg from_real_joint_angle)" />
+    <param name="test" value="$(eval not arg('from_real_joint_angle'))"  />
+    <param name="search_maximum" value="$(arg search_maximum)"  />
 
   </node>
 </launch>

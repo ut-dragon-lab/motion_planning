@@ -37,10 +37,10 @@
 
 /* ros */
 #include <ros/ros.h>
-#include <dragon/GraspVectoringForce.h>
+#include <aerial_robot_msgs/ForceList.h>
 
 /* robot model */
-#include <dragon/dragon_robot_model.h>
+#include <dragon/model/hydrus_like_robot_model.h>
 
 /* kinematics */
 #include <kdl/treejnttojacsolver.hpp>
@@ -52,14 +52,14 @@
 class GraspVectoringThrust
 {
 public:
-  GraspVectoringThrust(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<DragonRobotModel> robot_model_ptr, bool realtime_control);
+  GraspVectoringThrust(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<Dragon::HydrusLikeRobotModel> robot_model, bool realtime_control);
   ~GraspVectoringThrust(){}
 
   bool jointAnglesForQuadDragon(sensor_msgs::JointState& joint_angles); // adhoc function for dragon quad type
 
   void setRealtimeControl(bool flag) {realtime_control_ = flag; }
   const Eigen::VectorXd& getVectoringForceRoot() const {return vectoring_f_vector_root_;}
-  const Eigen::VectorXd& getVectoringForceCoG() const {return vectoring_f_vector_cog_;}
+  const Eigen::VectorXd& getVectoringForceLocal() const {return vectoring_f_vector_local_;}
 
   const sensor_msgs::JointState& getCurrJointState() const {return current_joint_states_;}
 private:
@@ -67,10 +67,10 @@ private:
   ros::NodeHandle nhp_;
   ros::Subscriber joint_state_sub_;
   ros::Publisher vectoring_force_pub_;
-  boost::shared_ptr<DragonRobotModel> robot_model_ptr_;
+  boost::shared_ptr<Dragon::HydrusLikeRobotModel> robot_model_;
 
   Eigen::VectorXd vectoring_f_vector_root_;
-  Eigen::VectorXd vectoring_f_vector_cog_;
+  Eigen::VectorXd vectoring_f_vector_local_;
 
   bool verbose_;
   bool realtime_control_;

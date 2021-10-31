@@ -17,8 +17,8 @@ namespace
 
 GraspingMotion::GraspingMotion(ros::NodeHandle nh, ros::NodeHandle nhp): nh_(nh), nhp_(nhp)
 {
-  robot_model_ptr_ = boost::shared_ptr<DragonRobotModel>(new DragonRobotModel(true));
-  planner_ = std::make_unique<GraspVectoringThrust>(nh_, nhp_, robot_model_ptr_, false /* realtime_control */);
+  robot_model_ = boost::make_shared<Dragon::HydrusLikeRobotModel>(true);
+  planner_ = std::make_unique<GraspVectoringThrust>(nh_, nhp_, robot_model_, false /* realtime_control */);
 
   motion_phase_ = PHASE0;
 
@@ -41,7 +41,7 @@ GraspingMotion::GraspingMotion(ros::NodeHandle nh, ros::NodeHandle nhp): nh_(nh)
   start_sub_ = nh_.subscribe("/motion_start", 1, &GraspingMotion::startCallback, this);
   release_sub_ = nh_.subscribe("/release_object", 1, &GraspingMotion::releaseCallback, this);
   joint_control_pub_ = nh_.advertise<sensor_msgs::JointState>("/joints_ctrl", 1);
-  vectoring_force_pub_ = nh_.advertise<dragon::GraspVectoringForce>("/grasp_vectoring_force", 1);
+  vectoring_force_pub_ = nh_.advertise<aerial_robot_msgs::ForceList>("/grasp_vectoring_force", 1);
 
   /* hard-codring */
   nhp_.param("delta_angle", delta_angle_, 0.02);
@@ -76,7 +76,7 @@ void GraspingMotion::releaseCallback(const std_msgs::Empty msg)
 /* TODO: ad-hoc for quad dragon to grasp object */
 void GraspingMotion::stateMachine(const ros::TimerEvent& event)
 {
-  if(robot_model_ptr_->getMass() == 0)
+  if(robot_model_->getMass() == 0)
     {
       ROS_WARN_THROTTLE(1.0, "the robot model is not updated");
       return;
@@ -181,7 +181,7 @@ void GraspingMotion::stateMachine(const ros::TimerEvent& event)
             srv.request.parent_link_name = std::string("link1");
 
             /* calculate the com of the object w.r.t. root link */
-            auto seg_tf_map = robot_model_ptr_->fullForwardKinematics(joint_angles);
+            auto seg_tf_map = robot_model_->fullForwardKinematics(joint_angles);
             tf::vectorKDLToMsg((seg_tf_map.at("tail_ball").p - seg_tf_map.at("head_ball").p) / 2, srv.request.transform.translation);
             srv.request.transform.rotation.w = 1;
             ROS_INFO_STREAM("Object CoM w.r.t root link: [" << srv.request.transform.translation.x << ", " << srv.request.transform.translation.y << ", " << srv.request.transform.translation.z << "]");
@@ -209,8 +209,9 @@ void GraspingMotion::stateMachine(const ros::TimerEvent& event)
 
         /* clear the vectoring force for grasping */
         planner_->setRealtimeControl(false);
-        dragon::GraspVectoringForce msg;
-        msg.clear_flag = true;
+        aerial_robot_msgs::ForceList msg;
+        msg.header.stamp = ros::Time::now();
+        // empty force list means to clear the extra force
         vectoring_force_pub_.publish(msg);
 
         /* remove target object from flight control system */

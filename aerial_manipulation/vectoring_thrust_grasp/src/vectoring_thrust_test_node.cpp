@@ -8,7 +8,7 @@ int main (int argc, char **argv)
 
   bool from_real_joint_angle;
   nh_private.param("from_real_joint_angle", from_real_joint_angle, false);
-  GraspVectoringThrust*  grasp_vectoring_thrust_node = new GraspVectoringThrust(nh, nh_private, boost::shared_ptr<DragonRobotModel>(new DragonRobotModel(true)), from_real_joint_angle);
+  GraspVectoringThrust*  grasp_vectoring_thrust_node = new GraspVectoringThrust(nh, nh_private, boost::make_shared<Dragon::HydrusLikeRobotModel>(true), from_real_joint_angle);
   ros::spin ();
   delete grasp_vectoring_thrust_node;
   return 0;
