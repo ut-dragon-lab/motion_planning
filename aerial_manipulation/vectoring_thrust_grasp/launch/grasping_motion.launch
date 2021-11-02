@@ -5,25 +5,35 @@
   <arg name = "simulation" default = "false" />
   <arg name = "use_joy" default = "true" />
 
-  <node pkg="vectoring_thrust_grasp" type="grasping_motion_node" name="grasping_motion_node" output="screen" >
-    <rosparam file="$(find vectoring_thrust_grasp)/config/object/$(arg object).yaml" command="load" />
-    <!-- ad-hoc method for quad type -->
-    <param name="delta_angle" value="0.02"/>
-    <param name="contact_torque_thresh" value="1.8" />
-    <param name="extra_module_comepsention_delay" value="1.0"/>
-    <param name="joint1_init_angle" value="0.8"/>
-    <param name="joint3_init_angle" value="0.8"/>
+  <!-- ad-hoc method for quad type -->
+  <arg name="delta_angle" default="0.02"/>
+  <arg name="contact_torque_thresh" default="1.8" />
+  <arg name="extra_module_comepsention_delay" default="0.05"/>
+  <arg name="measure_object_mass" default="true"/>
+  <arg name="estimate_mass_du" default="4.0"/>
+  <arg name="joint1_init_angle" default="0.8"/>
+  <arg name="joint3_init_angle" default="0.8"/>
 
-    <remap from="joint_states" to="/dragon/joint_states" />
-    <remap from="/joints_ctrl" to="/dragon/joints_ctrl" />
+
+  <node pkg="vectoring_thrust_grasp" type="grasping_motion_node" name="grasping_motion_node" output="screen" ns="dragon">
+    <rosparam file="$(find vectoring_thrust_grasp)/config/object/$(arg object).yaml" command="load" />
+
+    <param name="delta_angle" value="$(arg delta_angle)"/>
+    <param name="contact_torque_thresh" value="$(arg contact_torque_thresh)" />
+    <param name="extra_module_comepsention_delay" value="$(arg extra_module_comepsention_delay)"/>
+    <param name="measure_object_mass" value="$(arg measure_object_mass)"/>
+    <param name="estimate_mass_du" value="$(arg estimate_mass_du)"/>
+    <param name="joint1_init_angle" value="$(arg joint1_init_angle)"/>
+    <param name="joint3_init_angle" value="$(arg joint3_init_angle)"/>
+
   </node>
 
-  <node pkg="vectoring_thrust_grasp" type="spawn_target_object.py" name="spawn_target_object" output="screen"  if="$(arg simulation)" >
-    <param name="sdf_file_path" value="$(find vectoring_thrust_grasp)/gazebo_model/models/$(arg object)/model.sdf"/>
-    <param name="x" value="0.85"/>
-    <param name="y" value="0.45"/>
-    <param name="spawn_from_trigger" value="true"/>
-    <remap from="/trigger" to="/motion_start" />
+  <node pkg="vectoring_thrust_grasp" type="spawn_target_object.py" name="spawn_target_object" output="screen"  if="$(arg simulation)" ns="dragon">
+    <rosparam file="$(find vectoring_thrust_grasp)/config/object/$(arg object).yaml" command="load" />
+    <param name="sdf_file_path" value="$(find vectoring_thrust_grasp)/config/model_template.sdf"/>
+    <param name="static_object" value="false"/>
+    <param name="joint1_init_angle" value="$(arg joint1_init_angle)"/>
+    <param name="joint3_init_angle" value="$(arg joint3_init_angle)"/>
   </node>
 
   <node pkg="vectoring_thrust_grasp" type="joystick_operation.py" name="joystick_operation" output="screen" if="$(arg use_joy)" />

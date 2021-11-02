@@ -22,9 +22,4 @@
   <depend>osqp-eigen</depend>
   <depend>roscpp</depend>
 
-  <exec_depend>gazebo_ros</exec_depend>
-
-  <export>
-    <gazebo_ros gazebo_model_path="${prefix}/gazebo_model/models" />
-  </export>
 </package>

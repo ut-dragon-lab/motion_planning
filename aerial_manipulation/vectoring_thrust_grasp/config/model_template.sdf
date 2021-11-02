@@ -1,31 +1,32 @@
 <?xml version='1.0'?>
 <sdf version='1.4'>
   <model name="box">
+    <static>static_flag</static>
     <link name="link" >
-      <pose>0 0 0.15 0 0 0</pose>
+      <pose>0 0 0 0 0 0</pose>
       <inertial>
-        <mass>1.0</mass>
+        <mass>obj_mass</mass>
         <inertia>
-          <ixx>0.0375</ixx> <ixy>0.0</ixy> <ixz>0.0</ixz>
-          <iyy>0.0375</iyy> <iyz>0.0</iyz> <izz>0.015</izz>
+          <ixx>obj_ixx</ixx> <ixy>0.0</ixy> <ixz>0.0</ixz>
+          <iyy>obj_ixx</iyy> <iyz>0.0</iyz> <izz>obj_ixx</izz>
         </inertia>
       </inertial>
       <collision name="collision">
         <geometry>
           <box>
-            <size>.15 .15 .3</size>
+            <size>obj_width obj_width obj_width</size>
           </box>
         </geometry>
       </collision>
       <visual name="visual">
         <geometry>
           <box>
-            <size>.15 .15 .3</size>
+            <size>obj_width obj_width obj_width</size>
           </box>
         </geometry>
         <material>
-          <ambient>1.00 0.39 0.28 1</ambient> <!-- tomato -->
-          <diffuse>1.00 0.38 0.28 1</diffuse>
+          <ambient>0.00 0.00 1.00 1</ambient>
+          <diffuse>0.00 0.00 1.00 1</diffuse>
           <specular>0.1 0.1 0.1 1</specular>
           <emissive>0 0 0 0</emissive>
         </material>

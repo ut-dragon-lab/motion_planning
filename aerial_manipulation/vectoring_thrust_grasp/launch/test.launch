@@ -2,8 +2,12 @@
 <launch>
 
   <arg name="from_real_joint_angle" default="false" />
-  <arg name="search_maximum" default="true" />
+  <arg name="search_maximum" default="false" />
   <arg name="verbose" default="false" />
+
+  <group unless="$(arg from_real_joint_angle)">
+    <param name="dragon/robot_description" command="$(find xacro)/xacro.py '$(find vectoring_thrust_grasp)/robots/dragon/quad.urdf.xacro' robot_name:=dragon " />
+  </group>
 
   <node pkg="vectoring_thrust_grasp" type="vectoring_thrust_test_node" name="vectoring_thrust_test_node" output="screen" ns="dragon">
     <param name="weight_torque" value="4.0" />

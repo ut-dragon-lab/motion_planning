@@ -37,9 +37,12 @@
 
 /* ros */
 #include <ros/ros.h>
+#include <dragon/dragon_navigation.h>
 #include <std_msgs/Empty.h>
 #include <geometry_msgs/Inertia.h>
-#include <aerial_robot_model/AddExtraModule.h>
+#include <geometry_msgs/WrenchStamped.h>
+#include <aerial_robot_msgs/ExtraModule.h>
+#include <aerial_robot_msgs/ForceList.h>
 
 /* vectoring force planner */
 #include <vectoring_thrust_grasp/vectoring_thrust_planner.h>
@@ -63,8 +66,12 @@ private:
   ros::NodeHandle nhp_;
   ros::Publisher joint_control_pub_;
   ros::Publisher vectoring_force_pub_;
+  ros::Publisher extra_module_pub_;
   ros::Subscriber start_sub_;
   ros::Subscriber release_sub_;
+  ros::Subscriber external_wrench_sub_;
+  ros::Subscriber joy_sub_;
+  ros::Subscriber flight_state_sub_;
 
   int motion_phase_;
   ros::Timer motion_timer_;
@@ -72,8 +79,27 @@ private:
   boost::shared_ptr<Dragon::HydrusLikeRobotModel> robot_model_;
   std::unique_ptr<GraspVectoringThrust> planner_;
   geometry_msgs::Inertia object_inertia_;
+  geometry_msgs::Vector3 object_offset_;
+  geometry_msgs::Wrench estimated_wrench_;
+  int flight_state_;
+
+  /* TODO: ad-hoc for quad dragon to grasp object */
+  std::vector<int> joints_index_;
+  double delta_angle_;
+  double contact_torque_thresh_;
+  double phase_init_time_;
+  double extra_module_comepsention_delay_;
+  double estimate_mass_du_;
+  bool measure_object_mass_;
+  double offset_force_z_;
+  bool once_flag_;
+  double joint1_init_angle_;
+  double joint3_init_angle_;
 
   void startCallback(const std_msgs::Empty msg);
   void releaseCallback(const std_msgs::Empty msg);
+  void estimatedWrenchCallback(const geometry_msgs::WrenchStampedConstPtr msg);
+  void joyCallback(const sensor_msgs::Joy::ConstPtr msg);
+  void flightStateCallback(const std_msgs::UInt8::ConstPtr msg);
   void stateMachine(const ros::TimerEvent& event);
 };
