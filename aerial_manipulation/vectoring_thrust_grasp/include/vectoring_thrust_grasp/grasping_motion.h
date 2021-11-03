@@ -94,7 +94,9 @@ private:
   double offset_force_z_;
   bool once_flag_;
   double joint1_init_angle_;
+  double joint2_init_angle_;
   double joint3_init_angle_;
+  double joint2_relax_rate_; // handle the tension of pully timing belt
 
   void startCallback(const std_msgs::Empty msg);
   void releaseCallback(const std_msgs::Empty msg);

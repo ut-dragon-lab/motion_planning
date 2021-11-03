@@ -13,6 +13,7 @@
   <arg name="estimate_mass_du" default="4.0"/>
   <arg name="joint1_init_angle" default="0.8"/>
   <arg name="joint3_init_angle" default="0.8"/>
+  <arg name="joint2_relax_rate" default="10.0"/> <!-- this value is measured from rosbag of realmachine, 15~20, thus we choose smaller value 10 -->
 
 
   <node pkg="vectoring_thrust_grasp" type="grasping_motion_node" name="grasping_motion_node" output="screen" ns="dragon">
@@ -25,7 +26,8 @@
     <param name="estimate_mass_du" value="$(arg estimate_mass_du)"/>
     <param name="joint1_init_angle" value="$(arg joint1_init_angle)"/>
     <param name="joint3_init_angle" value="$(arg joint3_init_angle)"/>
-
+    <param name="joint2_relax_rate" value="0" if="$(arg simulation)"/>
+    <param name="joint2_relax_rate" value="$(arg joint2_relax_rate)" unless="$(arg simulation)"/>
   </node>
 
   <node pkg="vectoring_thrust_grasp" type="spawn_target_object.py" name="spawn_target_object" output="screen"  if="$(arg simulation)" ns="dragon">

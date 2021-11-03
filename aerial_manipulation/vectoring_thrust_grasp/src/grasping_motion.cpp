@@ -53,9 +53,10 @@ GraspingMotion::GraspingMotion(ros::NodeHandle nh, ros::NodeHandle nhp): nh_(nh)
   nhp_.param("extra_module_comepsention_delay", extra_module_comepsention_delay_, 1.0); // s
   nhp_.param("estimate_mass_du", estimate_mass_du_, 1.0); // s
 
-  /* hard-coding */
+  /* ad-hoc method for quad link type */
   nhp_.param("joint1_init_angle", joint1_init_angle_, 1.0);
   nhp_.param("joint3_init_angle", joint3_init_angle_, 1.0);
+  nhp_.param("joint2_relax_rate", joint2_relax_rate_, 1.0);
   joints_index_.resize(3, -1);
 
   /* motion phase timer */
@@ -158,6 +159,8 @@ void GraspingMotion::stateMachine(const ros::TimerEvent& event)
             ros::Duration(0.1).sleep();
             joint_control_pub_.publish(joint_control_msg);
 
+            joint2_init_angle_ = joint_angles.position.at(joints_index_.at(1));
+
             once_flag_ = false;
           }
         break;
@@ -177,8 +180,18 @@ void GraspingMotion::stateMachine(const ros::TimerEvent& event)
             ROS_WARN_STREAM("find large torque load in joint2_yaw: " << joint_angles.effort.at(joints_index_.at(1)) << ", detect contact at ends, hold object by vectoring force");
 
             /* relax the joint torque */
+            // NOTE: workaround for the pully type joint, the angle of servo is not correct
+            // due to the tension of pully timing belt.
+            // Especially for joint2 yaw, the tension is significant.
+            // Introduce joint2_relax_rate_ to further relax joint2 yaw for workaround
+            double joint2_curr_angle = joint_angles.position.at(joints_index_.at(1));
+            double joint2_relax_angle = joint2_curr_angle + joint2_relax_rate_ * (joint2_curr_angle - joint2_init_angle_);
+            ROS_INFO("the initial angle of joint2 yaw: %f, the current angle: %f, the relax angle: %f", joint2_init_angle_, joint2_curr_angle, joint2_relax_angle);
+
             joint_control_msg.name.push_back(std::string("joint1_yaw"));
             joint_control_msg.position.push_back(joint_angles.position.at(joints_index_.at(0)));
+            joint_control_msg.name.push_back(std::string("joint2_yaw"));
+            joint_control_msg.position.push_back(joint2_relax_angle);
             joint_control_msg.name.push_back(std::string("joint3_yaw"));
             joint_control_msg.position.push_back(joint_angles.position.at(joints_index_.at(2)));
             joint_control_pub_.publish(joint_control_msg);
