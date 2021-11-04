@@ -13,7 +13,6 @@ namespace aerial_transportation
     /* ros pub sub init */
     joint_ctrl_pub_ = nh_.advertise<sensor_msgs::JointState>(joint_ctrl_pub_name_, 1);
     aerial_grasping_flight_velocity_control_pub_ = nh_.advertise<std_msgs::UInt8>(aerial_grasping_flight_velocity_control_pub_name_, 1);
-    joint_motors_sub_ = nh_.subscribe<dynamixel_msgs::MotorStateList>(joint_motors_sub_name_, 1, &Hydrus::jointMotorStatusCallback, this);
     joint_states_sub_ = nh_.subscribe<sensor_msgs::JointState>(joint_states_sub_name_, 1, &Hydrus::jointStatesCallback, this);
 
     if(!control_cheat_mode_)
@@ -277,117 +276,6 @@ namespace aerial_transportation
 
             envelope_closure_ = true;
             ROS_WARN("GRASPING_PHASE, shift to tighten angles because reaching to the hold angles");
-          }
-      }
-  }
-
-  void Hydrus::jointMotorStatusCallback(const dynamixel_msgs::MotorStateListConstPtr& joint_motors_msg)
-  {
-    bool force_closure = true;
-    bool overload_flag = false; /* new, 2017 IJRR */
-
-    if(joint_num_ == 0)
-      {
-        joint_num_ = joint_motors_msg->motor_states.size();
-        jointControlParamInit();
-      }
-
-    for(int i = 0; i < joint_num_; i++)
-      {
-        joints_control_[i].moving = joint_motors_msg->motor_states[i].moving;
-        joints_control_[i].load_rate = joint_motors_msg->motor_states[i].load;
-        joints_control_[i].temperature = joint_motors_msg->motor_states[i].temperature;
-        joints_control_[i].angle_error = joint_motors_msg->motor_states[i].error;
-
-        /* if all torque load is bigger than the certain threshold, then the force closure is achieved */
-        if(joints_control_[i].load_rate < torque_min_threshold_) force_closure = false;
-
-        // 1. the torque exceeds the max threshold(overload)
-        // 2. in the holding phase(force_closure_ == true)
-        // 3. the modification is not susseccive
-        /* CAUTION: only all the joints have the load(force_closure!!!), we recognize the overload flag, otherwise, we ignore the loadover. this is very dangerous!!!!!! */
-        /* do not modified once grasped the object */
-        if(joints_control_[i].load_rate > torque_max_threshold_ /* (joints_control_[i].angle_error & OVERLOAD_FLAG) */
-           && force_closure
-           && phase_ == GRASPING_PHASE
-           && sub_phase_ == SUB_PHASE3
-           && (ros::Time::now().toSec() - modification_start_time_.toSec() > modification_duration_))
-          {
-            ROS_WARN("jointMotorStatusCallback: overload in joint%d: %f; error code: %d", i + 1, joints_control_[i].load_rate, joints_control_[i].angle_error);
-            overload_flag = true;
-
-            if(control_cheat_mode_)
-              {
-                joints_control_[i].target_angle -= (joints_control_[i].holding_rotation_direction * modification_delta_angle_);
-                joints_control_[i].hold_angle -= (joints_control_[i].holding_rotation_direction * modification_delta_angle_);
-              }
-          }
-      }
-
-    /* 3.2 check the enveloping grasp in terms of joint torques */
-    /* TODO: the torque to control the angle change already reach the condition */
-#if 0
-    if(force_closure &&
-       phase_ == GRASPING_PHASE &&
-       !envelope_closure_ &&
-       !control_cheat_mode_)
-      {
-        // shift to tighten angles
-        envelope_closure_ = true;
-        ROS_WARN("jointMotorStatusCallback: GRASPING_PHASE, shift to tighten angles because all joint torques satisfy the threshold force closure condition");
-      }
-#endif
-
-    /* process while overlaod_flag is true */
-    if(overload_flag)
-      {
-        ROS_WARN("Reset holding start time");
-        holding_start_time_ = ros::Time::now(); //reset!!
-        modification_start_time_ = ros::Time::now(); //reset!!
-
-        /* release the joint angles */
-        //4.2 modification in force-closure phase
-        if(!control_cheat_mode_)
-          {
-            for(int i = 0; i < joint_num_; i++)
-              joints_control_[i].target_angle += ((joints_control_[i].tighten_angle - joints_control_[i].hold_angle) / tighten_delta_angle_ * release_delta_angle_);
-          }
-
-        /* send modified angle */
-        sensor_msgs::JointState joint_ctrl_msg;
-        joint_ctrl_msg.header.stamp = ros::Time::now();
-        for(int i = 0; i < joint_num_; i++)
-          joint_ctrl_msg.position.push_back(joints_control_[i].target_angle);
-        joint_ctrl_pub_.publish(joint_ctrl_msg);
-      }
-
-    /* the condition to get into hold phase */
-    if(!force_closure_ && force_closure)
-      {
-        ROS_INFO("phase: %d, sub_phase: %d", phase_, sub_phase_);
-        if(phase_ == GRASPING_PHASE && sub_phase_ == SUB_PHASE3  && envelope_closure_)
-          {
-            force_closure_ = true;
-            ROS_WARN("GRASPING_PHASE: Force_Closure with object");
-            holding_start_time_ = ros::Time::now(); //reset!!
-          }
-      }
-
-    /* the condition to shift to transportation phase */
-    if(force_closure_ && ros::Time::now().toSec() - holding_start_time_.toSec() > hold_count_)
-      {
-        if(phase_ == GRASPING_PHASE)
-          {
-            ROS_WARN("Pick the object up!! Shift to GRSPED_PHASE");
-            phase_ = GRASPED_PHASE;
-            sub_phase_ = SUB_PHASE1;
-
-            if(!control_cheat_mode_)
-              {
-                std_msgs::UInt8 low_flight_velocity_control;
-                low_flight_velocity_control.data= 0;
-                aerial_grasping_flight_velocity_control_pub_.publish(low_flight_velocity_control);
-              }
           }
       }
   }

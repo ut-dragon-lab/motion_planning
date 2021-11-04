@@ -6,7 +6,6 @@
 #include <aerial_transportation/grasp_control/base.h> // plugin base class
 #include <sensor_msgs/Joy.h>
 #include <sensor_msgs/JointState.h>
-#include <dynamixel_msgs/MotorStateList.h>
 #include <std_msgs/UInt8.h>
 #include <std_srvs/SetBool.h>
 #include <vector>
@@ -113,7 +112,6 @@ namespace aerial_transportation
     void rosParamInit();
     void jointControlParamInit();
     void jointStatesCallback(const sensor_msgs::JointStateConstPtr& joint_states__msg); //get calibrated joints angle vector
-    void jointMotorStatusCallback(const dynamixel_msgs::MotorStateListConstPtr& joint_motors_msg); //get the torque load nad temprature from each joint
 
      /* tools */
      std::vector<float> getApproachAngles()
