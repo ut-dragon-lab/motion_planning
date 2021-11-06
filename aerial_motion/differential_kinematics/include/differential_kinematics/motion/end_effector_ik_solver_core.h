@@ -36,11 +36,6 @@
 #ifndef END_EFFECTOR_IK_SOLVER_CORE_H
 #define END_EFFECTOR_IK_SOLVER_CORE_H
 
-/* special cost plugin for cartesian constraint */
-#include <differential_kinematics/cost/cartesian_constraint.h>
-/* special constraint plugin for collision avoidance */
-#include <differential_kinematics/constraint/collision_avoidance.h>
-
 #include <differential_kinematics/planner_core.h>
 
 #include <pluginlib/class_loader.h>
