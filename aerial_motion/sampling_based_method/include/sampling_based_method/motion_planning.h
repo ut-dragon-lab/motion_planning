@@ -163,8 +163,6 @@ namespace sampling_base
       double max_force_, min_force_;
       int max_force_state_index_, min_force_state_index_;
 
-      void sceneInit();
-
       ompl::base::Cost onlyJointPathLimit();
 
       ompl::base::ValidStateSamplerPtr allocValidStateSampler(const ompl::base::SpaceInformation *si)

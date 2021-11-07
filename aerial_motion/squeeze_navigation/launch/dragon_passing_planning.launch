@@ -11,8 +11,6 @@
   <arg name="start_squeeze_path_from_real_state" default="true" />
 
   <arg name="discrete_path_debug_flag" default="false" />
-  <arg name="teleop_flag"  default="false" />
-  <arg name="replay" default="false" />
 
   <arg name="save_squeeze_path_flag" default="false" />
   <arg name="load_squeeze_path_flag" default="false" />
@@ -37,12 +35,10 @@
   </group>
 
   ###########  Path Planning and Navigation  ###########
-  <node pkg="squeeze_navigation" type="squeeze_navigation_node" name="squeeze_navigation_node" output="screen" ns="$(arg robot_ns)">
+  <node pkg="squeeze_navigation" type="squeeze_navigation_node" name="squeeze_navigation_node" output="screen" ns="$(arg robot_ns)" >
 
     <param name="debug_verbose" value="false" />
     <param name="headless" value="$(arg headless)" />
-
-    <param name="teleop_flag" value="$(arg teleop_flag)" />
 
     <!-- discrete path search -->
     <param name="discrete_path_search_method_name" value="squeeze_navigation/$(arg discrete_path_search_method_name)" />
@@ -74,20 +70,10 @@
     <!-- continuous path generator -->
     <!-- bspline -->
     <param name="bspline_degree" value="5" />
-
-    <rosparam file="$(find squeeze_navigation)/config/end_effector/dragon_$(arg type).yaml" command="load" />
-    <!--<rosparam file="$(find squeeze_navigation)/config/end_effector/dragon_$(arg type)_horizontal.yaml" command="load" /> -->
-    <!-- Phase3: first approach -->
-    <param name="approach_trajectory_period" value="5.0" />
-
-    <!-- Phase5: squeeze -->
     <param name="squeeze_trajectory_period" value="50.0" />
 
     <!-- navigation -->
     <param name="control_frequency" value="40.0" />
-
-    <!-- replay -->
-    <param name="replay" value="$(arg replay)"/>
   </node>
 
 </launch>

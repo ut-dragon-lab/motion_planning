@@ -209,7 +209,7 @@ namespace squeeze_motion_planner
       planner_core_->getStateConst(index);
     }
 
-    bool plan (bool debug)
+    bool corePlan ()
     {
       return planner_core_->plan();
     }
