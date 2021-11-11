@@ -8,6 +8,7 @@ project(differential_kinematics)
 find_package(catkin REQUIRED COMPONENTS
   roscpp
   aerial_robot_model
+  bspline_ros
   fcl_catkin
   hydrus
   dragon

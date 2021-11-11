@@ -77,6 +77,9 @@ EndEffectorIKSolverCore::EndEffectorIKSolverCore(ros::NodeHandle nh, ros::NodeHa
         end_effector_ik_service_ = nh_.advertiseService("end_effector_ik", &EndEffectorIKSolverCore::endEffectorIkCallback, this);
         env_collision_sub_ = nh_.subscribe("/env_collision", 1, &EndEffectorIKSolverCore::envCollision, this);
       }
+
+    /* continous path generator */
+    continuous_path_generator_ = boost::make_shared<ContinuousPathGenerator>(nh_, nhp_, robot_model_ptr_);
   }
 
 bool EndEffectorIKSolverCore::endEffectorIkCallback(differential_kinematics::TargetPose::Request  &req,
@@ -117,7 +120,7 @@ void EndEffectorIKSolverCore::envCollision(const visualization_msgs::MarkerArray
 bool EndEffectorIKSolverCore::inverseKinematics(const tf::Transform& target_ee_pose, const sensor_msgs::JointState& init_joint_vector, const tf::Transform& init_root_pose, bool orientation, bool full_body, std::string tran_free_axis, std::string rot_free_axis, bool collision_avoidance, bool debug)
 {
   /* reset path */
-  path_.resize(0);
+  discrete_path_.resize(0);
 
   /* important: link1(root) should be base link */
   planner_core_ptr_->getRobotModelPtr()->setBaselinkName(root_link_);
@@ -195,7 +198,7 @@ bool EndEffectorIKSolverCore::inverseKinematics(const tf::Transform& target_ee_p
           /* insert the result discrete path */
           geometry_msgs::Pose root_pose;
           tf::poseKDLToMsg(planner_core_ptr_->getRootPoseSequence().at(index), root_pose);
-          path_.push_back(MultilinkState(robot_model_ptr_, root_pose, planner_core_ptr_->getJointStateSequence().at(index)));
+          discrete_path_.push_back(MultilinkState(robot_model_ptr_, root_pose, planner_core_ptr_->getJointStateSequence().at(index)));
         }
 
       return true;
@@ -205,15 +208,28 @@ bool EndEffectorIKSolverCore::inverseKinematics(const tf::Transform& target_ee_p
   return false;
 }
 
+void EndEffectorIKSolverCore::calcContinuousPath(double duration)
+{
+  //TODO: consier the refine of discrete path
+
+  if(discrete_path_.size() == 0)
+    {
+      ROS_ERROR("[IK solver] no valid discrete path generated");
+      return;
+    }
+
+  continuous_path_generator_->calcContinuousPath(discrete_path_, duration);
+}
+
 void EndEffectorIKSolverCore::motionFunc()
-  {
-    ros::Time now_time = ros::Time::now();
-    br_.sendTransform(tf::StampedTransform(target_ee_pose_, now_time, "world", tf::resolve(tf_prefix_, "target_ee")));
+{
+  ros::Time now_time = ros::Time::now();
+  br_.sendTransform(tf::StampedTransform(target_ee_pose_, now_time, "world", tf::resolve(tf_prefix_, "target_ee")));
 
-    tf::Transform end_link_ee_tf;
-    end_link_ee_tf.setIdentity();
-    end_link_ee_tf.setOrigin(tf::Vector3(planner_core_ptr_->getRobotModelPtr()->getLinkLength(), 0, 0));
+  tf::Transform end_link_ee_tf;
+  end_link_ee_tf.setIdentity();
+  end_link_ee_tf.setOrigin(tf::Vector3(planner_core_ptr_->getRobotModelPtr()->getLinkLength(), 0, 0));
 
-    int rotor_num = planner_core_ptr_->getRobotModelPtr()->getRotorNum();
-    br_.sendTransform(tf::StampedTransform(end_link_ee_tf, now_time, tf::resolve(tf_prefix_, std::string("link") + std::to_string(rotor_num)), tf::resolve(tf_prefix_, "ee")));
-  }
+  int rotor_num = planner_core_ptr_->getRobotModelPtr()->getRotorNum();
+  br_.sendTransform(tf::StampedTransform(end_link_ee_tf, now_time, tf::resolve(tf_prefix_, std::string("link") + std::to_string(rotor_num)), tf::resolve(tf_prefix_, "ee")));
+}

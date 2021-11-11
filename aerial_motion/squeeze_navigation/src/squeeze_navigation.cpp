@@ -40,9 +40,7 @@
 #include <differential_kinematics/motion/end_effector_ik_solver_core.h>
 
 SqueezeNavigation::SqueezeNavigation(ros::NodeHandle nh, ros::NodeHandle nhp):
-  nh_(nh), nhp_(nhp), plugin_loader_("squeeze_navigation", "squeeze_motion_planner::Base"),
-  move_flag_(false), return_flag_(false), real_machine_connect_(false),
-  state_index_(0), max_joint_vel_(0)
+  nh_(nh), nhp_(nhp), plugin_loader_("squeeze_navigation", "squeeze_motion_planner::Base"), real_machine_connect_(false)
 {
   rosParamInit();
 
@@ -86,9 +84,10 @@ SqueezeNavigation::SqueezeNavigation(ros::NodeHandle nh, ros::NodeHandle nhp):
   path_planner_ = plugin_loader_.createInstance(discrete_path_search_method_name);
   path_planner_->initialize(nh_, nhp_, robot_model_ptr_);
 
-
   /* navigation timer */
   navigate_timer_ = nh_.createTimer(ros::Duration(1.0 / controller_freq_), &SqueezeNavigation::process, this);
+
+  reset();
 }
 
 void SqueezeNavigation::rosParamInit()
@@ -144,8 +143,11 @@ void SqueezeNavigation::startNavigate()
   move_start_time_ = -10; // for check the convergence to the init state; -10 is for incremental count
 
   /* publish the init state */
-  MultilinkState init_state = path_planner_->getDiscreteState(0);
+  goToInitState(path_planner_->getDiscreteState(0));
+}
 
+void SqueezeNavigation::goToInitState(const MultilinkState& init_state)
+{
   /* publish uav nav */
   aerial_robot_msgs::FlightNav nav_msg;
   nav_msg.header.frame_id = std::string("/world");
@@ -184,6 +186,7 @@ void SqueezeNavigation::startNavigate()
     joints_msg.position.push_back(init_state.getJointStateConst()(itr));
   joints_ctrl_pub_.publish(joints_msg);
 }
+
 
 void SqueezeNavigation::planStartCallback(const std_msgs::Empty msg)
 {
@@ -300,7 +303,13 @@ void SqueezeNavigation::returnCallback(const std_msgs::Empty msg)
   joints_ctrl_pub_.publish(joints_msg);
 }
 
+
 void SqueezeNavigation::pathNavigate()
+{
+  pathNavigate(path_planner_->getDiscretePath(), path_planner_->getContinuousPath());
+}
+
+void SqueezeNavigation::pathNavigate(const std::vector<MultilinkState>& discrete_path, boost::shared_ptr<ContinuousPathGenerator> continuous_path)
 {
   if(!move_flag_)
     {
@@ -314,9 +323,9 @@ void SqueezeNavigation::pathNavigate()
               double rate = 1 - t / (return_delay_ * 2 / 3);
               rot_msg.header.stamp = ros::Time::now();
               rot_msg.header.frame_id = std::string("baselink");
-              double roll = rate * path_planner_->getPositionVector(path_planner_->getPathDuration() + 1.0 / controller_freq_)[3];
-              double pitch = rate * path_planner_->getPositionVector(path_planner_->getPathDuration() + 1.0 / controller_freq_)[4];
-              double yaw = path_planner_->getPositionVector(path_planner_->getPathDuration() + 1.0 / controller_freq_)[5];
+              double roll = rate * continuous_path->getPositionVector(continuous_path->getPathDuration() + 1.0 / controller_freq_)[3];
+              double pitch = rate * continuous_path->getPositionVector(continuous_path->getPathDuration() + 1.0 / controller_freq_)[4];
+              double yaw = continuous_path->getPositionVector(continuous_path->getPathDuration() + 1.0 / controller_freq_)[5];
               rot_msg.pose.pose.orientation = tf::createQuaternionMsgFromRollPitchYaw(roll, pitch, yaw);
               rot_nav_pub_.publish(rot_msg);
               ROS_INFO_THROTTLE(1.0, "set robot level and the init joint state ");
@@ -363,11 +372,11 @@ void SqueezeNavigation::pathNavigate()
   /* test (debug) the discrete path */
   if(discrete_path_debug_flag_)
     {
-      if(state_index_ == path_planner_->getDiscretePath().size()) return; //debug
+      if(state_index_ == discrete_path.size()) return; //debug
 
       display_robot_state.state.joint_state.header.seq = state_index_;
       display_robot_state.state.joint_state.header.stamp = ros::Time::now();
-      display_robot_state.state = path_planner_->getDiscreteState(state_index_).getRootJointStateConst<moveit_msgs::RobotState>();
+      display_robot_state.state = discrete_path.at(state_index_).getRootJointStateConst<moveit_msgs::RobotState>();
 
       desired_path_pub_.publish(display_robot_state);
 
@@ -375,19 +384,19 @@ void SqueezeNavigation::pathNavigate()
       {
         moveit_msgs::DisplayRobotState debug_robot_state;
 
-        if(state_index_ +1 < path_planner_->getDiscretePath().size())
+        if(state_index_ +1 < discrete_path.size())
           {
             tf::Vector3 p1, p2;
-            tf::pointMsgToTF(path_planner_->getDiscreteState(state_index_).getCogPoseConst().position, p1);
-            tf::pointMsgToTF(path_planner_->getDiscreteState(state_index_ + 1).getCogPoseConst().position, p2);
+            tf::pointMsgToTF(discrete_path.at(state_index_).getCogPoseConst().position, p1);
+            tf::pointMsgToTF(discrete_path.at(state_index_ + 1).getCogPoseConst().position, p2);
             debug_robot_state.state.joint_state.position.push_back((p1-p2).length());
 
-            debug_robot_state.state.joint_state.position.push_back((path_planner_->getDiscreteState(state_index_ + 1).getBaselinkDesiredAttConst() * path_planner_->getDiscreteState(state_index_).getBaselinkDesiredAttConst().inverse()).getAngle());
+            debug_robot_state.state.joint_state.position.push_back((discrete_path.at(state_index_ + 1).getBaselinkDesiredAttConst() * discrete_path.at(state_index_).getBaselinkDesiredAttConst().inverse()).getAngle());
 
             double joint_angle_sum = 0;
             for(auto itr : robot_model_ptr_->getLinkJointIndices())
               {
-                double delta_angle = path_planner_->getDiscreteState(state_index_ + 1).getJointStateConst()(itr) - path_planner_->getDiscreteState(state_index_).getJointStateConst()(itr);
+                double delta_angle = discrete_path.at(state_index_ + 1).getJointStateConst()(itr) - discrete_path.at(state_index_).getJointStateConst()(itr);
                 joint_angle_sum += (delta_angle * delta_angle);
               }
             debug_robot_state.state.joint_state.position.push_back(sqrt(joint_angle_sum));
@@ -396,7 +405,7 @@ void SqueezeNavigation::pathNavigate()
           }
       }
 
-      if(++state_index_ == path_planner_->getDiscretePath().size()) state_index_ = 0;
+      if(++state_index_ == discrete_path.size()) state_index_ = 0;
 
       return;
     }
@@ -435,7 +444,7 @@ void SqueezeNavigation::pathNavigate()
 
           /* check joint */
           std::stringstream ss;
-          MultilinkState init_state = path_planner_->getDiscreteState(0);
+          MultilinkState init_state = discrete_path.at(0);
           for(auto itr : robot_model_ptr_->getLinkJointIndices())
             {
               double delta_angle = init_state.getJointStateConst()(itr) - joint_state_(itr);
@@ -457,8 +466,8 @@ void SqueezeNavigation::pathNavigate()
 
 
   double cur_time = ros::Time::now().toSec() - move_start_time_;
-  std::vector<double> des_pos = path_planner_->getPositionVector(cur_time + 1.0 / controller_freq_);
-  std::vector<double> des_vel = path_planner_->getVelocityVector(cur_time);
+  std::vector<double> des_pos = continuous_path->getPositionVector(cur_time + 1.0 / controller_freq_);
+  std::vector<double> des_vel = continuous_path->getVelocityVector(cur_time);
 
   {
     // debug
@@ -546,7 +555,7 @@ void SqueezeNavigation::pathNavigate()
   cog_pose.orientation = tf::createQuaternionMsgFromYaw(des_pos.at(5)); /* special: only get yaw angle */
 
   /* joint state:  */
-  auto joint_vector = path_planner_->getDiscreteState(0).getJointStateConst();
+  auto joint_vector = discrete_path.at(0).getJointStateConst();
   for(int i = 0; i < joint_num; i++)
     joint_vector(robot_model_ptr_->getLinkJointIndices().at(i)) = des_pos.at(6 + i);
 
@@ -568,12 +577,11 @@ void SqueezeNavigation::pathNavigate()
   desired_path_pub_.publish(display_robot_state);
 
   /* check the end of navigation */
-  if(cur_time > path_planner_->getPathDuration() + 1.0) // margin: 1.0 [sec]
+  if(cur_time > continuous_path->getPathDuration() + 1.0) // margin: 1.0 [sec]
     {
       ROS_INFO("[SqueezeNavigation] Finish Navigation");
       move_flag_ = false;
     }
-
 }
 
 void SqueezeNavigation::robotOdomCallback(const nav_msgs::OdometryConstPtr& msg)

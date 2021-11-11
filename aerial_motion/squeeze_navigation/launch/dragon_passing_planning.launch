@@ -2,25 +2,28 @@
 <launch>
   <arg name="headless" default="false" />
 
+  <arg name="simulation" default="false" />
   <arg name="robot_ns" value="dragon" />
   <arg name="type" default="quad" />
 
   <arg name="discrete_path_search_method_name" default="differential_kinematics" />
   <arg name="motion_type"  default="1" /> <!--SE2: 0, SE3: 1 -->
 
-  <arg name="start_squeeze_path_from_real_state" default="true" />
-
+  <arg name="start_squeeze_path_from_real_state" default="true" />  
   <arg name="discrete_path_debug_flag" default="false" />
+  <arg name="trajectory_period" default="50.0" />
 
   <arg name="save_squeeze_path_flag" default="false" />
   <arg name="load_squeeze_path_flag" default="false" />
   <arg name="path_file_name" default="dragon_planning_log.txt" />
 
+  <arg name="robot_model" default="$(find dragon)/robots/quad/euclid_201709.urdf.xacro" />
+
   ###########  Robot Model  ###########
   <group unless="$(arg headless)">
     <include file="$(find aerial_robot_model)/launch/aerial_robot_model.launch" >
       <arg name="headless" value="$(arg headless)" />
-      <arg name="robot_model" value="$(find squeeze_navigation)/robots/dragon/quad.urdf.xacro" />
+      <arg name="robot_model" value="$(arg robot_model)" />
       <arg name="robot_ns" value="$(arg robot_ns)" />
       <arg name="rviz_config" value="$(find sampling_based_method)/config/planning.rviz" />
       <arg name="rviz_init_pose" value="$(find dragon)/config/$(arg type)/RvizInit.yaml" />
@@ -36,7 +39,6 @@
 
   ###########  Path Planning and Navigation  ###########
   <node pkg="squeeze_navigation" type="squeeze_navigation_node" name="squeeze_navigation_node" output="screen" ns="$(arg robot_ns)" >
-
     <param name="debug_verbose" value="false" />
     <param name="headless" value="$(arg headless)" />
 
@@ -68,12 +70,15 @@
     <param name="valid_segment_count_factor" value="20"/> <!--20-->
 
     <!-- continuous path generator -->
-    <!-- bspline -->
-    <param name="bspline_degree" value="5" />
-    <param name="squeeze_trajectory_period" value="50.0" />
+    <param name="squeeze_trajectory_period" value="$(arg trajectory_period)" />
 
     <!-- navigation -->
     <param name="control_frequency" value="40.0" />
   </node>
+
+  <group if="$(eval arg('simulation'))">
+    <param name="opening/robot_description" command="$(find xacro)/xacro.py $(find squeeze_navigation)/urdf/opening.urdf" />
+    <node pkg="gazebo_ros" type="spawn_model" name="valve_spawn" args="-param opening/robot_description -urdf -x 0 -y 0 -z 0 -model opening" />
+  </group>
 
 </launch>

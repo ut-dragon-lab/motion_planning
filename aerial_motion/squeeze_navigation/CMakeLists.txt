@@ -17,8 +17,8 @@ find_package(catkin REQUIRED COMPONENTS
 
 catkin_package(
   INCLUDE_DIRS include
-  #  CATKIN_DEPENDS aerial_motion_planning_msgs bspline_generator roscpp sampling_based_methods
-  LIBRARIES planner_pluginlib
+  CATKIN_DEPENDS aerial_motion_planning_msgs bspline_ros dragon roscpp sampling_based_method differential_kinematics
+  LIBRARIES planner_pluginlib squeeze_navigation
   DEPENDS system_lib
 )
 
@@ -35,7 +35,6 @@ include_directories(
 
 ### sequeeze motion planner plugin
 add_library(planner_pluginlib
-  src/planner/base_plugin.cpp
   src/planner/differential_kinematics.cpp
   src/planner/sampling_based_method.cpp)
 target_link_libraries(planner_pluginlib ${catkin_LIBRARIES})

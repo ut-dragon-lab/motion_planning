@@ -14,6 +14,9 @@ filter_rate: 1 # no filtering
 discrete_path_resampling_flag: true
 resampling_angular_rate: 0.25 # 0.25 is smoother for rotation motion, default 1
 
+# continuous path
+bspline_degree: 5
+
 debug: false
 
 # thresholds

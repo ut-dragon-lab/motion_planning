@@ -39,11 +39,7 @@
 #include <ros/ros.h>
 #include <dragon/model/hydrus_like_robot_model.h> // TODO: change to full vectoring model
 #include <aerial_motion_planning_msgs/multilink_state.h>
-
-/* continous path generator */
-#include <kalman_filter/lpf_filter.h>
-#include <bspline_ros/bspline_ros.h>
-
+#include <aerial_motion_planning_msgs/continuous_path_generator.h>
 
 namespace squeeze_motion_planner
 {
@@ -53,29 +49,67 @@ namespace squeeze_motion_planner
     Base(): discrete_path_(0) {}
     ~Base() {}
 
-    void virtual initialize(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<aerial_robot_model::RobotModel> robot_model_ptr);
+    void virtual initialize(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<aerial_robot_model::RobotModel> robot_model_ptr)
+    {
+      nh_ = nh;
+      nhp_ = nhp;
+
+      robot_model_ptr_ = robot_model_ptr;
+      baselink_name_ = robot_model_ptr_->getBaselinkName();
+
+      nhp_.param("debug_verbose", debug_verbose_, false);
+
+      /* continous path generator */
+      continuous_path_generator_ = boost::make_shared<ContinuousPathGenerator>(nh_, nhp_, robot_model_ptr_);
+    }
+
+    bool plan()
+    {
+      if(!corePlan()) return false;
+
+      /* post process */
+
+      /*-- 1. smoothing the discrete path --*/
+      bool discrete_path_filter_flag;
+      nhp_.param("discrete_path_filter_flag", discrete_path_filter_flag, false);
+      if(discrete_path_filter_flag) discrete_path_ = continuous_path_generator_->discretePathSmoothing(discrete_path_);
+
+      /*-- 2. resampling the discrete path --*/
+      bool discrete_path_resampling_flag;
+      nhp_.param("discrete_path_resampling_flag", discrete_path_resampling_flag, false);
+      if(discrete_path_resampling_flag) discrete_path_ = continuous_path_generator_->discretePathResampling(discrete_path_);
+
+      /*-- 3. get continous path --*/
+      double squeeze_trajectory_period;
+      nhp_.param("squeeze_trajectory_period", squeeze_trajectory_period, 100.0);
+      continuous_path_generator_->calcContinuousPath(discrete_path_, squeeze_trajectory_period);
+
+      return true;
+    }
+
 
     virtual void setInitState(const MultilinkState& state) = 0;
-    virtual void reset();
-    bool plan();
-    void postProcess();
+    virtual void reset() { discrete_path_.clear(); }
+
     virtual bool corePlan() = 0;
     virtual bool loadPath() { return false; }
     virtual void visualizeFunc() = 0;
     virtual void checkCollision(MultilinkState state) = 0;
 
-    virtual const tf::Transform& getOpenningCenterFrame() const {}
-    virtual void setOpenningCenterFrame(const tf::Transform& openning_center_frame) {}
-
     const std::vector<MultilinkState>& getDiscretePath() const { return discrete_path_;}
     virtual const MultilinkState& getDiscreteState(int index) const { discrete_path_.at(index); }
-    const boost::shared_ptr<BsplineRos> getContinuousPath() const { return bspline_;}
-    const double getPathDuration() const { return bspline_->getEndTime();}
-    const std::vector<double> getPositionVector(double t);
-    const std::vector<double> getVelocityVector(double t);
+
+    /* continuous path */
+    const boost::shared_ptr<ContinuousPathGenerator> getContinuousPath() const { return continuous_path_generator_;}
+    const double getPathDuration() const { return continuous_path_generator_->getPathDuration();}
+    const std::vector<double> getPositionVector(double t) { return continuous_path_generator_->getPositionVector(t); }
+    const std::vector<double> getVelocityVector(double t) { return continuous_path_generator_->getVelocityVector(t); }
 
     static const uint8_t HORIZONTAL_GAP = 0;
     static const uint8_t VERTICAL_GAP = 1;
+
+    virtual const tf::Transform& getOpenningCenterFrame() const {}
+    virtual void setOpenningCenterFrame(const tf::Transform& openning_center_frame) {}
 
   protected:
 
@@ -88,15 +122,7 @@ namespace squeeze_motion_planner
     std::string baselink_name_;
 
     std::vector<MultilinkState> discrete_path_;
-
-    /* continuous path generator */
-    boost::shared_ptr<BsplineRos> bspline_;
-
-    // TODO: this function should be moved to a utility source file, not belong to any class
-    const std::vector<MultilinkState> discretePathSmoothing(const std::vector<MultilinkState>& raw_path) const ;
-    const std::vector<MultilinkState> discretePathResampling(const std::vector<MultilinkState>& raw_path) const;
-    void continuousPath(const std::vector<MultilinkState>& discrete_path, double trajectory_period);
-
+    boost::shared_ptr<ContinuousPathGenerator> continuous_path_generator_;
   };
 };
 

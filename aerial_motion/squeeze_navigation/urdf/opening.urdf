@@ -1,0 +1,96 @@
+<?xml version="1.0"?>
+<robot
+    xmlns:xacro="http://www.ros.org/wiki/xacro" name="opening" >
+
+  <xacro:arg name="opening_height" default="0.775" /> <!-- m -->
+  <xacro:arg name="opening_width" default="0.5" /> <!-- m -->
+  <!-- <xacro:property name="valve_height" value="${0.3 + $(arg valve_pitch_angle) * 0.01}" /> -->
+  <xacro:property name="frame_mass" value="10" />
+
+  <material name="black">
+    <color rgba="0 0 0 1"/>
+  </material>
+
+
+  <xacro:macro name="frame_model" params="name mass length width x y height direction color:=black">
+    <link name="${name}">
+      <visual>
+        <origin xyz="${x} ${y} ${height}" rpy="0 0 ${direction}"/>
+        <geometry>
+          <box size="${length} ${width} ${width}" />
+        </geometry>
+        <material name="${color}"/>
+      </visual>
+      <collision>
+        <origin xyz="${x} ${y} ${height}" rpy="0 0 ${direction}"/>
+        <geometry>
+          <box size="${length} ${width} ${width}" />
+        </geometry>
+      </collision>
+      <inertial>
+        <origin xyz="${x} ${y} ${height}" rpy="0 0 ${direction}"/>
+        <mass value="${mass}"/>
+        <inertia
+            ixx="${0.25 * mass * width * width}" ixy="0.0" ixz="0.0"
+            iyy="${0.25 * mass * width * width}" iyz="0.0"
+            izz="${0.5 * mass * width * width}"/>
+      </inertial>
+    </link>
+  </xacro:macro>
+
+  <xacro:frame_model name="main_frame1" mass="${frame_mass}" length="$(arg opening_width)" width="0.02" x="${0.5 * $(arg opening_width)}" y="0" height="$(arg opening_height)" direction="${pi/2}" />
+  <xacro:frame_model name="main_frame2" mass="${frame_mass}" length="$(arg opening_width)" width="0.02" x="${-0.5 * $(arg opening_width)}" y="0" height="$(arg opening_height)" direction="${pi/2}" />
+  <xacro:frame_model name="main_frame3" mass="${frame_mass}" length="$(arg opening_width)" width="0.02" y="${0.5 * $(arg opening_width)}" x="0" height="$(arg opening_height)" direction="0" />
+  <xacro:frame_model name="main_frame4" mass="${frame_mass}" length="$(arg opening_width)" width="0.02" y="${-0.5 * $(arg opening_width)}" x="0" height="$(arg opening_height)" direction="0" />
+
+  <joint name="frame_joint1" type="fixed">
+    <parent link="main_frame1"/>
+    <child link="main_frame2"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+  </joint>
+  <joint name="frame_joint2" type="fixed">
+    <parent link="main_frame1"/>
+    <child link="main_frame3"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+  </joint>
+  <joint name="frame_joint3" type="fixed">
+    <parent link="main_frame1"/>
+    <child link="main_frame4"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+  </joint>
+
+  <!-- TODO: change friction rate to paramter -->
+  <!-- Noet: 0.13 corresponds to 3.5N -->
+  <gazebo reference="main_frame1">
+    <material>Gazebo/Black</material>
+    <mu1>0.13</mu1>
+    <mu2>0.13</mu2>
+  </gazebo>
+
+  <gazebo reference="main_frame2">
+    <material>Gazebo/Black</material>
+    <mu1>0.13</mu1>
+    <mu2>0.13</mu2>
+  </gazebo>
+
+  <gazebo reference="main_frame3">
+    <material>Gazebo/Black</material>
+    <mu1>0.13</mu1>
+    <mu2>0.13</mu2>
+  </gazebo>
+
+  <gazebo reference="main_frame4">
+    <material>Gazebo/Black</material>
+    <mu1>0.13</mu1>
+    <mu2>0.13</mu2>
+  </gazebo>
+
+  <gazebo>
+    <static>true</static>
+  </gazebo>
+
+
+</robot>

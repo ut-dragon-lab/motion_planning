@@ -46,8 +46,6 @@
 #include <nav_msgs/Odometry.h>
 #include <aerial_robot_msgs/FlightNav.h>
 #include <aerial_robot_msgs/PoseControlPid.h>
-#include <spinal/DesireCoord.h>
-#include <spinal/FlightConfigCmd.h>
 #include <moveit_msgs/DisplayRobotState.h>
 #include <gazebo_msgs/ApplyBodyWrench.h>
 #include <gazebo_msgs/BodyRequest.h>
@@ -74,7 +72,7 @@ public:
   SqueezeNavigation(ros::NodeHandle nh, ros::NodeHandle nhp);
   ~SqueezeNavigation(){}
 
-private:
+protected:
   ros::NodeHandle nh_;
   ros::NodeHandle nhp_;
 
@@ -139,23 +137,23 @@ private:
 
 
   void rosParamInit();
-  void process(const ros::TimerEvent& event);
+  virtual void process(const ros::TimerEvent& event);
   void pathSearch();
   void pathNavigate();
+  void pathNavigate(const std::vector<MultilinkState>& discrete_path, boost::shared_ptr<ContinuousPathGenerator> continuous_path);
   void visualize();
+  void goToInitState(const MultilinkState& init_state);
 
   /* robot real state */
   void robotOdomCallback(const nav_msgs::OdometryConstPtr& msg);
   void robotJointStatesCallback(const sensor_msgs::JointStateConstPtr& joint_msg);
   void controlTermsCallback(const aerial_robot_msgs::PoseControlPidConstPtr& control_msg);
-
-  /* teleop */
   void planStartCallback(const std_msgs::Empty msg);
-  void moveStartCallback(const std_msgs::Empty msg);
-  void returnCallback(const std_msgs::Empty msg);
+  virtual void moveStartCallback(const std_msgs::Empty msg);
+  virtual void returnCallback(const std_msgs::Empty msg);
   void joyStickControl(const sensor_msgs::JoyConstPtr & joy_msg);
 
-  void reset();
+  virtual void reset();
   void startNavigate();
 
 };
