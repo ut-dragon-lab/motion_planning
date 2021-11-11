@@ -1,0 +1,35 @@
+<?xml version="1.0"?>
+<launch>
+  ###########  launch config  ###########
+  <arg name="real_machine" default="True" />
+  <arg name="simulation" default="False" />
+  <arg name="estimate_mode"  default= "1" />
+  <arg name="sim_estimate_mode"  default= "2" />
+  <arg name="full_vectoring_mode"  default= "true" />
+  <arg name="headless" default="True" />
+  <arg name="takeoff" default="0.3" /> <!-- upper: 1.1m -->
+  <arg name="spawn_x" default="0.0"/>
+  <arg name="spawn_y" default="0.0"/> <!-- upper: 0.6m -->
+  <arg name="spawn_yaw" default="0"/> <!-- upper: 1.57rad -->
+
+
+  <include file="$(find dragon)/launch/bringup.launch" >
+    <arg name="real_machine" value="$(arg real_machine)" />
+    <arg name="simulation" value="$(arg simulation)" />
+    <arg name="estimate_mode"  value= "$(arg estimate_mode)" />
+    <arg name="sim_estimate_mode"  value= "$(arg sim_estimate_mode)" />
+    <arg name="full_vectoring_mode"  default= "$(arg full_vectoring_mode)" />
+    <arg name="headless" value="$(arg headless)" />
+
+    <arg name="direct_model" value="True" />
+    <arg name="direct_model_name" value="$(find flap_manipulation)/robots/dragon/quad.gazebo.xacro" if="$(arg simulation)"/>
+    <arg name="direct_model_name" value="$(find flap_manipulation)/robots/dragon/quad.urdf.xacro" unless="$(arg simulation)"/>
+    <arg name="spawn_x" value="$(arg spawn_x)"/>
+    <arg name="spawn_y" value="$(arg spawn_y)"/>
+    <arg name="spawn_yaw" value="$(arg spawn_yaw)"/>
+  </include>
+
+  <!-- overwrite the takeoff param -->
+  <param name="dragon/navigation/takeoff_height" value="$(arg takeoff)" /> 
+
+</launch>

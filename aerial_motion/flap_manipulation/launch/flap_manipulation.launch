@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<launch>
+  <arg name="headless" default="false" />
+
+  <arg name="simulation" default="false" />
+  <arg name="robot_ns" value="dragon" />
+
+  <!-- debug flag -->
+  <arg name="start_squeeze_path_from_real_state" default="true" />
+  <arg name="discrete_path_debug_flag" default="false" />
+  <arg name="auto_state_machine" default="true" /> <!-- set to false if you want to control by teleop -->
+  <arg name="squeeze_flag" default="false" /> <!-- set to true if you want to squeeze the opening in the end -->
+  <arg name="external_wrench_flag" default="true" /> <!-- recommend to set flase in simulation for check motion planning -->
+
+  <arg name="robot_model" default="$(find flap_manipulation)/robots/dragon/quad.urdf.xacro" />
+
+  ###########  Robot Model  ###########
+  <group unless="$(arg headless)">
+    <include file="$(find aerial_robot_model)/launch/aerial_robot_model.launch" >
+      <arg name="headless" value="$(arg headless)" />
+      <arg name="robot_model" value="$(arg robot_model)" />
+      <arg name="robot_ns" value="$(arg robot_ns)" />
+      <arg name="rviz_config" value="$(find sampling_based_method)/config/planning.rviz" />
+      <arg name="rviz_init_pose" value="$(find dragon)/config/quad/RvizInit.yaml" />
+      <arg name="need_joint_state" value="false"/>
+    </include>
+  </group>
+
+  <group ns="$(arg robot_ns)">
+    <param name="robot_description_semantic" textfile="$(find sampling_based_method)/config/dragon/quad/moveit.srdf" />
+    <rosparam file="$(find dragon)/config/quad/model/HydrusLikeRobotModel.yaml" command="load" />
+  </group>
+
+  ###########  Path Planning and Navigation  ###########
+  <node pkg="flap_manipulation" type="flap_manipulation_node" name="flap_manipulation_node" output="screen" ns="$(arg robot_ns)" >
+
+    <param name="debug_verbose" value="false" />
+    <param name="headless" value="$(arg headless)" />
+
+    <!-- flap manipulation -->
+    <rosparam file="$(find flap_manipulation)/config/end_effector.yaml" command="load" />
+    <rosparam file="$(find flap_manipulation)/config/flap.yaml" command="load" />
+
+    <!-- squeezing openning -->
+    <param name="discrete_path_search_method_name" value="squeeze_navigation/differential_kinematics" />
+    <param name="squeeze_trajectory_period" value="50.0" />
+
+
+    <rosparam file="$(find squeeze_navigation)/config/differential_kinematics/dragon_quad.yaml" command="load" />
+    <rosparam file="$(find squeeze_navigation)/config/differential_kinematics/gap.yaml" command="load"/>
+    <param name="gap_type" value="1" />
+
+    <param name="discrete_path_debug_flag" value="$(arg discrete_path_debug_flag)" />
+    <param name="start_squeeze_path_from_real_state" value="$(arg start_squeeze_path_from_real_state)" />
+    <param name="motion_type" value="1" />
+    <param name="control_frequency" value="40.0" />
+    <param name="flap_pose_topic_name" value="/flap/mocap/pose" />
+
+    <param name="squeeze_flag" value="$(arg squeeze_flag)" />
+    <param name="auto_state_machine" value="$(arg auto_state_machine)" />
+    <param name="external_wrench_flag" value="$(arg external_wrench_flag)" />    
+  </node>
+
+  <group if="$(eval arg('simulation'))">
+    <param name="opening/robot_description" command="$(find xacro)/xacro.py $(find squeeze_navigation)/urdf/opening.urdf  opening_width:=0.7" />
+    <node pkg="gazebo_ros" type="spawn_model" name="opening_spawn" args="-param opening/robot_description -urdf -x 0 -y 0 -z 0 -model opening " />
+
+    <!-- TODO: change the position, rotation of the flap -->
+    <param name="flap/robot_description" command="$(find xacro)/xacro.py $(find flap_manipulation)/urdf/flap.urdf flap_mass:=1.0  flap_width:=0.75" />
+    <node pkg="gazebo_ros" type="spawn_model" name="flap_spawn" args="-param flap/robot_description -urdf -x 0 -y 0 -z 0.82 -Y 0 -model flap" launch-prefix="bash -c 'sleep 1; $0 $@'" />
+    <node pkg="topic_tools" type="transform" name="topic_transform" args="/flap/odom /flap/mocap/pose geometry_msgs/PoseStamped 'geometry_msgs.msg.PoseStamped(header=m.header,pose=m.pose.pose)' --import geometry_msgs nav_msgs"  launch-prefix="bash -c 'sleep 4; $0 $@' "/>
+  </group>
+
+</launch>

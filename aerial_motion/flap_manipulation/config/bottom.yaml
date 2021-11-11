@@ -1,0 +1,81 @@
+end_effector_name: tail_ball
+end_effector_dist: 0 # 0.43 from link4
+
+#deprecated, move to init_contact_point: contact_point_height: 0.785 # consider the bend: 0.8 => 0.785
+flap_width: 0.75 # TODO: measure
+flap_height: 0.04 # [m], true is 0.05, but we have to consider the bend of the misumi frame (0.8 -> 0.78)
+opening_width: 0.7 # TODO: check
+opening_margin: 0.05 # TODO: check
+
+contact_reaction_force: 4.5 # norm [N], combined with first constact norml
+move_friction_force: 3.5 # norm [N]
+
+# phase1:
+approach_trajectory_period: 7.0
+approach_offset: 0.05 # the distance from the contact point
+
+# phase2:
+contact_thresh: 0.02
+
+# phase3:
+move_trajectory_period: 9.0
+
+# phase4:
+reset_pose_period: 5.0
+
+# end effector
+end_effector:
+  # inverse kinematics
+  differential_kinematics_count: 200
+  motion_func_rate: 0
+
+  # cost
+  differential_kinematics_cost:
+    cartesian_constraint:
+      verbose: true
+      w_pos_err_constraint: 1.0
+      w_att_err_constraint: 1.0 #1.0
+    state_vel:
+      verbose: true
+      w_joint_vel: 0.001
+      w_root_translational_vel: 0.001 #0.001 #0.005
+      w_root_rotational_vel: 0.001 #0.001 #0.005
+
+  # constraint
+  differential_kinematics_constraint:
+    state_limit:
+      verbose: true
+      joint_vel_thre: 0.1 #0.17 , 0.02 is not valid for full_body
+      root_translational_vel_thre: 1 #0.1
+      root_rotational_vel_thre: 1 #0.1
+      joint_vel_constraint_range: 0.11
+      joint_vel_forbidden_range: 0.02
+      vebose: true
+    static_thrust:
+      verbose: true
+      f_max_thre: 22.0
+      f_min_thre: 10.0
+    stability:
+      verbose: true
+      check_fc_t: false
+      fc_rp_min_thre: 4.9
+      fc_rp_dist_decrease_vel_thre: -0.1
+      fc_rp_dist_constraint_range: 0.2
+      fc_rp_dist_forbidden_range: 0.05
+      rp_positiono_margin_thre: 0.3
+    collision_avoidance:
+      verbose: true
+      collision_distance_constraint_range: 0.08 #0.05
+      collision_distance_forbidden_range: 0.05 #0.02
+    cog_motion:
+      verbose: true
+      cog_omega_limit_flag: false
+      cog_velocity_limit: [0.05, 0.05, 0.01]  # [x,y,z] (m) in world frame
+      cog_angular_limit: [0.05, 0.05, 0.05]  # [x,y,z] (rad) in world frame
+    overlap:
+      verbose: true
+    joint_torque:
+      verbose: true
+      t_min_thre: -3.0
+      t_max_thre: 3.0
+      torque_vel_thre: 0.2

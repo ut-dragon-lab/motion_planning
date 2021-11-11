@@ -1,0 +1,20 @@
+flap_width: 0.75 # TODO: measure, contact_point_height: 0.785 # consider the bend: 0.8 => 0.785
+flap_height: 0.04 # [m], true is 0.05, but we have to consider the bend of the misumi frame (0.8 -> 0.78)
+opening_width: 0.7 # TODO: check
+opening_margin: 0.05 # TODO: check
+
+contact_reaction_force: 4.5 # norm [N], combined with first constact norml
+move_friction_force: 3.5 # norm [N]
+
+# phase1:
+approach_trajectory_period: 7.0
+approach_offset: 0.05 # the distance from the contact point
+
+# phase2:
+contact_thresh: 0.02
+
+# phase3:
+move_trajectory_period: 9.0
+
+# phase4:
+reset_pose_period: 5.0
