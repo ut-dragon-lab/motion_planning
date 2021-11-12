@@ -151,7 +151,7 @@ protected:
   void planStartCallback(const std_msgs::Empty msg);
   virtual void moveStartCallback(const std_msgs::Empty msg);
   virtual void returnCallback(const std_msgs::Empty msg);
-  void joyStickControl(const sensor_msgs::JoyConstPtr & joy_msg);
+  virtual void joyStickControl(const sensor_msgs::JoyConstPtr & joy_msg);
 
   virtual void reset();
   void startNavigate();

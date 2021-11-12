@@ -10,11 +10,11 @@ end_effector:
   # cost
   differential_kinematics_cost:
     cartesian_constraint:
-      verbose: true
+      verbose: false
       w_pos_err_constraint: 1.0
       w_att_err_constraint: 1.0 #1.0
     state_vel:
-      verbose: true
+      verbose: false
       w_joint_vel: 0.001
       w_root_translational_vel: 0.001 #0.001 #0.005
       w_root_rotational_vel: 0.001 #0.001 #0.005
@@ -22,7 +22,7 @@ end_effector:
   # constraint
   differential_kinematics_constraint:
     state_limit:
-      verbose: true
+      verbose: false
       joint_vel_thre: 0.1 #0.17 , 0.02 is not valid for full_body
       root_translational_vel_thre: 1 #0.1
       root_rotational_vel_thre: 1 #0.1
@@ -30,11 +30,11 @@ end_effector:
       joint_vel_forbidden_range: 0.02
       vebose: true
     static_thrust:
-      verbose: true
+      verbose: false
       f_max_thre: 22.0
       f_min_thre: 10.0
     stability:
-      verbose: true
+      verbose: false
       check_fc_t: false
       fc_rp_min_thre: 4.9
       fc_rp_dist_decrease_vel_thre: -0.1
@@ -42,20 +42,20 @@ end_effector:
       fc_rp_dist_forbidden_range: 0.05
       rp_positiono_margin_thre: 0.3
     collision_avoidance:
-      verbose: true
+      verbose: false
       collision_distance_constraint_range: 0.08 #0.05
       collision_distance_forbidden_range: 0.05 #0.02
     cog_motion:
-      verbose: true
+      verbose: false
       cog_omega_limit_flag: false
       cog_velocity_limit: [0.01, 0.01, 0.01]  # [x,y,z] (m) in world frame, 
       #cog_velocity_limit: [0.08, 0.08, 0.05]  # upper
       #cog_velocity_limit: [0.05, 0.05, 0.01]  # bottom
       cog_angular_limit: [0.05, 0.05, 0.05]  # [x,y,z] (rad) in world frame
     overlap:
-      verbose: true
+      verbose: false
     joint_torque:
-      verbose: true
+      verbose: false
       t_min_thre: -3.0
       t_max_thre: 3.0
       torque_vel_thre: 0.2

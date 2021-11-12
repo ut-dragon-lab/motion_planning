@@ -66,7 +66,7 @@
     <node pkg="gazebo_ros" type="spawn_model" name="opening_spawn" args="-param opening/robot_description -urdf -x 0 -y 0 -z 0 -model opening " />
 
     <!-- TODO: change the position, rotation of the flap -->
-    <param name="flap/robot_description" command="$(find xacro)/xacro.py $(find flap_manipulation)/urdf/flap.urdf flap_mass:=1.0  flap_width:=0.75" />
+    <param name="flap/robot_description" command="$(find xacro)/xacro.py $(find flap_manipulation)/urdf/flap.urdf flap_mass:=1.0  flap_width:=0.8" />
     <node pkg="gazebo_ros" type="spawn_model" name="flap_spawn" args="-param flap/robot_description -urdf -x 0 -y 0 -z 0.82 -Y 0 -model flap" launch-prefix="bash -c 'sleep 1; $0 $@'" />
     <node pkg="topic_tools" type="transform" name="topic_transform" args="/flap/odom /flap/mocap/pose geometry_msgs/PoseStamped 'geometry_msgs.msg.PoseStamped(header=m.header,pose=m.pose.pose)' --import geometry_msgs nav_msgs"  launch-prefix="bash -c 'sleep 4; $0 $@' "/>
   </group>

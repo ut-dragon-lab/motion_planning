@@ -201,6 +201,36 @@ bool EndEffectorIKSolverCore::inverseKinematics(const tf::Transform& target_ee_p
           discrete_path_.push_back(MultilinkState(robot_model_ptr_, root_pose, planner_core_ptr_->getJointStateSequence().at(index)));
         }
 
+      if (planner_core_ptr_->getRootPoseSequence().size() == 2)
+        {
+          discrete_path_.clear();
+          ROS_INFO("linear interpolate a short segment only have two points");
+          int seg = 5; // TODO: rosparam
+
+          tf::Transform init_root_pose, end_root_pose;
+          tf::poseKDLToTF(planner_core_ptr_->getRootPoseSequence().at(0), init_root_pose);
+          tf::poseKDLToTF(planner_core_ptr_->getRootPoseSequence().at(1), end_root_pose);
+          KDL::JntArray init_joint_vector, end_joint_vector;
+          init_joint_vector = planner_core_ptr_->getJointStateSequence().at(0);
+          end_joint_vector = planner_core_ptr_->getJointStateSequence().at(1);
+
+          for(int i = 0; i <= seg; i++)
+            {
+              // interpolation
+              double interpolate_rate = (double)i / seg;
+
+              /* joint */
+              KDL::JntArray joint_vector = init_joint_vector;
+              for(auto index: robot_model_ptr_->getLinkJointIndices())
+                joint_vector(index) = init_joint_vector(index) * (1 - interpolate_rate) + interpolate_rate * end_joint_vector(index);
+              /* root pose */
+              geometry_msgs::Pose root_pose;
+              tf::pointTFToMsg(init_root_pose.getOrigin() * (1 - interpolate_rate) + end_root_pose.getOrigin() * interpolate_rate, root_pose.position); // position
+              tf::quaternionTFToMsg(init_root_pose.getRotation().slerp(end_root_pose.getRotation(), interpolate_rate), root_pose.orientation); // orientation
+              discrete_path_.push_back(MultilinkState(robot_model_ptr_, root_pose, joint_vector));
+            }
+        }
+
       return true;
     }
 

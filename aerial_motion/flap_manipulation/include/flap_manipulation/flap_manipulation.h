@@ -76,12 +76,19 @@ private:
   bool ee_orientation_flag_;
   double contact_reaction_force_;
   double approach_offset_;
-  double approach_thresh_, contact_thresh_;
+  double approach_thresh_, contact_thresh_, reach_thresh_;
+
+  // replaning in phase3 for flap manipulation
+  double target_flap_yaw_;
+  double yaw_rate_;
+  tf::Transform  target_ee_pose_;
 
   bool auto_state_machine_;
   bool squeeze_flag_;
   bool external_wrench_flag_;
 
+  double replan_du_;
+  double move_speed_;
   double move_friction_force_;
   double flap_width_, flap_height_;
   double opening_width_, opening_margin_;
@@ -89,11 +96,15 @@ private:
   /* end-effector ik solver */
   boost::shared_ptr<EndEffectorIKSolverCore> end_effector_ik_solver_;
 
+  // teleop
+  sensor_msgs::Joy prev_joy_cmd_;
+
   void rosParamInit();
   void reset() override;
   void process(const ros::TimerEvent& event) override;
   void moveStartCallback(const std_msgs::Empty msg) override;
   void returnCallback(const std_msgs::Empty msg) override;
+  void joyStickControl(const sensor_msgs::JoyConstPtr & joy_msg) override;
 
   void flapPoseCallback(const geometry_msgs::PoseStampedConstPtr msg);
 

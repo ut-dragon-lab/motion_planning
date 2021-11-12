@@ -66,6 +66,9 @@ FlapManipulation::FlapManipulation(ros::NodeHandle nh, ros::NodeHandle nhp):
   target_end_ee_pose_.setIdentity();
   target_reset_ee_pose_.setIdentity();
   flap_pose_.setOrigin(tf::Vector3(0, 0, -100)); // invliad height for target flap
+
+  prev_joy_cmd_.axes.resize(aerial_robot_navigation::BaseNavigator::PS4_AXES, 0);
+  prev_joy_cmd_.buttons.resize(aerial_robot_navigation::BaseNavigator::PS4_BUTTONS, 0);
 }
 
 void FlapManipulation::rosParamInit()
@@ -79,8 +82,12 @@ void FlapManipulation::rosParamInit()
   nhp_.param("approach_offset", approach_offset_, 0.05);
   nhp_.param("approach_thresh", approach_thresh_, 0.05);
   nhp_.param("contact_thresh", contact_thresh_, 0.0);
+  nhp_.param("reach_thresh", reach_thresh_, 0.04);
   nhp_.param("contact_reaction_force", contact_reaction_force_, 0.0);
+  nhp_.param("move_speed", move_speed_, 0.8);
   nhp_.param("move_friction_force", move_friction_force_, 5.0);
+  nhp_.param("replan_du", replan_du_, 0.8);
+  nhp_.param("yaw_rate", yaw_rate_, 1.0);
   nhp_.param("auto_state_machine", auto_state_machine_, true);
   nhp_.param("squeeze_flag", squeeze_flag_, false);
   nhp_.param("external_wrench_flag", external_wrench_flag_, true);
@@ -91,6 +98,8 @@ void FlapManipulation::reset()
   SqueezeNavigation::reset();
 
   motion_phase_ = PHASE0;
+
+  target_ee_pose_.setIdentity();
 }
 
 void FlapManipulation::flapPoseCallback(const geometry_msgs::PoseStampedConstPtr msg)
@@ -113,6 +122,8 @@ void FlapManipulation::returnCallback(const std_msgs::Empty msg)
 {
   return_flag_ = true;
   start_return_time_ = ros::Time::now().toSec();
+  motion_phase_ = PHASE0;
+  move_flag_ = false;
 
   /* send init joint state */
   sensor_msgs::JointState joints_msg;
@@ -134,6 +145,8 @@ void FlapManipulation::returnCallback(const std_msgs::Empty msg)
   std_msgs::String m;
   m.data = "manipulte_force";
   clear_wrench_pub_.publish(m);
+
+  if(!squeeze_flag_) return_delay_ /= 2; // shorten the time 
 }
 
 void FlapManipulation::process(const ros::TimerEvent& event)
@@ -156,6 +169,7 @@ void FlapManipulation::process(const ros::TimerEvent& event)
   tf::transformKDLToTF(segs_tf.at("fc").Inverse() * segs_tf.at(end_effector_ik_solver_->getParentSegName()), end_link_fc_frame);
   tf::Transform end_effector_world_frame = fc_pose_world_frame * end_link_fc_frame * end_effector_ik_solver_->getEndEffectorRelativePose();
   tf::Vector3 ee_pos = end_effector_world_frame.getOrigin();
+
 
   switch(motion_phase_)
     {
@@ -226,7 +240,7 @@ void FlapManipulation::process(const ros::TimerEvent& event)
                   }
 
                 init_contact_point_ = flap_pos + init_contact_normal_ * flap_width_ / 2;
-                target_end_ee_pose_.setOrigin(flap_pos - init_contact_normal_ * flap_width_ / 2);
+                target_end_ee_pose_.setOrigin(flap_pos - init_contact_normal_ * (flap_width_ / 2 - opening_margin_));
 
                 ee_orientation_flag_ = true;
 
@@ -253,6 +267,9 @@ void FlapManipulation::process(const ros::TimerEvent& event)
             // heuristical setting for squeezing
             opening_center_frame.getOrigin() += tf::Vector3(0, 0, flap_height_ / 2);
             SqueezeNavigation::path_planner_->setOpenningCenterFrame(opening_center_frame);
+
+            // set the local contact normal w.r.t. the flap frame, which is fixed during the entire motion
+            target_flap_yaw_ = tf::getYaw(flap_pose_.getRotation());
 
 
             /* set offset for contact appraoch */
@@ -396,59 +413,145 @@ void FlapManipulation::process(const ros::TimerEvent& event)
       }
     case PHASE3:
       {
+        if (replan_du_ > 0 && ros::Time::now().toSec() - move_start_time_ >= replan_du_ && !plan_flag_)
+          {
+            plan_flag_ = true;
+            ROS_INFO("flap manipulation: re-plan the trajectory and force");
+          }
+
         if(plan_flag_)
           {
             plan_flag_ = false;
 
-            /* plan the end effector IK */
-            geometry_msgs::Pose root_pose;
-            MultilinkState::convertBaselinkPose2RootPose(robot_model_ptr_, robot_baselink_odom_.pose.pose, joint_state_, root_pose);
-            tf::Transform root_tf;
-            tf::poseMsgToTF(root_pose, root_tf);
-            if(!end_effector_ik_solver_->inverseKinematics(target_end_ee_pose_, robot_model_ptr_->kdlJointToMsg(joint_state_), root_tf, ee_orientation_flag_, true, std::string(""), std::string(""), false, false))
+
+            if(replan_du_ > 0)
               {
-                ROS_ERROR("flap manipulation: cannot get valid end effector ik pose in phase3");
-                reset();
-                break;
+                tf::Vector3 move_direction = (target_end_ee_pose_.getOrigin() - init_contact_point_).normalize();
+                double diff = (target_end_ee_pose_.getOrigin() - ee_pos).dot(move_direction);
+                ROS_INFO("diff with final point is %f, end effector pos: [%f, %f, %f]", diff, ee_pos.x(), ee_pos.y(), ee_pos.z());
+
+                if(diff > reach_thresh_)
+                  {
+                    ROS_INFO("do re-plan for flap manipulation");
+
+                    /* calculate the move vector */
+                    // linear
+                    if (diff > move_speed_ * replan_du_) diff = move_speed_ * replan_du_;
+                    // yaw
+                    tf::Vector3 orth_direction(move_direction.y(), -move_direction.x(), move_direction.z());
+                    double yaw_err = target_flap_yaw_ - tf::getYaw(flap_pose_.getRotation());
+
+                    //// debug, do not use in real machine!!!
+                    //// yaw_err = target_flap_yaw_ - (tf::getYaw(flap_pose_.getRotation() * tf::createQuaternionFromYaw(-0.2)));
+                    tf::Vector3 move_v = orth_direction * yaw_err * yaw_rate_ + move_direction * diff;
+
+                    KDL::JntArray init_joint_array;
+                    tf::Transform init_root_pose;
+                    if(target_ee_pose_.getOrigin() == tf::Vector3(0,0,0))
+                      {
+                        // update from real end effector and robot state for the first time
+                        //ROS_INFO("update from real end effector state");
+                        target_ee_pose_.setOrigin(ee_pos + move_v);
+                        target_ee_pose_.getOrigin().setZ(target_end_ee_pose_.getOrigin().getZ()); // the height should not change.
+
+                        geometry_msgs::Pose root_pose;
+                        MultilinkState::convertBaselinkPose2RootPose(robot_model_ptr_, robot_baselink_odom_.pose.pose, joint_state_, root_pose);
+                        tf::poseMsgToTF(root_pose, init_root_pose);
+
+                        init_joint_array = joint_state_;
+                      }
+                    else
+                      {
+                        // update from previous target end efector state
+                        target_ee_pose_.getOrigin() += move_v;
+
+                        MultilinkState state = end_effector_ik_solver_->getDiscretePath().back();
+                        tf::poseMsgToTF(state.getRootPoseConst(), init_root_pose);
+                        init_joint_array = state.getJointStateConst();
+                      }
+                    target_ee_pose_.setRotation(target_end_ee_pose_.getRotation()); // orientation is fixed
+
+                    ROS_INFO("yaw_err: %f, total move vector: [%f, %f, %f], ee pose: [%f, %f, %f]", yaw_err, move_v.x(), move_v.y(), move_v.z(), target_ee_pose_.getOrigin().x(), target_ee_pose_.getOrigin().y(), target_ee_pose_.getOrigin().z());
+
+
+                    if(!end_effector_ik_solver_->inverseKinematics(target_ee_pose_, robot_model_ptr_->kdlJointToMsg(init_joint_array), init_root_pose, ee_orientation_flag_, true, std::string(""), std::string(""), false, false))
+                      {
+                        ROS_ERROR("flap manipulation: cannot get valid end effector ik pose in phase3");
+                        reset();
+                        break;
+                      }
+
+                    end_effector_ik_solver_->calcContinuousPath(replan_du_);
+
+
+                    /* apply external wrench for the contact force and moving friction */
+                    if(external_wrench_flag_)
+                      {
+                        ROS_WARN("apply contact reaction force in the end of phase3");
+                        tf::Vector3 friction_direction = -move_v.normalize(); // opposite to the moveing direction
+                        aerial_robot_msgs::ApplyWrench msg;
+                        msg.name = "manipulte_force";
+                        msg.reference_frame = end_effector_ik_solver_->getParentSegName();
+                        tf::pointTFToMsg(end_effector_ik_solver_->getEndEffectorRelativePose().getOrigin(), msg.reference_point);
+                        tf::vector3TFToMsg(-init_contact_normal_ * contact_reaction_force_ - move_friction_force_ * friction_direction,
+                                           msg.wrench.force); // opposite to the receive force (wrench generated by robot)
+                        apply_wrench_pub_.publish(msg);
+
+                        ROS_WARN("phase3: external force: [%f, %f, %f]",
+                                 msg.wrench.force.x, msg.wrench.force.y, msg.wrench.force.z);
+                      }
+
+                    /* start move imediately */
+                    move_flag_ = true;
+                    move_start_time_ = ros::Time::now().toSec();
+                  }
+                else
+                  {
+                    ROS_INFO("PHASE3: reach to the goal, finish replan");
+                    move_flag_ = false;
+                  }
+              }
+            else
+              {
+                ROS_INFO("only once plan for straight pushing without manipulation");
+                geometry_msgs::Pose root_pose;
+                MultilinkState::convertBaselinkPose2RootPose(robot_model_ptr_, robot_baselink_odom_.pose.pose, joint_state_, root_pose);
+                tf::Transform root_tf;
+                tf::poseMsgToTF(root_pose, root_tf);
+                if(!end_effector_ik_solver_->inverseKinematics(target_end_ee_pose_, robot_model_ptr_->kdlJointToMsg(joint_state_), root_tf, ee_orientation_flag_, true, std::string(""), std::string(""), false, false))
+                  {
+                    ROS_ERROR("flap manipulation: cannot get valid end effector ik pose in phase3");
+                    reset();
+                    break;
+                  }
+
+                /* get continous path */
+                double move_trajectory_period;
+                nhp_.param("move_trajectory_period", move_trajectory_period, 5.0);
+                end_effector_ik_solver_->calcContinuousPath(move_trajectory_period);
+
+                /* apply external wrench for the contact force and moving friction */
+                if(external_wrench_flag_)
+                  {
+                    ROS_WARN("apply contact reaction force in the end of phase3");
+                    tf::Vector3 friction_direction = (init_contact_point_ - target_end_ee_pose_.getOrigin()).normalize(); // opposite to the moveing direction
+                    aerial_robot_msgs::ApplyWrench msg;
+                    msg.name = "manipulte_force";
+                    msg.reference_frame = end_effector_ik_solver_->getParentSegName();
+                    tf::pointTFToMsg(end_effector_ik_solver_->getEndEffectorRelativePose().getOrigin(), msg.reference_point);
+                    tf::vector3TFToMsg(-init_contact_normal_ * contact_reaction_force_ - move_friction_force_ * friction_direction,
+                                       msg.wrench.force); // opposite to the receive force (wrench generated by robot)
+                    apply_wrench_pub_.publish(msg);
+
+                    ROS_WARN("phase3: external force: [%f, %f, %f]",
+                             msg.wrench.force.x, msg.wrench.force.y, msg.wrench.force.z);
+                  }
+
+                /* start move imediately */
+                move_flag_ = true;
+                move_start_time_ = ros::Time::now().toSec();
               }
 
-            /* get continous path */
-            double move_trajectory_period;
-            nhp_.param("move_trajectory_period", move_trajectory_period, 5.0);
-            end_effector_ik_solver_->calcContinuousPath(move_trajectory_period);
-
-
-            /* apply external wrench for the contact force and moving friction */
-            if(external_wrench_flag_)
-              {
-                ROS_WARN("apply contact reaction force in the end of phase3");
-                tf::Vector3 friction_direction = (init_contact_point_ - target_end_ee_pose_.getOrigin()).normalize(); // opposite to the moveing direction
-                aerial_robot_msgs::ApplyWrench msg;
-                msg.name = "manipulte_force";
-                msg.reference_frame = end_effector_ik_solver_->getParentSegName();
-                tf::pointTFToMsg(end_effector_ik_solver_->getEndEffectorRelativePose().getOrigin(), msg.reference_point);
-                tf::vector3TFToMsg(-init_contact_normal_ * contact_reaction_force_ - move_friction_force_ * friction_direction,
-                                   msg.wrench.force); // opposite to the receive force (wrench generated by robot)
-                apply_wrench_pub_.publish(msg);
-
-                // consider the trajectory of flap
-                /* deprecated: only support horizontal pushing and pulling (i.e. height is constant)
-                   double direction = atan2(move_end_point.at(1) - init_contact_point_.at(1),
-                   move_end_point.at(0) - init_contact_point_.at(0));
-
-                   msg.wrench.force.x = cos(-direction) * move_friction_force_; //friction direction is opposite
-                   msg.wrench.force.y = sin(-direction) * move_friction_force_; //friction direction is opposite
-                   msg.wrench.force.z = contact_reaction_force_;
-                */
-
-                ROS_WARN("phase3: external force: [%f, %f, %f]",
-                         msg.wrench.force.x, msg.wrench.force.y, msg.wrench.force.z);
-              }
-
-
-            /* start move imediately */
-            move_flag_ = true;
-            move_start_time_ = ros::Time::now().toSec();
           }
 
         if(move_flag_)
@@ -526,7 +629,7 @@ void FlapManipulation::process(const ros::TimerEvent& event)
       {
         if(!squeeze_flag_)
           {
-            motion_phase_ == PHASE0;
+            motion_phase_ = PHASE0;
             ROS_INFO("skip squeeze phase");
             break;
           }
@@ -558,5 +661,29 @@ void FlapManipulation::process(const ros::TimerEvent& event)
     }
 }
 
+void FlapManipulation::joyStickControl(const sensor_msgs::JoyConstPtr & joy_msg)
+{
+  using namespace aerial_robot_navigation;
+  SqueezeNavigation::joyStickControl(joy_msg);
+
+  if(joy_msg->axes.size() == BaseNavigator::PS4_AXES && joy_msg->buttons.size() == BaseNavigator::PS4_BUTTONS)
+    {
+      // shift phase
+      if(joy_msg->buttons[BaseNavigator::PS4_BUTTON_REAR_LEFT_1] == 1 && prev_joy_cmd_.buttons[BaseNavigator::PS4_BUTTON_REAR_LEFT_1] == 0)
+        {
+          ROS_INFO("[flap manipulation], shift phase command from joystick");
+          moveStartCallback(std_msgs::Empty());
+        }
+
+      // return home
+      if(joy_msg->buttons[BaseNavigator::PS4_BUTTON_REAR_RIGHT_1] == 1 && prev_joy_cmd_.buttons[BaseNavigator::PS4_BUTTON_REAR_RIGHT_1] == 0)
+        {
+          ROS_INFO("[flap manipulation], return command from joystick");
+          returnCallback(std_msgs::Empty());
+        }
+    }
+
+  prev_joy_cmd_ = *joy_msg;
+}
 
 

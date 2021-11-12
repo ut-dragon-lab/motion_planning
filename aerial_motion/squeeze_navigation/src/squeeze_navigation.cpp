@@ -630,7 +630,7 @@ void SqueezeNavigation::joyStickControl(const sensor_msgs::JoyConstPtr & joy_msg
     }
 
   /* landing */
-  if(joy_cmd.buttons[BaseNavigator::PS3_BUTTON_CROSS_RIGHT] == 1 && joy_cmd.buttons[BaseNavigator::PS3_BUTTON_ACTION_SQUARE] == 1 && move_flag_)
+  if(joy_cmd.buttons[BaseNavigator::PS3_BUTTON_CROSS_RIGHT] == 1 || joy_cmd.buttons[BaseNavigator::PS3_BUTTON_ACTION_SQUARE] == 1 && move_flag_)
     {
       ROS_INFO("[SqueezeNavigation] Receive normal landing command, stop navigation.");
       move_flag_ = false;
