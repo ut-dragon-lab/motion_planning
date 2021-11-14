@@ -65,6 +65,7 @@ FlapManipulation::FlapManipulation(ros::NodeHandle nh, ros::NodeHandle nhp):
   target_init_ee_pose_.setIdentity();
   target_end_ee_pose_.setIdentity();
   target_reset_ee_pose_.setIdentity();
+  target_ee_pose_.setIdentity();
   flap_pose_.setOrigin(tf::Vector3(0, 0, -100)); // invliad height for target flap
 
   prev_joy_cmd_.axes.resize(aerial_robot_navigation::BaseNavigator::PS4_AXES, 0);
@@ -200,13 +201,13 @@ void FlapManipulation::process(const ros::TimerEvent& event)
                 // TODO: integrate with recognision and other task condition
                 if(ee_pos.y() < flap_pos.y())
                   {
-                    init_contact_point_ = flap_pos + tf::Vector3(0, - (opening_width_ / 2 - opening_margin_ * 2), - flap_height_);
-                    target_end_ee_pose_.setOrigin(flap_pos + tf::Vector3(0, opening_width_ / 2 - opening_margin_, - flap_height_));
+                    init_contact_point_ = flap_pos + tf::Vector3(0, - (opening_width_ / 2 - opening_margin_ * 2), - flap_height_ / 2);
+                    target_end_ee_pose_.setOrigin(flap_pos + tf::Vector3(0, opening_width_ / 2 - opening_margin_, - flap_height_ / 2));
                   }
                 else
                   {
-                    init_contact_point_ = flap_pos + tf::Vector3(0, opening_width_ / 2 - opening_margin_ * 2, - flap_height_); // doule the opening_margin
-                    target_end_ee_pose_.setOrigin(flap_pos + tf::Vector3(0, - (opening_width_ / 2 - opening_margin_), - flap_height_));
+                    init_contact_point_ = flap_pos + tf::Vector3(0, opening_width_ / 2 - opening_margin_ * 2, - flap_height_ / 2); // doule the opening_margin
+                    target_end_ee_pose_.setOrigin(flap_pos + tf::Vector3(0, - (opening_width_ / 2 - opening_margin_), - flap_height_ / 2));
                   }
                 target_reset_ee_pose_.setOrigin(flap_pos + tf::Vector3(0, 0, -0.5)); // heuristic
 
@@ -220,6 +221,7 @@ void FlapManipulation::process(const ros::TimerEvent& event)
                 // lateral manipulation
                 ROS_INFO("The flap object is under the robot, lateral manipulation");
                 contact_reaction_force_ = 0; // no reaction force, which coincides to the friction
+                contact_thresh_ *= 2; // workaround:  the contact trehshold is phase2 is relaxed.
 
                 tf::Vector3 rel_pos = flap_pose_.inverse() * ee_pos;
 
@@ -364,9 +366,9 @@ void FlapManipulation::process(const ros::TimerEvent& event)
       }
     case PHASE2:
       {
-        ROS_INFO_THROTTLE(2, "phase2: end effector position [%f, %f, %f], init contact point: [%f, %f, %f]",
+        ROS_INFO_THROTTLE(2, "phase2: end effector position [%f, %f, %f], init contact point: [%f, %f, %f], contact_tresh: %f, contact normal: [%f, %f, %f]",
                           ee_pos.x(), ee_pos.y(), ee_pos.z(),
-                          init_contact_point_.x(), init_contact_point_.y(), init_contact_point_.z());
+                          init_contact_point_.x(), init_contact_point_.y(), init_contact_point_.z(), contact_thresh_, init_contact_normal_.x(), init_contact_normal_.y(), init_contact_normal_.z());
 
         if(plan_flag_)
           {
