@@ -30,6 +30,7 @@
   </include>
 
   <!-- overwrite the takeoff param -->
-  <param name="dragon/navigation/takeoff_height" value="$(arg takeoff)" /> 
-
+  <param name="dragon/navigation/takeoff_height" value="$(arg takeoff)" />
+  <param name="dragon/controller/rotor_interfere_compensate" value="false" /> <!-- force disable the rotor interfere compensation due to the good motion planning -->
+  <!-- TODO: also provide a bringup file for squeezing motion one to disable rotor interfere compensation  -->
 </launch>
