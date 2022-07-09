@@ -13,7 +13,7 @@
   <arg name="estimate_mass_du" default="4.0"/>
   <arg name="joint1_init_angle" default="0.8"/>
   <arg name="joint3_init_angle" default="0.8"/>
-  <arg name="joint2_relax_rate" default="10.0"/> <!-- this value is measured from rosbag of realmachine, 15~20, thus we choose smaller value 10 -->
+  <arg name="joint2_relax_rate" default="8.0"/> <!-- this value is measured from rosbag of realmachine, 15~20, thus we choose smaller value 8-10, 8 is better -->
 
 
   <node pkg="vectoring_thrust_grasp" type="grasping_motion_node" name="grasping_motion_node" output="screen" ns="dragon">
