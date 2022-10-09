@@ -34,9 +34,10 @@
  *********************************************************************/
 
 #include <aerial_motion_planning_msgs/multilink_state.h>
+#include <dragon/model/hydrus_like_robot_model.h> // TODO: change to full vectoring robot model
 
-/* TODO: the orientation of CoG frame is not resolved!! */
-
+/* TODO1: the orientation of CoG frame is not resolved!! */
+/* TODO2: provide a funcion of nominal_joint_angles for aerial_robot_mode, this does not only benefit dragon, but also other robot model. */
 
 void MultilinkState::convertCogPose2RootPose(boost::shared_ptr<aerial_robot_model::RobotModel> robot_model_ptr,
                                              const tf::Quaternion& baselink_desired_att,
@@ -77,7 +78,7 @@ void MultilinkState::setStatesFromCog(boost::shared_ptr<aerial_robot_model::Robo
   convertCogPose2RootPose(robot_model_ptr, baselink_desired_att, cog_pose, joint_state, root_pose_);
 
   /* special process for model with gimbal module */
-  if(gimbal_module_flag_) joint_state_ = boost::dynamic_pointer_cast<DragonRobotModel>(robot_model_ptr)->getGimbalProcessedJoint<KDL::JntArray>();
+  if(gimbal_module_flag_) joint_state_ = boost::dynamic_pointer_cast<Dragon::HydrusLikeRobotModel>(robot_model_ptr)->getGimbalProcessedJoint<KDL::JntArray>();
 }
 
 void MultilinkState::convertBaselinkPose2RootPose(boost::shared_ptr<aerial_robot_model::RobotModel> robot_model_ptr,
@@ -132,7 +133,7 @@ void MultilinkState::setStatesFromRoot(boost::shared_ptr<aerial_robot_model::Rob
   convertRootPose2CogPose(robot_model_ptr, root_pose, joint_state, baselink_desired_att_, cog_pose_);
 
   /* special process for model with gimbal module */
-  if(gimbal_module_flag_) joint_state_ = boost::dynamic_pointer_cast<DragonRobotModel>(robot_model_ptr)->getGimbalProcessedJoint<KDL::JntArray>();
+  if(gimbal_module_flag_) joint_state_ = boost::dynamic_pointer_cast<Dragon::HydrusLikeRobotModel>(robot_model_ptr)->getGimbalProcessedJoint<KDL::JntArray>();
 }
 
 template<> const std::vector<double> MultilinkState::getRootJointStateConst() const

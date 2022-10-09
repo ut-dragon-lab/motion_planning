@@ -46,7 +46,6 @@
 
 /* robot model */
 #include <aerial_robot_model/transformable_aerial_robot_model.h>
-#include <dragon/dragon_robot_model.h>
 
 /* utils */
 #include <algorithm>

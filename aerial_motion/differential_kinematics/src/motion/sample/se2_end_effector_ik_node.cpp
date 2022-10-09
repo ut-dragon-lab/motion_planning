@@ -34,6 +34,7 @@
  *********************************************************************/
 
 #include <differential_kinematics/motion/end_effector_ik_solver_core.h>
+#include <hydrus/hydrus_robot_model.h>
 
 int main(int argc, char **argv)
 {
