@@ -34,6 +34,11 @@
  *********************************************************************/
 
 #include <differential_kinematics/motion/end_effector_ik_solver_core.h>
+/* special cost plugin for cartesian constraint */
+#include <differential_kinematics/cost/cartesian_constraint.h>
+/* special constraint plugin for collision avoidance */
+#include <differential_kinematics/constraint/collision_avoidance.h>
+
 
 using namespace differential_kinematics;
 
@@ -135,9 +140,9 @@ bool EndEffectorIKSolverCore::inverseKinematics(const tf::Transform& target_ee_p
       /* special process: definition of end coords */
       if(cost.first == std::string("cartesian_constraint"))
         {
-          boost::dynamic_pointer_cast<cost::CartersianConstraint>(cost_container.back())->setReferenceFrame(parent_seg_, end_effector_relative_pose_);
+          boost::reinterpret_pointer_cast<cost::CartersianConstraint>(cost_container.back())->setReferenceFrame(parent_seg_, end_effector_relative_pose_);
           target_ee_pose_ = target_ee_pose;
-          boost::dynamic_pointer_cast<cost::CartersianConstraint>(cost_container.back())->setTargetFrame(target_ee_pose);
+          boost::reinterpret_pointer_cast<cost::CartersianConstraint>(cost_container.back())->setTargetFrame(target_ee_pose);
 
           /* set free axis */
           std::vector<int> free_axis_list(0);
@@ -149,7 +154,7 @@ bool EndEffectorIKSolverCore::inverseKinematics(const tf::Transform& target_ee_p
           if(rot_free_axis == std::string("z")) free_axis_list.push_back(MaskAxis::ROT_Z);
 
           if(free_axis_list.size() > 0)
-            boost::dynamic_pointer_cast<cost::CartersianConstraint>(cost_container.back())->setFreeAxis(free_axis_list);
+            boost::reinterpret_pointer_cast<cost::CartersianConstraint>(cost_container.back())->setFreeAxis(free_axis_list);
         }
     }
 
@@ -172,7 +177,7 @@ bool EndEffectorIKSolverCore::inverseKinematics(const tf::Transform& target_ee_p
 
       /* speical case for collision avoidance */
       if(constraint.first ==  std::string("collision_avoidance"))
-        boost::dynamic_pointer_cast<constraint::CollisionAvoidance>(constraint_container.back())->setEnv(env_collision_);
+        boost::reinterpret_pointer_cast<constraint::CollisionAvoidance>(constraint_container.back())->setEnv(env_collision_);
     }
 
   /* reset the init joint(joint) state the init root pose for planner */

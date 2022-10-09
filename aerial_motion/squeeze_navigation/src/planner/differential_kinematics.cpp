@@ -279,7 +279,8 @@ namespace squeeze_motion_planner
           if(cost.first == std::string("cartesian_constraint"))
             {
               orientation = false;
-              cartersian_constraint_ = reinterpret_cast<cost::CartersianConstraint*>(cost_container.back().get());
+              cartersian_constraint_ = boost::reinterpret_pointer_cast<cost::CartersianConstraint>(cost_container.back());
+              // NOTE: dynamic_pointer_cast include "undefined symbol" problem, so choose reinterpret_pointer_cast
             }
 
           cost_container.back()->initialize(nh_, nhp_, planner_core_ptr_, "differential_kinematics_cost/" + cost.first, orientation, true /* full_body */);
@@ -309,7 +310,8 @@ namespace squeeze_motion_planner
             {
               /*-- set collision env --*/
               setCollisionEnv();
-              boost::dynamic_pointer_cast<constraint::CollisionAvoidance>(constraint_container.back())->setEnv(env_collision_);
+              boost::reinterpret_pointer_cast<constraint::CollisionAvoidance>(constraint_container.back())->setEnv(env_collision_);
+              // NOTE: dynamic_pointer_cast include "undefined symbol" problem, so choose reinterpret_pointer_cast
             }
         }
 
@@ -391,7 +393,7 @@ namespace squeeze_motion_planner
 
     KDL::Chain squeeze_chain_;
 
-    cost::CartersianConstraint* cartersian_constraint_;
+    boost::shared_ptr<cost::CartersianConstraint> cartersian_constraint_;
 
     visualization_msgs::MarkerArray env_collision_;
 

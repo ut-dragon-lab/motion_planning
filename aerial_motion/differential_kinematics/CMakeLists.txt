@@ -116,7 +116,7 @@ target_link_libraries (dragon_differential_kinematics_constraint_pluginlib ${cat
 
 # end-effector IK solver core
 add_library (end_effector_ik_solver_core src/motion/end_effector_ik_solver_core.cpp)
-target_link_libraries (end_effector_ik_solver_core ${catkin_LIBRARIES} differential_kinematics_planner_core differential_kinematics_cost_pluginlib differential_kinematics_constraint_pluginlib)
+target_link_libraries (end_effector_ik_solver_core ${catkin_LIBRARIES} differential_kinematics_planner_core)
 add_dependencies(end_effector_ik_solver_core ${PROJECT_NAME}_generate_messages_cpp)
 
 ## specific robots:
