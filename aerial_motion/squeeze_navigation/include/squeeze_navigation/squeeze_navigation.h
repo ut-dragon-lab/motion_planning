@@ -49,6 +49,7 @@
 #include <moveit_msgs/DisplayRobotState.h>
 #include <gazebo_msgs/ApplyBodyWrench.h>
 #include <gazebo_msgs/BodyRequest.h>
+#include <spinal/DesireCoord.h>
 
 /* robot model */
 #include <dragon/model/hydrus_like_robot_model.h> // TODO: change to full vectoring model
@@ -86,7 +87,7 @@ protected:
 
   ros::Publisher joints_ctrl_pub_;
   ros::Publisher flight_nav_pub_;
-  ros::Publisher rot_nav_pub_;
+  ros::Publisher se3_roll_pitch_nav_pub_;
   ros::Publisher desired_path_pub_;
   ros::Publisher end_effector_pos_pub_;
   ros::Publisher debug_pub_; // TODO: need?
