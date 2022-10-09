@@ -9,7 +9,8 @@
   <arg name="discrete_path_search_method_name" default="differential_kinematics" />
   <arg name="motion_type"  default="1" /> <!--SE2: 0, SE3: 1 -->
 
-  <arg name="start_squeeze_path_from_real_state" default="true" />  
+  <arg name="start_squeeze_path_from_real_state" default="true" />
+  <arg name="overhead_opening" default="false" />
   <arg name="discrete_path_debug_flag" default="false" />
   <arg name="trajectory_period" default="50.0" />
 
@@ -60,6 +61,7 @@
     <param name="save_squeeze_path_flag" value="$(arg save_squeeze_path_flag)" />
     <param name="load_squeeze_path_flag" value="$(arg load_squeeze_path_flag)" />
     <param name="start_squeeze_path_from_real_state" value="$(arg start_squeeze_path_from_real_state)" />
+    <param name="overhead_opening" value="$(arg overhead_opening)" />
     <param name="file_name" value="$(find sampling_based_method)/path_log/dragon/$(arg path_file_name)" />
     <param name="solving_time_limit" type="double" value="36000"/>
     <param name="motion_sequence_rate" value="10"/>

@@ -266,6 +266,25 @@ void SqueezeNavigation::pathSearch()
               geometry_msgs::Pose root_pose;
               MultilinkState::convertBaselinkPose2RootPose(robot_model_ptr_, robot_baselink_odom_.pose.pose, joint_state_, root_pose);
               path_planner_->setInitState(MultilinkState(robot_model_ptr_, root_pose, joint_state_));
+
+              /* assume the opening is right above the robot */
+              bool overhead_opening;
+              nhp_.param("overhead_opening", overhead_opening, false);
+              if (overhead_opening)
+                {
+                  // get the pre-define robot z and the opening z
+                  double robot_z;
+                  nhp_.param("start_state_z", robot_z, 0.0);
+                  double opening_z;
+                  nhp_.param("openning_pos_z", opening_z, 0.0);
+                  tf::Transform frame; frame.setIdentity();
+
+                  frame.setOrigin(tf::Vector3(root_pose.position.x,
+                                              root_pose.position.y,
+                                              root_pose.position.z + opening_z - robot_z));
+                  path_planner_->setOpenningCenterFrame(frame);
+                }
+
             }
 
           /* do path search */
