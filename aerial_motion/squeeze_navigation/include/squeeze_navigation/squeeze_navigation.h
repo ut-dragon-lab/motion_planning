@@ -41,6 +41,7 @@
 #include <std_msgs/Float64MultiArray.h>
 #include <std_msgs/MultiArrayDimension.h>
 #include <std_msgs/Empty.h>
+#include <geometry_msgs/QuaternionStamped.h>
 #include <sensor_msgs/JointState.h>
 #include <nav_msgs/Odometry.h>
 #include <aerial_robot_msgs/FlightNav.h>
@@ -103,7 +104,7 @@ private:
 
   ros::Publisher joints_ctrl_pub_;
   ros::Publisher flight_nav_pub_;
-  ros::Publisher se3_roll_pitch_nav_pub_;
+  ros::Publisher rot_nav_pub_;
   ros::Publisher desired_path_pub_;
   ros::Publisher end_effector_pos_pub_;
 

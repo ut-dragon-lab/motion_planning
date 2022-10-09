@@ -86,7 +86,7 @@ SqueezeNavigation::SqueezeNavigation(ros::NodeHandle nh, ros::NodeHandle nhp):
 
   joints_ctrl_pub_ = nh_.advertise<sensor_msgs::JointState>("joints_ctrl", 1);
   flight_nav_pub_ = nh_.advertise<aerial_robot_msgs::FlightNav>("uav/nav", 1);
-  se3_roll_pitch_nav_pub_ = nh_.advertise<spinal::DesireCoord>("desire_coordinate", 1);
+  rot_nav_pub_ = nh_.advertise<nav_msgs::Odometry>("target_rotation_motion", 1);
   desired_path_pub_ = nh_.advertise<moveit_msgs::DisplayRobotState>("desired_robot_state", 1);
   debug_pub_ = nh_.advertise<moveit_msgs::DisplayRobotState>("debug_robot_state", 1);
   end_effector_pos_pub_ = nh_.advertise<geometry_msgs::Vector3Stamped>("end_effector_pos", 1);
@@ -670,11 +670,15 @@ void SqueezeNavigation::stateMachine(const ros::TimerEvent& event)
             double t = ros::Time::now().toSec() - start_return_time_;
             if(t < return_delay_ * 2 / 3)
               {
-                spinal::DesireCoord att_msg;
+                nav_msgs::Odometry rot_msg;
                 double rate = 1 - t / (return_delay_ * 2 / 3);
-                att_msg.roll = rate * bspline_ptr_->evaluate(bspline_ptr_->getEndTime() + 1.0 / controller_freq_)[3];
-                att_msg.pitch = rate * bspline_ptr_->evaluate(bspline_ptr_->getEndTime() + 1.0 / controller_freq_)[4];
-                se3_roll_pitch_nav_pub_.publish(att_msg);
+                rot_msg.header.stamp = ros::Time::now();
+                rot_msg.header.frame_id = std::string("baselink");
+                double roll = rate * bspline_ptr_->evaluate(bspline_ptr_->getEndTime() + 1.0 / controller_freq_)[3];
+                double pitch = rate * bspline_ptr_->evaluate(bspline_ptr_->getEndTime() + 1.0 / controller_freq_)[4];
+                double yaw = bspline_ptr_->evaluate(bspline_ptr_->getEndTime() + 1.0 / controller_freq_)[5];
+                rot_msg.pose.pose.orientation = tf::createQuaternionMsgFromRollPitchYaw(roll, pitch, yaw);
+                rot_nav_pub_.publish(rot_msg);
                 ROS_INFO_THROTTLE(1.0, "set robot level and the init joint state ");
               }
 
@@ -697,10 +701,14 @@ void SqueezeNavigation::stateMachine(const ros::TimerEvent& event)
                     nav_msg.pos_xy_nav_mode = nav_msg.POS_MODE;
                     nav_msg.target_pos_x = final_pos_x;
                     nav_msg.target_pos_y = final_pos_y;
-                    /* yaw */
-                    nav_msg.yaw_nav_mode = nav_msg.POS_MODE;
-                    nav_msg.target_yaw = final_yaw;
                     flight_nav_pub_.publish(nav_msg);
+
+                    /* yaw */
+                    nav_msgs::Odometry rot_msg;
+                    rot_msg.header.stamp = ros::Time::now();
+                    rot_msg.header.frame_id = std::string("baselink");
+                    rot_msg.pose.pose.orientation = tf::createQuaternionMsgFromYaw(final_yaw);
+                    rot_nav_pub_.publish(rot_msg);
                   }
 
                 reset();
@@ -969,7 +977,7 @@ void SqueezeNavigation::adjustInitalStateCallback(const std_msgs::Empty msg)
       nav_msg.pos_z_nav_mode = nav_msg.POS_MODE;
       nav_msg.target_pos_z = init_state.getCogPoseConst().position.z;
     }
-
+  flight_nav_pub_.publish(nav_msg);
 
   /* joint states */
   sensor_msgs::JointState joints_msg;
@@ -978,19 +986,16 @@ void SqueezeNavigation::adjustInitalStateCallback(const std_msgs::Empty msg)
     joints_msg.position.push_back(init_state.getJointStateConst()(itr));
   joints_ctrl_pub_.publish(joints_msg);
 
+  /* rpy */
   tf::Matrix3x3 att(init_state.getBaselinkDesiredAttConst());
   double r, p, y; att.getRPY(r, p, y);
 
-  /* yaw */
-  nav_msg.yaw_nav_mode = nav_msg.POS_MODE;
-  nav_msg.target_yaw = y;
-  flight_nav_pub_.publish(nav_msg);
-
   /* se3: roll & pitch */
-  spinal::DesireCoord att_msg;
-  att_msg.roll = r;
-  att_msg.pitch = p;
-  se3_roll_pitch_nav_pub_.publish(att_msg);
+  nav_msgs::Odometry rot_msg;
+  rot_msg.header.stamp = ros::Time::now();
+  rot_msg.header.frame_id = std::string("baselink");
+  rot_msg.pose.pose.orientation = tf::createQuaternionMsgFromRollPitchYaw(r, p, y);
+  rot_nav_pub_.publish(rot_msg);
 }
 
 void SqueezeNavigation::returnCallback(const std_msgs::Empty msg)
@@ -1115,10 +1120,6 @@ void SqueezeNavigation::pathNavigate()
       nav_msg.target_pos_z = des_pos[2];
       nav_msg.target_vel_z = des_vel[2];
     }
-  /* yaw */
-  nav_msg.yaw_nav_mode = nav_msg.POS_VEL_MODE;
-  nav_msg.target_yaw = des_pos[5];
-  nav_msg.target_omega_z = des_vel[5];
   flight_nav_pub_.publish(nav_msg);
 
   /* joint states */
@@ -1139,11 +1140,21 @@ void SqueezeNavigation::pathNavigate()
       std::cout << "\n\n";
     }
 
-  /* se3: roll & pitch */
-  spinal::DesireCoord att_msg;
-  att_msg.roll = des_pos[3];
-  att_msg.pitch = des_pos[4];
-  se3_roll_pitch_nav_pub_.publish(att_msg);
+  /* se3: rotation motion */
+  nav_msgs::Odometry rot_msg;
+  rot_msg.header.stamp = ros::Time::now();
+  rot_msg.header.frame_id = std::string("baselink");
+  rot_msg.pose.pose.orientation = tf::createQuaternionMsgFromRollPitchYaw(des_pos[3], des_pos[4], des_pos[5]);
+  // omega_body =  [[ 1 0 -sin(pitch)] [0 cos(roll) cos(pitch)sin(roll)] [0 -sin(roll) cos(pitch)cos(roll)]]  * d_rpy
+  tf::Vector3 d_rpy(des_vel[3], des_vel[4], des_vel[5]);
+  double sin_roll = sin(des_pos[3]);
+  double cos_roll = cos(des_pos[3]);
+  double sin_pitch = sin(des_pos[4]);
+  double cos_pitch = cos(des_pos[4]);
+  rot_msg.twist.twist.angular.x = d_rpy.x() - sin_pitch * d_rpy.z();
+  rot_msg.twist.twist.angular.y = cos_roll * d_rpy.y() + sin_roll * cos_pitch * d_rpy.z();
+  rot_msg.twist.twist.angular.z = -sin_roll * d_rpy.y() + cos_roll * cos_pitch * d_rpy.z();
+  rot_nav_pub_.publish(rot_msg);
 
   //TODO: set forward roll, pitch
   /* check the end of navigation */
@@ -1167,7 +1178,7 @@ void SqueezeNavigation::pathNavigate()
     joint_vector(robot_model_ptr_->getLinkJointIndices().at(i)) = des_pos.at(6 + i);
 
   MultilinkState state_tmp(robot_model_ptr_,
-                           tf::createQuaternionFromRPY(att_msg.roll, att_msg.pitch, 0), cog_pose,
+                           tf::createQuaternionFromRPY(des_pos[3], des_pos[4], 0), cog_pose,
                            joint_vector);
   display_robot_state.state = state_tmp.getRootJointStateConst<moveit_msgs::RobotState>();
   display_robot_state.state.joint_state.header.stamp = ros::Time::now();
