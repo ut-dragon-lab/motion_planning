@@ -27,6 +27,7 @@ $ roslaunch flap_manipulation flap_manipulation.launch simulation:=true external
 ```
 
 #### command 
+- hovering: use `rosrun aerial_robot_base keyboard_command.py`
 - start command: click `/dragon/move_start` from rviz
 - return home: rostopic pub -1 /dragon/return std_msgs/Empty "{}"
 
