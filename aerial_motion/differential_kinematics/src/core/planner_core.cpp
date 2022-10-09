@@ -40,7 +40,8 @@
 #include <differential_kinematics/constraint/base_plugin.h>
 
 /* TODO: this is an workaround */
-#include <dragon/dragon_robot_model.h>
+#include <dragon/model/hydrus_like_robot_model.h> // TODO: change to full vectoring robot model
+
 
 namespace differential_kinematics
 {
@@ -157,7 +158,7 @@ namespace differential_kinematics
         /* workaround: special process for model which has gimbal module (e.g. dragon) */
         if(gimbal_module_flag_)
           {
-            auto dragon_model_ptr = boost::dynamic_pointer_cast<DragonRobotModel>(robot_model_ptr_);
+            auto dragon_model_ptr = boost::dynamic_pointer_cast<Dragon::HydrusLikeRobotModel>(robot_model_ptr_);
             assert(target_joint_vector_.rows() == dragon_model_ptr->getGimbalProcessedJoint<KDL::JntArray>().rows());
             target_joint_vector_ = dragon_model_ptr->getGimbalProcessedJoint<KDL::JntArray>();
           }

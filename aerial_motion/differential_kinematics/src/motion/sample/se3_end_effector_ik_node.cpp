@@ -34,6 +34,7 @@
  *********************************************************************/
 
 #include <differential_kinematics/motion/end_effector_ik_solver_core.h>
+#include <dragon/model/hydrus_like_robot_model.h>
 
 int main(int argc, char **argv)
 {
@@ -41,7 +42,7 @@ int main(int argc, char **argv)
 
   ros::NodeHandle nh;
   ros::NodeHandle nhp("~");
-  EndEffectorIKSolverCore *ik_solver = new EndEffectorIKSolverCore(nh, nhp, boost::shared_ptr<DragonRobotModel>(new DragonRobotModel(true)), true);
+  EndEffectorIKSolverCore *ik_solver = new EndEffectorIKSolverCore(nh, nhp, boost::shared_ptr<Dragon::HydrusLikeRobotModel>(new Dragon::HydrusLikeRobotModel(true)), true);
   ros::spin();
 
   ros::shutdown();

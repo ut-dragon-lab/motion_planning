@@ -38,7 +38,7 @@
 #include <differential_kinematics/constraint/base_plugin.h>
 
 /* dragon model */
-#include <dragon/dragon_robot_model.h>
+#include <dragon/model/hydrus_like_robot_model.h>
 
 
 namespace differential_kinematics
@@ -68,7 +68,7 @@ namespace differential_kinematics
 
       bool getConstraint(Eigen::MatrixXd& A, Eigen::VectorXd& lb, Eigen::VectorXd& ub, bool debug = false)
       {
-        auto robot_model = boost::dynamic_pointer_cast<DragonRobotModel>(planner_->getRobotModelPtr());
+        auto robot_model = boost::dynamic_pointer_cast<Dragon::HydrusLikeRobotModel>(planner_->getRobotModelPtr());
         const auto joint_positions = planner_->getTargetJointVector<KDL::JntArray>();
 
         double rotor_diameter = 2 * robot_model->getEdfRadius();

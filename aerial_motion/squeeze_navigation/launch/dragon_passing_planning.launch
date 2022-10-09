@@ -33,7 +33,7 @@
   ########## Sampling based method (Moveit) ###########
   <group ns="$(arg robot_ns)">
     <param name="robot_description_semantic" textfile="$(find sampling_based_method)/config/dragon/$(arg type)/moveit.srdf" />
-    <rosparam file="$(find dragon)/config/$(arg type)/RobotModel.yaml" command="load" />
+    <rosparam file="$(find dragon)/config/$(arg type)/model/HydrusLikeRobotModel.yaml" command="load" />
   </group>
 
   ###########  Path Planning and Navigation  ###########

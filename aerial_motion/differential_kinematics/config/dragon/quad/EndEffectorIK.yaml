@@ -25,8 +25,8 @@ differential_kinematics_constraint:
                 vebose: true
         static_thrust:
                 verbose: true
-                f_max_thre: 22.0
-                f_min_thre: 14.0
+                f_max_thre: 23.6
+                f_min_thre: 15.6
         stability:
                 verbose: true
                 check_fc_t: false # feasible control torque convex
