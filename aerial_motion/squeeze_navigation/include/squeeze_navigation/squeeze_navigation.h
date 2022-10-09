@@ -52,7 +52,7 @@
 #include <gazebo_msgs/BodyRequest.h>
 
 /* robot model */
-#include <dragon/dragon_robot_model.h>
+#include <dragon/model/hydrus_like_robot_model.h> // TODO: change to full vectoring model
 #include <dragon/dragon_navigation.h>
 
 /* discrete path search */

@@ -3,13 +3,17 @@
   ###########  launch config  ###########
   <arg name="real_machine" default="True" />
   <arg name="simulation" default="False" />
-  <arg name="estimate_mode"  default= "2" />
+  <arg name="estimate_mode"  default= "1" />
+  <arg name="sim_estimate_mode"  default= "2" />
+  <arg name="full_vectoring_mode"  default= "true" />
   <arg name="headless" default="True" />
 
   <include file="$(find dragon)/launch/bringup.launch" >
     <arg name="real_machine" value="$(arg real_machine)" />
     <arg name="simulation" value="$(arg simulation)" />
     <arg name="estimate_mode"  value= "$(arg estimate_mode)" />
+    <arg name="sim_estimate_mode"  value= "$(arg sim_estimate_mode)" />
+    <arg name="full_vectoring_mode"  default= "$(arg full_vectoring_mode)" />
     <arg name="headless" value="$(arg headless)" />
 
     <arg name="direct_model" value="True" />

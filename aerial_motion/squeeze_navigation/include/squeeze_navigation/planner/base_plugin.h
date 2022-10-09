@@ -38,7 +38,7 @@
 
 
 #include <ros/ros.h>
-#include <dragon/dragon_robot_model.h>
+#include <dragon/model/hydrus_like_robot_model.h> // TODO: change to full vectoring model
 #include <aerial_motion_planning_msgs/multilink_state.h>
 
 namespace squeeze_motion_planner

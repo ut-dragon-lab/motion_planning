@@ -101,7 +101,7 @@ SqueezeNavigation::SqueezeNavigation(ros::NodeHandle nh, ros::NodeHandle nhp):
   if (motion_type_ == motion_type::SE2) //SE2
     robot_model_ptr_ = boost::shared_ptr<HydrusRobotModel>(new HydrusRobotModel(true));
   else //SE3
-    robot_model_ptr_ = boost::shared_ptr<HydrusRobotModel>(new DragonRobotModel(true));
+    robot_model_ptr_ = boost::shared_ptr<HydrusRobotModel>(new Dragon::HydrusLikeRobotModel(true));
   /* set the joint angle limit */
   for(auto itr : robot_model_ptr_->getLinkJointNames())
     {
