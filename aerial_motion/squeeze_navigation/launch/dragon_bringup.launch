@@ -24,5 +24,6 @@
   <!-- overwrite the takeoff param -->
   <param name="dragon/navigation/takeoff_height" value="0.3" />  <!-- down to up -->
   <!-- <param name="dragon/navigation/takeoff_height" value="1.1" /> --> <!-- up to down -->
+  <param name="dragon/controller/rotor_interfere_compensate" value="false" /> <!-- force disable the rotor interfere compensation due to the good motion planning -->
 
 </launch>
