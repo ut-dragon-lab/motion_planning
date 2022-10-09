@@ -31,8 +31,8 @@ end_effector:
       vebose: true
     static_thrust:
       verbose: false
-      f_max_thre: 22.0
-      f_min_thre: 10.0
+      f_max_thre: 24.0
+      f_min_thre: 14.0
     stability:
       verbose: false
       check_fc_t: false
