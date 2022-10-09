@@ -86,6 +86,11 @@ $ rostopic pub -1 /dragon/move_start std_msgs/Empty "{}"
 
 ### important parameters:
 
+#### useful modes
+
+- [**start_squeeze_path_from_real_state**]: set the current robot state as the initial state of trajectory planning
+- [**overhead_opening**]:  set the opening center position right above the current robot state (root position)
+
 #### post-process for discrete path
 - [**low pass filter**](https://github.com/tongtybj/motion_planning/blob/master/aerial_motion/squeeze_navigation/src/squeeze_navigation.cpp#L166-L230): do the low pass filtering after the discrete path planning, which is necessary for [differential kinemaitcs](https://github.com/tongtybj/motion_planning/blob/master/aerial_motion/squeeze_navigation/config/differential_kinematics/dragon_quad.yaml#L8-L10).
 - [**resampling**](https://github.com/tongtybj/motion_planning/blob/master/aerial_motion/squeeze_navigation/src/squeeze_navigation.cpp#L228-L323): **under development**, current implementation is based on the average translational motion, current is no use for both [methods](https://github.com/tongtybj/motion_planning/blob/master/aerial_motion/squeeze_navigation/config/differential_kinematics/dragon_quad.yaml#L12-L13).
