@@ -282,6 +282,7 @@ void SqueezeNavigation::pathSearch()
                   frame.setOrigin(tf::Vector3(root_pose.position.x,
                                               root_pose.position.y,
                                               root_pose.position.z + opening_z - robot_z));
+                  frame.setRotation(tf::createQuaternionFromYaw(tf::getYaw(root_pose.orientation)));
                   path_planner_->setOpenningCenterFrame(frame);
                 }
 
