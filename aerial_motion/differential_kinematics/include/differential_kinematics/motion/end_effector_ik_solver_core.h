@@ -43,6 +43,7 @@
 #include <visualization_msgs/MarkerArray.h>
 #include <differential_kinematics/TargetPose.h>
 #include <aerial_motion_planning_msgs/multilink_state.h>
+#include <aerial_motion_planning_msgs/continuous_path_generator.h>
 #include <kdl_conversions/kdl_msg.h>
 
 using namespace differential_kinematics;
@@ -55,7 +56,15 @@ public:
 
   const std::string getParentSegName() const {return parent_seg_;}
   const tf::Transform getEndEffectorRelativePose() const {return end_effector_relative_pose_;}
-  const std::vector<MultilinkState>& getPathConst() const {return path_;}
+  const std::vector<MultilinkState>& getDiscretePath() const { return discrete_path_;}
+  virtual const MultilinkState& getDiscreteState(int index) const { discrete_path_.at(index); }
+
+  /* continuous path */
+  const boost::shared_ptr<ContinuousPathGenerator> getContinuousPath() const { return continuous_path_generator_;}
+  const double getPathDuration() const { return continuous_path_generator_->getPathDuration();}
+  const std::vector<double> getPositionVector(double t) { return continuous_path_generator_->getPositionVector(t); }
+  const std::vector<double> getVelocityVector(double t) { return continuous_path_generator_->getVelocityVector(t); }
+
 
   void setEndEffectorPose(std::string parent_seg, tf::Transform pose);
   void setCollision(const visualization_msgs::MarkerArray& env_collision)
@@ -64,6 +73,8 @@ public:
   }
 
   bool inverseKinematics(const tf::Transform& target_ee_pose, const sensor_msgs::JointState& init_joint_vector, const tf::Transform& init_root_pose, bool orientation, bool full_body, std::string tran_free_axis, std::string rot_free_axis, bool collision_avoidance, bool debug);
+
+  void calcContinuousPath(double duration);
 
 private:
 
@@ -81,7 +92,8 @@ private:
   tf::Transform end_effector_relative_pose_;
 
   boost::shared_ptr<Planner> planner_core_ptr_;
-  std::vector<MultilinkState> path_;
+  std::vector<MultilinkState> discrete_path_;
+  boost::shared_ptr<ContinuousPathGenerator> continuous_path_generator_;
   tf::Transform target_ee_pose_;
   sensor_msgs::JointState init_joint_vector_;
 

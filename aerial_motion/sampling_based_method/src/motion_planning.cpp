@@ -794,8 +794,6 @@ namespace sampling_base
           max_force_ = robot_model_ptr_->getStaticThrust().maxCoeff();
       }
 
-    if(!headless_) sceneInit();
-
     ROS_WARN("plan size is %d, planning time is %f, motion cost is %f, min var is %f, min var state index: %d, min force: %f, max force: %f", getPathSize(), getPlanningTime(), getMotionCost(), min_var_, min_var_state_index_, min_force_, max_force_);
 
     return true;

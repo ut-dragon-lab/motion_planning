@@ -56,3 +56,6 @@ stability_margin_thre: 0.3 # l: 0.22, s: 0.21;
 edf_max_tilt: 0.1 #0.18
 # statics
 f_max: 22.5
+
+# continuous path
+bspline_degree: 5

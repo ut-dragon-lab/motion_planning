@@ -74,13 +74,16 @@ namespace differential_kinematics
                      [&](double &i){i *= relax_rate;});
           }
 
-        std::cout << "cog velocity limit: [";
-        for(const auto& it: velocity_limit_) std::cout << std::setprecision(3) << it << ", ";
-        std::cout <<  "]" << std::endl;
+        if(verbose_)
+          {
+            std::cout << "cog velocity limit: [";
+            for(const auto& it: velocity_limit_) std::cout << std::setprecision(3) << it << ", ";
+            std::cout <<  "]" << std::endl;
 
-        std::cout << "cog angular limit: [";
-        for(const auto& it: angular_limit_) std::cout << std::setprecision(3) << it << ", ";
-        std::cout <<  "]" << std::endl;
+            std::cout << "cog angular limit: [";
+            for(const auto& it: angular_limit_) std::cout << std::setprecision(3) << it << ", ";
+            std::cout <<  "]" << std::endl;
+          }
       }
 
 

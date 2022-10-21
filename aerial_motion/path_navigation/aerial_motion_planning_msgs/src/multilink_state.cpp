@@ -175,3 +175,41 @@ template<> const moveit_msgs::RobotState MultilinkState::getRootJointStateConst(
   robot_state.multi_dof_joint_state.transforms.push_back(root_pose);
   return robot_state;
 }
+
+double generateContinousEulerAngle(double ang, double prev_ang)
+{
+  if (fabs(ang - prev_ang) > M_PI)
+    { // jumping gap in ang angle
+
+      ROS_WARN("[euler angle conversion] find the angle gap, prev: %f, current: %f", prev_ang, ang);
+
+      if (ang > prev_ang)
+        {
+          while (fabs(ang - prev_ang) > M_PI)
+            { // Adjust ang
+              ang -= 2 * M_PI;
+              if (ang < prev_ang - 2 * M_PI)
+                { // adjust overhead
+                  ROS_ERROR("Could not find suitable ang. previous ang: %f, current ang: %f", prev_ang, ang);
+                  ang += 2 * M_PI;
+                  break;
+                }
+            }
+        }
+      else
+        {
+          while (fabs(ang - prev_ang) > M_PI)
+            {
+              ang += 2 * M_PI;
+              if (ang > prev_ang + 2 * M_PI)
+                {
+                  ROS_ERROR("Could not find suitable ang. previous ang: %f, current ang: %f", prev_ang, ang);
+                  ang -= 2 * M_PI;
+                  break;
+                }
+            }
+        }
+    }
+
+  return ang;
+}

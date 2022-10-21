@@ -55,6 +55,9 @@ namespace motion_type
   enum {SE2 = 0, SE3 = 1,};
 };
 
+// utils
+double generateContinousEulerAngle(double ang, double prev_ang);
+
 class MultilinkState
 {
 public:

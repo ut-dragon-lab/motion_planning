@@ -8,6 +8,7 @@ project(differential_kinematics)
 find_package(catkin REQUIRED COMPONENTS
   roscpp
   aerial_robot_model
+  bspline_ros
   fcl_catkin
   hydrus
   dragon
@@ -51,7 +52,12 @@ if (NOT EXISTS ${QPOASES_INSTALL_DIR})
 endif()
 
 find_package(fcl_catkin)
-set(FCL_INCLUDE_DIRS ${fcl_catkin_INCLUDE_DIRS}/fcl_catkin)
+string(FIND "${fcl_catkin_INCLUDE_DIRS}" "fcl_catkin" OUTPUT)
+if (${OUTPUT} EQUAL -1)
+  set(FCL_INCLUDE_DIRS ${fcl_catkin_INCLUDE_DIRS}/fcl_catkin)
+else ()
+  set(FCL_INCLUDE_DIRS ${fcl_catkin_INCLUDE_DIRS})
+endif ()
 include_directories(${FCL_INCLUDE_DIRS})
 
 add_service_files(

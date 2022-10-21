@@ -55,6 +55,7 @@ enum Phase
     CASE2_2,
     CASE3,
   };
+
 namespace squeeze_motion_planner
 {
   using namespace differential_kinematics;
@@ -64,7 +65,7 @@ namespace squeeze_motion_planner
   class DifferentialKinematics: public Base
   {
   public:
-    DifferentialKinematics(): path_(0) {}
+    DifferentialKinematics() {}
     ~DifferentialKinematics(){}
 
     void initialize(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<aerial_robot_model::RobotModel> robot_model_ptr)
@@ -79,7 +80,7 @@ namespace squeeze_motion_planner
       /* heuristic: serial model from link1 to linkN */
       /* CAUTION: getChain() doesn't include root_segment, please set the parent of root_segment */
       robot_model_ptr_->getTree().getChain(std::string("root"), std::string("link") + std::to_string(robot_model_ptr_->getRotorNum()), squeeze_chain_);
-      //for(const auto& it: squeeze_chain_.segments) ROS_WARN("%s", it.getName().c_str());
+
 
       /* base vars */
       phase_ = CASE1;
@@ -131,8 +132,6 @@ namespace squeeze_motion_planner
       env_collision_pub_ = nh_.advertise<visualization_msgs::MarkerArray>("/env_collision", 1);
     };
 
-    const std::vector<MultilinkState>& getPathConst() const { return path_; }
-    const MultilinkState& getStateConst(int index) const { path_.at(index); }
 
     const tf::Transform& getOpenningCenterFrame() const { return openning_center_frame_;}
     void setOpenningCenterFrame(const tf::Transform& openning_center_frame)
@@ -256,10 +255,10 @@ namespace squeeze_motion_planner
         }
     }
 
-    bool plan(bool debug)
+    bool corePlan()
     {
       /* reset */
-      path_.clear();
+      discrete_path_.clear();
 
       /* declare the differential kinemtiacs const */
       pluginlib::ClassLoader<cost::Base>  cost_plugin_loader("differential_kinematics", "differential_kinematics::cost::Base");
@@ -325,7 +324,7 @@ namespace squeeze_motion_planner
       updatePinchPoint();
 
       /* start the planning */
-      if(planner_core_ptr_->solver(cost_container, constraint_container, debug))
+      if(planner_core_ptr_->solver(cost_container, constraint_container, debug_verbose_))
         {
           /* set the correct base link ( which is not root_link = link1), to be suitable for the control system */
           robot_model_ptr_->setBaselinkName(baselink_name_);
@@ -335,7 +334,7 @@ namespace squeeze_motion_planner
 
               geometry_msgs::Pose root_pose;
               tf::poseKDLToMsg(planner_core_ptr_->getRootPoseSequence().at(index), root_pose);
-              path_.push_back(MultilinkState(robot_model_ptr_, root_pose, planner_core_ptr_->getJointStateSequence().at(index)));
+              discrete_path_.push_back(MultilinkState(robot_model_ptr_, root_pose, planner_core_ptr_->getJointStateSequence().at(index)));
            }
 
           /* Temporary: add several extra point after squeezing */
@@ -351,9 +350,9 @@ namespace squeeze_motion_planner
 
               robot_state.setStatesFromRoot(robot_model_ptr_, root_pose,
                                             planner_core_ptr_->getJointStateSequence().back());
-              path_.push_back(robot_state);
+              discrete_path_.push_back(robot_state);
             }
-          ROS_WARN("total path length: %d", (int)path_.size());
+          ROS_WARN("total path length: %d", (int)discrete_path_.size());
 
           return true;
         }
@@ -381,7 +380,7 @@ namespace squeeze_motion_planner
     /* path */
     MultilinkState start_state_;
     MultilinkState goal_state_;
-    std::vector<MultilinkState> path_;
+
 
     tf::Transform openning_center_frame_;
 

@@ -15,6 +15,7 @@
   <!-- The *depend tags are used to specify dependencies -->
   <!-- Dependencies can be catkin packages or system dependencies -->
   <buildtool_depend>catkin</buildtool_depend>
+  <build_depend>bspline_ros</build_depend>
   <build_depend>geometry_msgs</build_depend>
   <build_depend>roscpp</build_depend>
   <build_depend>sensor_msgs</build_depend>
@@ -22,9 +23,11 @@
   <build_depend>dragon</build_depend>
   <build_depend>moveit_msgs</build_depend>
   <build_depend>tf_conversions</build_depend>
+  <build_export_depend>bspline_ros</build_export_depend>
   <build_export_depend>geometry_msgs</build_export_depend>
   <build_export_depend>roscpp</build_export_depend>
   <build_export_depend>sensor_msgs</build_export_depend>
+  <exec_depend>bspline_ros</exec_depend>
   <exec_depend>geometry_msgs</exec_depend>
   <exec_depend>roscpp</exec_depend>
   <exec_depend>sensor_msgs</exec_depend>
