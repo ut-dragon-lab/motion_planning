@@ -57,7 +57,7 @@ SqueezeNavigation::SqueezeNavigation(ros::NodeHandle nh, ros::NodeHandle nhp):
 
   joints_ctrl_pub_ = nh_.advertise<sensor_msgs::JointState>("joints_ctrl", 1);
   flight_nav_pub_ = nh_.advertise<aerial_robot_msgs::FlightNav>("uav/nav", 1);
-  se3_roll_pitch_nav_pub_ = nh_.advertise<spinal::DesireCoord>("desire_coordinate", 1);
+  rot_nav_pub_ = nh_.advertise<nav_msgs::Odometry>("target_rotation_motion", 1);
   desired_path_pub_ = nh_.advertise<moveit_msgs::DisplayRobotState>("desired_robot_state", 1);
   debug_pub_ = nh_.advertise<moveit_msgs::DisplayRobotState>("debug_robot_state", 1);
 
@@ -170,21 +170,14 @@ void SqueezeNavigation::goToInitState(const MultilinkState& init_state)
       nav_msg.pos_z_nav_mode = nav_msg.POS_MODE;
       nav_msg.target_pos_z = init_state.getCogPoseConst().position.z;
     }
-
-  /* orientation */
-  tf::Matrix3x3 att(init_state.getBaselinkDesiredAttConst());
-  double r, p, y; att.getRPY(r, p, y);
-
-  /* yaw */
-  nav_msg.yaw_nav_mode = nav_msg.POS_MODE;
-  nav_msg.target_yaw = y;
   flight_nav_pub_.publish(nav_msg);
 
-  /* roll & pitch */
-  spinal::DesireCoord att_msg;
-  att_msg.roll = r;
-  att_msg.pitch = p;
-  se3_roll_pitch_nav_pub_.publish(att_msg);
+  /* orientation */
+  nav_msgs::Odometry rot_msg;
+  rot_msg.header.stamp = ros::Time::now();
+  rot_msg.header.frame_id = std::string("baselink");
+  tf::quaternionTFToMsg(init_state.getBaselinkDesiredAttConst(), rot_msg.pose.pose.orientation);
+  rot_nav_pub_.publish(rot_msg);
 
   /* joint states */
   sensor_msgs::JointState joints_msg;
@@ -346,11 +339,15 @@ void SqueezeNavigation::pathNavigate(const std::vector<MultilinkState>& discrete
           double t = ros::Time::now().toSec() - start_return_time_;
           if(t < return_delay_ * 2 / 3)
             {
-              spinal::DesireCoord att_msg;
+              nav_msgs::Odometry rot_msg;
               double rate = 1 - t / (return_delay_ * 2 / 3);
-              att_msg.roll = rate * continuous_path->getPositionVector(continuous_path->getPathDuration() + 1.0 / controller_freq_)[3];
-              att_msg.pitch = rate * continuous_path->getPositionVector(continuous_path->getPathDuration() + 1.0 / controller_freq_)[4];
-              se3_roll_pitch_nav_pub_.publish(att_msg);
+              rot_msg.header.stamp = ros::Time::now();
+              rot_msg.header.frame_id = std::string("baselink");
+              double roll = rate * continuous_path->getPositionVector(continuous_path->getPathDuration() + 1.0 / controller_freq_)[3];
+              double pitch = rate * continuous_path->getPositionVector(continuous_path->getPathDuration() + 1.0 / controller_freq_)[4];
+              double yaw = continuous_path->getPositionVector(continuous_path->getPathDuration() + 1.0 / controller_freq_)[5];
+              rot_msg.pose.pose.orientation = tf::createQuaternionMsgFromRollPitchYaw(roll, pitch, yaw);
+              rot_nav_pub_.publish(rot_msg);
               ROS_INFO_THROTTLE(1.0, "set robot level and the init joint state ");
             }
 
@@ -373,11 +370,14 @@ void SqueezeNavigation::pathNavigate(const std::vector<MultilinkState>& discrete
                   nav_msg.pos_xy_nav_mode = nav_msg.POS_MODE;
                   nav_msg.target_pos_x = final_pos_x;
                   nav_msg.target_pos_y = final_pos_y;
+                  flight_nav_pub_.publish(nav_msg);
 
                   /* yaw */
-                  nav_msg.yaw_nav_mode = nav_msg.POS_MODE;
-                  nav_msg.target_yaw = final_yaw;
-                  flight_nav_pub_.publish(nav_msg);
+                  nav_msgs::Odometry rot_msg;
+                  rot_msg.header.stamp = ros::Time::now();
+                  rot_msg.header.frame_id = std::string("baselink");
+                  rot_msg.pose.pose.orientation = tf::createQuaternionMsgFromYaw(final_yaw);
+                  rot_nav_pub_.publish(rot_msg);
                 }
 
               reset();
@@ -535,17 +535,23 @@ void SqueezeNavigation::pathNavigate(const std::vector<MultilinkState>& discrete
           nav_msg.target_pos_z = des_pos[2];
           nav_msg.target_vel_z = des_vel[2];
         }
-      /* yaw */
-      nav_msg.yaw_nav_mode = nav_msg.POS_VEL_MODE;
-      nav_msg.target_yaw = des_pos[5];
-      nav_msg.target_omega_z = des_vel[5];
       flight_nav_pub_.publish(nav_msg);
 
-      /* roll & pitch */
-      spinal::DesireCoord att_msg;
-      att_msg.roll = des_pos[3];
-      att_msg.pitch = des_pos[4];
-      se3_roll_pitch_nav_pub_.publish(att_msg);
+      /* se3: rotation motion */
+      nav_msgs::Odometry rot_msg;
+      rot_msg.header.stamp = ros::Time::now();
+      rot_msg.header.frame_id = std::string("baselink");
+      rot_msg.pose.pose.orientation = tf::createQuaternionMsgFromRollPitchYaw(des_pos[3], des_pos[4], des_pos[5]);
+      // omega_body =  [[ 1 0 -sin(pitch)] [0 cos(roll) cos(pitch)sin(roll)] [0 -sin(roll) cos(pitch)cos(roll)]]  * d_rpy
+      tf::Vector3 d_rpy(des_vel[3], des_vel[4], des_vel[5]);
+      double sin_roll = sin(des_pos[3]);
+      double cos_roll = cos(des_pos[3]);
+      double sin_pitch = sin(des_pos[4]);
+      double cos_pitch = cos(des_pos[4]);
+      rot_msg.twist.twist.angular.x = d_rpy.x() - sin_pitch * d_rpy.z();
+      rot_msg.twist.twist.angular.y = cos_roll * d_rpy.y() + sin_roll * cos_pitch * d_rpy.z();
+      rot_msg.twist.twist.angular.z = -sin_roll * d_rpy.y() + cos_roll * cos_pitch * d_rpy.z();
+      rot_nav_pub_.publish(rot_msg);
 
       /* joint states */
       sensor_msgs::JointState joints_msg;
