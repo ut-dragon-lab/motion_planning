@@ -26,7 +26,11 @@ General 2D motion planning
 ## how to compile
 
 ```
-cd <catkin_ws>
+source ~/ros/jsk_aerial_robot_ws/devel/setup.bash # Please make sure the path to repository of jsk_aerial_robot
+mkdir -p ~/ros/motion_planning_ws/src
+cd ~/ros/motion_planning_ws/src
+wstool init src
+wstool set -u -t src motion_planning http://github.com/tongtybj/motion_planning --git
 wstool merge -t src src/motion_planning/${ROS_DISTRO}.rosinstall
 wstool update -t src
 rosdep install -y -r --from-paths src --ignore-src --rosdistro $ROS_DISTRO
