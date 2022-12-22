@@ -20,9 +20,6 @@ Manipulation planning for aerial robot.
 - gap passing
 - object manipulation
 
-#### navigation
-General 2D motion planning 
-
 ## how to compile
 
 ```
