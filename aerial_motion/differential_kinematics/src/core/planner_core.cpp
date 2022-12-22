@@ -167,6 +167,8 @@ namespace differential_kinematics
         /* the correct target_joint vector should be added here */
         target_root_pose_sequence_.push_back(target_root_pose_);
         target_joint_vector_sequence_.push_back(target_joint_vector_);
+
+        return true;
       };
 
     robot_model_ptr_->setBaselinkName(std::string("link1"));

@@ -132,14 +132,6 @@ namespace squeeze_motion_planner
       env_collision_pub_ = nh_.advertise<visualization_msgs::MarkerArray>("/env_collision", 1);
     };
 
-
-    const tf::Transform& getOpenningCenterFrame() const { return openning_center_frame_;}
-    void setOpenningCenterFrame(const tf::Transform& openning_center_frame)
-    {
-      ROS_ERROR("set openning center");
-      openning_center_frame_ = openning_center_frame;
-    }
-
     void setCollisionEnv()
     {
       /* hard-coding to set env */
@@ -156,7 +148,7 @@ namespace squeeze_motion_planner
           visualization_msgs::Marker wall;
           wall.type = visualization_msgs::Marker::CUBE;
           wall.action = visualization_msgs::Marker::ADD;
-          wall.header.frame_id = "/world";
+          wall.header.frame_id = "world";
           wall.color.g = 1;
           wall.color.a = 1;
 
@@ -210,7 +202,7 @@ namespace squeeze_motion_planner
           visualization_msgs::Marker wall;
           wall.type = visualization_msgs::Marker::CUBE;
           wall.action = visualization_msgs::Marker::ADD;
-          wall.header.frame_id = "/world";
+          wall.header.frame_id = "world";
           wall.color.b = 1;
           wall.color.r = 1;
           wall.color.a = 0.8;
@@ -354,10 +346,12 @@ namespace squeeze_motion_planner
             }
           ROS_WARN("total path length: %d", (int)discrete_path_.size());
 
+          cartersian_constraint_.reset(); // necessary for PluginLoader unloading
           return true;
         }
 
       /* cannot solve */
+      cartersian_constraint_.reset(); // necessary for PluginLoader unloading
       return false;
     }
 
@@ -380,9 +374,6 @@ namespace squeeze_motion_planner
     /* path */
     MultilinkState start_state_;
     MultilinkState goal_state_;
-
-
-    tf::Transform openning_center_frame_;
 
     double delta_pinch_length_; //to propagate the pinch action
 

@@ -81,6 +81,8 @@ bool BsplineRos::initialize(bool uniform, double start_time, double end_time, in
 
   /* Initialize all spline as much as possible by deriviation dimension */
   for(int i = 1; i < degree; i++) splines_.push_back(splines_.back().derive());
+
+  return true;
 }
 
  std::vector<double> BsplineRos::evaluate(double t, int derive)

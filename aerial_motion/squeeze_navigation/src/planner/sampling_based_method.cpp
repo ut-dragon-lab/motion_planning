@@ -55,7 +55,7 @@ namespace squeeze_motion_planner
 
     void setInitState(const MultilinkState& state)  { planner_core_->setStartState(state); }
 
-    const moveit_msgs::CollisionObject& setCollisionWorld()
+    moveit_msgs::CollisionObject setCollisionWorld()
     {
       moveit_msgs::CollisionObject collision_object;
 
@@ -197,16 +197,18 @@ namespace squeeze_motion_planner
             }
         }
       collision_object.operation = collision_object.ADD;
+
+      return collision_object;
     }
 
     const std::vector<MultilinkState>& getPathConst() const
     {
-      planner_core_->getPathConst();
+      return planner_core_->getPathConst();
     }
 
     const MultilinkState& getStateConst(int index) const
     {
-      planner_core_->getStateConst(index);
+      return planner_core_->getStateConst(index);
     }
 
     bool corePlan ()
