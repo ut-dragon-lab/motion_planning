@@ -97,7 +97,7 @@ namespace squeeze_motion_planner
     virtual void checkCollision(MultilinkState state) = 0;
 
     const std::vector<MultilinkState>& getDiscretePath() const { return discrete_path_;}
-    virtual const MultilinkState& getDiscreteState(int index) const { discrete_path_.at(index); }
+    virtual const MultilinkState& getDiscreteState(int index) const { return discrete_path_.at(index); }
 
     /* continuous path */
     const boost::shared_ptr<ContinuousPathGenerator> getContinuousPath() const { return continuous_path_generator_;}
@@ -108,8 +108,12 @@ namespace squeeze_motion_planner
     static const uint8_t HORIZONTAL_GAP = 0;
     static const uint8_t VERTICAL_GAP = 1;
 
-    virtual const tf::Transform& getOpenningCenterFrame() const {}
-    virtual void setOpenningCenterFrame(const tf::Transform& openning_center_frame) {}
+    const tf::Transform& getOpenningCenterFrame() const { return openning_center_frame_;}
+    void setOpenningCenterFrame(const tf::Transform& openning_center_frame)
+    {
+      ROS_ERROR("set openning center");
+      openning_center_frame_ = openning_center_frame;
+    }
 
   protected:
 
@@ -120,6 +124,7 @@ namespace squeeze_motion_planner
 
     boost::shared_ptr<aerial_robot_model::RobotModel> robot_model_ptr_;
     std::string baselink_name_;
+    tf::Transform openning_center_frame_;
 
     std::vector<MultilinkState> discrete_path_;
     boost::shared_ptr<ContinuousPathGenerator> continuous_path_generator_;

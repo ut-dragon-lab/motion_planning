@@ -57,7 +57,7 @@ public:
   const std::string getParentSegName() const {return parent_seg_;}
   const tf::Transform getEndEffectorRelativePose() const {return end_effector_relative_pose_;}
   const std::vector<MultilinkState>& getDiscretePath() const { return discrete_path_;}
-  virtual const MultilinkState& getDiscreteState(int index) const { discrete_path_.at(index); }
+  virtual const MultilinkState& getDiscreteState(int index) const { return discrete_path_.at(index); }
 
   /* continuous path */
   const boost::shared_ptr<ContinuousPathGenerator> getContinuousPath() const { return continuous_path_generator_;}

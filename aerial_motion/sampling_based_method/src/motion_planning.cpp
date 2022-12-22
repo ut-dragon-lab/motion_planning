@@ -806,5 +806,6 @@ namespace sampling_base
     planning_scene_->setCurrentState(state.getRootJointStateConst<moveit_msgs::RobotState>());
     planning_scene_->checkCollision(collision_request, collision_result); //TODO acm_
     if(collision_result.collision) ROS_WARN("Robot collision with env");
+    return true;
   }
 }
