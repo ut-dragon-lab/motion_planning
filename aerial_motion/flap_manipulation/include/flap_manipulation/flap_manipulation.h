@@ -38,7 +38,8 @@
 
 /* ros */
 #include <ros/ros.h>
-#include <aerial_robot_msgs/ApplyWrench.h>
+#include <gazebo_msgs/ApplyBodyWrench.h>
+#include <gazebo_msgs/BodyRequest.h>
 #include <std_msgs/String.h>
 #include <squeeze_navigation/planner/base_plugin.h>
 #include <differential_kinematics/motion/end_effector_ik_solver_core.h>
