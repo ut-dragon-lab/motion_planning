@@ -47,8 +47,6 @@
 #include <aerial_robot_msgs/FlightNav.h>
 #include <aerial_robot_msgs/PoseControlPid.h>
 #include <moveit_msgs/DisplayRobotState.h>
-#include <gazebo_msgs/ApplyBodyWrench.h>
-#include <gazebo_msgs/BodyRequest.h>
 #include <spinal/DesireCoord.h>
 
 /* robot model */
