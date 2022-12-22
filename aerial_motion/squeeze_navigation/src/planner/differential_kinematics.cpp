@@ -346,10 +346,12 @@ namespace squeeze_motion_planner
             }
           ROS_WARN("total path length: %d", (int)discrete_path_.size());
 
+          cartersian_constraint_.reset(); // necessary for PluginLoader unloading
           return true;
         }
 
       /* cannot solve */
+      cartersian_constraint_.reset(); // necessary for PluginLoader unloading
       return false;
     }
 
