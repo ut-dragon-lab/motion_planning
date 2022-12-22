@@ -19,7 +19,6 @@ catkin_package(
   INCLUDE_DIRS include
   CATKIN_DEPENDS aerial_motion_planning_msgs bspline_ros dragon roscpp sampling_based_method differential_kinematics
   LIBRARIES planner_pluginlib squeeze_navigation
-  DEPENDS system_lib
 )
 
 ###########
