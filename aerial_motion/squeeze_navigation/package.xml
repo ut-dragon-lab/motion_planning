@@ -18,8 +18,9 @@
   <depend>differential_kinematics</depend>
   <depend>pluginlib</depend>
   <depend>moveit_msgs</depend>
-
-
+  <depend>moveit_ros_visualization</depend>
+  <depend>jsk_rviz_plugins</depend>
+  
   <export>
     <squeeze_navigation plugin="${prefix}/planner_plugins.xml" />
   </export>
