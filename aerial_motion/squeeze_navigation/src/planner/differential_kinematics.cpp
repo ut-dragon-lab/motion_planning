@@ -148,7 +148,7 @@ namespace squeeze_motion_planner
           visualization_msgs::Marker wall;
           wall.type = visualization_msgs::Marker::CUBE;
           wall.action = visualization_msgs::Marker::ADD;
-          wall.header.frame_id = "/world";
+          wall.header.frame_id = "world";
           wall.color.g = 1;
           wall.color.a = 1;
 
@@ -202,7 +202,7 @@ namespace squeeze_motion_planner
           visualization_msgs::Marker wall;
           wall.type = visualization_msgs::Marker::CUBE;
           wall.action = visualization_msgs::Marker::ADD;
-          wall.header.frame_id = "/world";
+          wall.header.frame_id = "world";
           wall.color.b = 1;
           wall.color.r = 1;
           wall.color.a = 0.8;
