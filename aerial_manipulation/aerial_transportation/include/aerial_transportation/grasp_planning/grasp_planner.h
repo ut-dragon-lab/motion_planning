@@ -17,6 +17,7 @@
 
 /* for QP solution for force-closure */
 #include <qpOASES.hpp>
+USING_NAMESPACE_QPOASES
 
 /* for eigen cumputation */
 #include <Eigen/Core>
