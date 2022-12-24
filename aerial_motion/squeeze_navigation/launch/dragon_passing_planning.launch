@@ -26,7 +26,7 @@
       <arg name="headless" value="$(arg headless)" />
       <arg name="robot_model" value="$(arg robot_model)" />
       <arg name="robot_ns" value="$(arg robot_ns)" />
-      <arg name="rviz_config" value="$(find sampling_based_method)/config/planning.rviz" />
+      <arg name="rviz_config" value="$(find sampling_based_method)/config/dragon/planning.rviz" />
       <arg name="rviz_init_pose" value="$(find dragon)/config/$(arg type)/RvizInit.yaml" />
       <arg name="need_joint_state" value="false"/>
     </include>
@@ -42,6 +42,8 @@
   <node pkg="squeeze_navigation" type="squeeze_navigation_node" name="squeeze_navigation_node" output="screen" ns="$(arg robot_ns)" >
     <param name="debug_verbose" value="false" />
     <param name="headless" value="$(arg headless)" />
+
+    <param name = "tf_prefix" value = "$(arg robot_ns)" />
 
     <!-- discrete path search -->
     <param name="discrete_path_search_method_name" value="squeeze_navigation/$(arg discrete_path_search_method_name)" />
