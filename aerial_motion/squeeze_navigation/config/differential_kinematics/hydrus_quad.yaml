@@ -1,0 +1,76 @@
+motion_func_rate: 0
+
+# inverse kinematics
+differential_kinematics_count: 300
+
+# gap target offset
+delta_pinch_length: 0.02
+
+# discrete path smoothing filter
+discrete_path_filter_flag: true
+filter_rate: 1 # no filtering
+
+# discrete path resampling
+discrete_path_resampling_flag: true
+resampling_angular_rate: 0.25 # 0.25 is smoother for rotation motion, default 1
+
+# continuous path
+bspline_degree: 5
+
+debug: true
+
+# thresholds
+joint_thresh: 0.05
+pos_thresh: 0.1
+rot_thresh: 0.05
+
+start_state_x: -0.5
+start_state_y: 0.0
+start_state_z: 0.0
+start_state_roll: 0.0
+start_state_pitch: 0.0
+start_state_yaw: 1.57
+
+## joint init and goal
+start_joint1: 1.57
+start_joint2: 1.57
+start_joint3: 1.57
+
+# cost
+differential_kinematics_cost:
+        cartesian_constraint:
+                verbose: true
+        state_vel:
+                verbose: true
+                w_joint_vel: 0.001
+                w_root_translational_vel: 0.001 #0.005
+                w_root_rotational_vel: 0.001 #0.005
+
+# constraint
+differential_kinematics_constraint:
+        state_limit:
+                verbose: true
+                joint_vel_thre: 0.1
+                root_translational_vel_thre: 0.1
+                root_rotational_vel_thre: 0.1
+                joint_vel_constraint_range: 0.11
+                joint_vel_forbidden_range: 0.02
+                vebose: true
+        static_thrust:
+                verbose: true
+        stability:
+                verbose: true
+                check_fc_t: false
+                fc_t_min_thre: 0.42 # heuristic
+                fc_rp_min_thre: 3.0
+                fc_rp_dist_decrease_vel_thre: -0.05
+                rp_position_margin_thre: 0.35
+        collision_avoidance:
+                verbose: true
+                collision_distance_constraint_range: 0.08 # 0.05 (for gap width 0.4); 0.08 (2018.05.10)
+                collision_distance_forbidden_range: 0.05  #0.02 (for gap width 0.4); 0.05 (2018.05.10)
+        cog_motion:
+                verbose: true
+                cog_omega_limit_flag: false
+                cog_velocity_limit: [0.01, 0.01, 0.01]  # [x,y,z] (m) in world frame
+                cog_angular_limit: [0.04, 0.04, 0.04]  # [x,y,z] (rad) in world frame. related to resampling_angular_rate: (0.2)

@@ -181,10 +181,13 @@ void SqueezeNavigation::goToInitState(const MultilinkState& init_state)
   flight_nav_pub_.publish(nav_msg);
 
   /* roll & pitch */
-  spinal::DesireCoord att_msg;
-  att_msg.roll = r;
-  att_msg.pitch = p;
-  se3_roll_pitch_nav_pub_.publish(att_msg);
+  if(motion_type_ == motion_type::SE2)
+    {
+      spinal::DesireCoord att_msg;
+      att_msg.roll = r;
+      att_msg.pitch = p;
+      se3_roll_pitch_nav_pub_.publish(att_msg);
+    }
 
   /* joint states */
   sensor_msgs::JointState joints_msg;
@@ -542,10 +545,13 @@ void SqueezeNavigation::pathNavigate(const std::vector<MultilinkState>& discrete
       flight_nav_pub_.publish(nav_msg);
 
       /* roll & pitch */
-      spinal::DesireCoord att_msg;
-      att_msg.roll = des_pos[3];
-      att_msg.pitch = des_pos[4];
-      se3_roll_pitch_nav_pub_.publish(att_msg);
+      if(motion_type_ == motion_type::SE3)
+        {
+          spinal::DesireCoord att_msg;
+          att_msg.roll = des_pos[3];
+          att_msg.pitch = des_pos[4];
+          se3_roll_pitch_nav_pub_.publish(att_msg);
+        }
 
       /* joint states */
       sensor_msgs::JointState joints_msg;

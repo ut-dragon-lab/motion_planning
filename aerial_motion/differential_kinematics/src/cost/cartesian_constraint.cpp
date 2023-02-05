@@ -23,6 +23,12 @@ namespace differential_kinematics
       W_cartesian_err_constraint_.topLeftCorner(3, 3) *=  w_pos_err_constraint_;
       if(orientation_) W_cartesian_err_constraint_.bottomRightCorner(3, 3) *= w_att_err_constraint_;
       else W_cartesian_err_constraint_.bottomRightCorner(3, 3) = Eigen::MatrixXd::Zero(3, 3);
+
+      // special process for SE2 model
+      if(planner_->getMultilinkType() == motion_type::SE2)
+        {
+          free_axis_mask_(MaskAxis::TRAN_Z) = 0;
+        }
     }
 
     bool CartersianConstraint::getHessianGradient(bool& convergence, Eigen::MatrixXd& H, Eigen::VectorXd& g, bool debug)

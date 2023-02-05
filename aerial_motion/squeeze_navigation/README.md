@@ -1,6 +1,47 @@
 # Small opening squeezing by transformation
 
-## 1. Hydrus: TODO
+## 1. Hydrus:
+
+### sampling based methods (e.g., RRT*): TODO
+
+### differential kinematics
+
+#### - do online planning and check the planning discrete path
+```
+$ roslaunch squeeze_navigation hydrus_passing_planning.launch  discrete_path_debug_flag:=true
+```
+Then first click botton `/hydrus/plan_start`, and then click botton `/hydrus/move_start` in rviz. 
+
+
+#### - do online planning and check the planning continuous path
+```
+$ roslaunch squeeze_navigation hydrus_passing_planning.launch start_squeeze_path_from_real_state:=false
+```
+Then first click botton `/hydrus/plan_start`, and then click botton `/hydrus/move_start` in rviz. 
+
+#### - online planing and do path tracking
+
+  **1. for simulation**:
+  ```
+  $ roslaunch squeeze_navigation hydrus_bringup.launch headless:=false simulation:=true real_machine:=false
+  $ roslaunch squeeze_navigation hydrus_passing_planning.launch start_squeeze_path_from_real_state:=true simulation:=true
+  ```
+  Then click botton `/hydrus/plan_start` in rviz, robot will move.
+
+  **1.5 for simulation (another mode)**
+  ```
+  $ roslaunch squeeze_navigation hydrus_bringup.launch headless:=false simulation:=true real_machine:=false
+  $ roslaunch squeeze_navigation hydrus_passing_planning.launch start_squeeze_path_from_real_state:=false simulation:=true
+  ```
+  Then first click botton `/hydrus/plan_start`, and then click botton `/hydrus/move_start` in rviz. In this mode, robot will first move to a pre-defined initial pose and then start squeeze.
+
+  **2. for real machine**:
+  ```
+  $ roslaunch squeeze_navigation hydrus_bringup.launch
+  $ roslaunch squeeze_navigation hydrus_passing_planning.launch start_squeeze_path_from_real_state:=true headless:=true
+  $ rostopic pub -1 /hydrus/plan_start std_msgs/Empty "{}"
+  ```
+  You can also try with `start_squeeze_path_from_real_state:=false`
 
 ## 2. Dragon
 
@@ -52,16 +93,14 @@ $ rostopic pub -1 /dragon/move_start std_msgs/Empty "{}"
 #### - do online planning and check the planning discrete path
 ```
 $ roslaunch squeeze_navigation dragon_passing_planning.launch  discrete_path_debug_flag:=true
-$ rostopic pub -1 /dragon/plan_start std_msgs/Empty "{}"
-$ rostopic pub -1 /dragon/move_start std_msgs/Empty "{}"
 ```
+Then first click botton `/dragon/plan_start`, and then click botton `/dragon/move_start` in rviz. 
 
 #### - do online planning and check the planning continuous path
 ```
 $ roslaunch squeeze_navigation dragon_passing_planning.launch start_squeeze_path_from_real_state:=false
-$ rostopic pub -1 /dragon/plan_start std_msgs/Empty "{}"
-$ rostopic pub -1 /dragon/move_start std_msgs/Empty "{}"
 ```
+Then first click botton `/dragon/plan_start`, and then click botton `/dragon/move_start` in rviz. 
 
 #### - online planing and do path tracking
 
@@ -70,19 +109,25 @@ $ rostopic pub -1 /dragon/move_start std_msgs/Empty "{}"
   $ roslaunch squeeze_navigation dragon_bringup.launch headless:=false simulation:=true real_machine:=false
   $ roslaunch squeeze_navigation dragon_passing_planning.launch start_squeeze_path_from_real_state:=false
   ```
+  Then click botton `/dragon/plan_start` in rviz, robot will move.
+
+  **1.5 for simulation (another mode)**
+  ```
+  $ roslaunch squeeze_navigation dragon_bringup.launch headless:=false simulation:=true real_machine:=false
+  $ roslaunch squeeze_navigation dragon_passing_planning.launch start_squeeze_path_from_real_state:=false simulation:=true
+  ```
+  Then first click botton `/dragon/plan_start`, and then click botton `/dragon/move_start` in rviz. In this mode, robot will first move to a pre-defined initial pose and then start squeeze.
+
 
   **2. for real machine**:
   ```
   $ roslaunch squeeze_navigation dragon_bringup.launch
   $ roslaunch squeeze_navigation dragon_passing_planning.launch start_squeeze_path_from_real_state:=false headless:=true
-  ```
-
-  **common commands**:
-  ```
   $ rostopic pub -1 /dragon/plan_start std_msgs/Empty "{}"
-  $ rostopic pub -1 /dragon/adjust_robot_initial_state std_msgs/Empty "{}"
   $ rostopic pub -1 /dragon/move_start std_msgs/Empty "{}"
   ```
+  You can also try with `start_squeeze_path_from_real_state:=true`, which robot will start immediately from the current pose only by sending `$ rostopic pub -1 /dragon/plan_start std_msgs/Empty "{}"`.
+
 
 ### important parameters:
 
