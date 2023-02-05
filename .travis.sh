@@ -38,7 +38,7 @@ wstool init src
 wstool merge -t src src/${REPOSITORY_NAME}/${ROS_DISTRO}.rosinstall
 wstool merge -t src src/${REPOSITORY_NAME}/travis.rosinstall
 wstool update -t src
-wstool merge -t src src/aerial_robot/aerial_robot_${ROS_DISTRO}.rosinstall
+wstool merge -t src src/jsk_aerial_robot/aerial_robot_${ROS_DISTRO}.rosinstall
 wstool update -t src
 rosdep install --from-paths src -y -q -r --ignore-src --rosdistro ${ROS_DISTRO} # -r is indisapensible
 
