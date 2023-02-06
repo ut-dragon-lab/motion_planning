@@ -45,5 +45,5 @@ rosdep install --from-paths src -y -q -r --ignore-src --rosdistro ${ROS_DISTRO} 
 # Build
 catkin config --cmake-args -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
 catkin build -p1 -j1 --no-status
-catkin build --catkin-make-args run_tests -- -i --no-deps --no-status -p 1 -j 1 aerial_robot
+catkin build --catkin-make-args run_tests -- -i --no-deps --no-status -p 1 -j 1 motion_planning
 catkin_test_results --verbose build || catkin_test_results --all build
