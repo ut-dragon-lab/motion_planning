@@ -1,4 +1,4 @@
 - git:
-    local-name: aerial_robot
-    uri: https://github.com/tongtybj/aerial_robot.git
-    version: 8034411
+    local-name: jsk_aerial_robot
+    uri: https://github.com/jsk-ros-pkg/jsk_aerial_robot.git
+    version: 1.3.2
