@@ -3,8 +3,8 @@ Motion planning for aerial robot and other robot
 
 ## dependency
 - aeiral_robot:
-   - url: https://github.com/tongtybj/aerial_robot
-   - version: [1.3.1](https://github.com/tongtybj/aerial_robot/tree/1.3.1)
+   - url: [https://github.com/jsk-ros-pkg/jsk_aerial_robot](https://github.com/jsk-ros-pkg/jsk_aerial_robot)
+   - version: [1.3.1](https://github.com/jsk-ros-pkg/jsk_aerial_robot/tree/1.3.1)
 
 ## packages:
 ### aerial_manipulation
