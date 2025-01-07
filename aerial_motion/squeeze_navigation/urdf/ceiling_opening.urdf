@@ -1,0 +1,128 @@
+<?xml version="1.0"?>
+<robot
+    xmlns:xacro="http://www.ros.org/wiki/xacro" name="opening" >
+
+  <xacro:arg name="opening_height" default="0.5" /> <!-- m -->
+  <xacro:arg name="opening_width" default="0.7" /> <!-- m -->
+  <xacro:arg name="env_width" default="4.0" /> <!-- m -->
+  <xacro:arg name="env_length" default="6.0" /> <!-- m -->
+  <xacro:property name="frame_mass" value="10" />
+
+  <xacro:macro name="frame_model" params="name mass length width x y height thickness direction">
+    <link name="${name}">
+      <visual>
+        <origin xyz="${x} ${y} ${height}" rpy="0 0 ${direction}"/>
+        <geometry>
+          <box size="${length} ${width} ${thickness}" />
+        </geometry>
+      </visual>
+      <collision>
+        <origin xyz="${x} ${y} ${height}" rpy="0 0 ${direction}"/>
+        <geometry>
+          <box size="${length} ${width} ${thickness}" />
+        </geometry>
+      </collision>
+      <inertial>
+        <origin xyz="${x} ${y} ${height}" rpy="0 0 ${direction}"/>
+        <mass value="${mass}"/>
+        <inertia
+            ixx="${0.25 * mass * width * thickness}" ixy="0.0" ixz="0.0"
+            iyy="${0.25 * mass * width * thickness}" iyz="0.0"
+            izz="${0.5 * mass * width * thickness}"/>
+      </inertial>
+    </link>
+  </xacro:macro>
+
+  <xacro:frame_model name="main_frame1" mass="${frame_mass}" length="$(arg env_length)" width="0.02" x="0" y="${0.5 * $(arg env_width)}" height="${0.5 + 0.5 * $(arg opening_height)}" thickness="${1 + $(arg opening_height)}" direction="0" />
+  <xacro:frame_model name="main_frame2" mass="${frame_mass}" length="$(arg env_length)" width="0.02" x="0" y="${-0.5 * $(arg env_width)}"  height="${0.5 + 0.5 * $(arg opening_height)}" thickness="${1 + $(arg opening_height)}" direction="0" />
+  <!-- <xacro:frame_model name="main_frame3" mass="${frame_mass}" length="0.02" width="${$(arg env_width) * 0.5}" x="0" y="${$(arg env_width) * 0.25}"  height="0.5" thickness="1" direction="0"  />
+  <xacro:frame_model name="main_frame4" mass="${frame_mass}" length="0.02" width="${$(arg env_width) * 0.5}" x="0" y="${$(arg env_width) * -0.25}"  height="0.5" thickness="1" direction="0"  />
+  <xacro:frame_model name="main_frame5" mass="${frame_mass}" length="0.02" width="${$(arg env_width) * 0.5 - $(arg opening_width) * 0.5}" x="0" y="${$(arg env_width) * 0.25 + $(arg opening_width) * 0.25}"  height="${1 + 0.5 * $(arg opening_height)}" thickness="$(arg opening_height)" direction="0"  />
+  <xacro:frame_model name="main_frame6" mass="${frame_mass}" length="0.02" width="${$(arg env_width) * 0.5 - $(arg opening_width) * 0.5}" x="0" y="${$(arg env_width) * -0.25 + $(arg opening_width) * -0.25}"  height="${1 + 0.5 * $(arg opening_height)}" thickness="$(arg opening_height)" direction="0"  />
+  <xacro:frame_model name="main_frame7" mass="${frame_mass}" length="$(arg env_length)" width="$(arg env_width)" x="0" y="0"  height="${1 + $(arg opening_height)}" thickness="0.02" direction="0"  />
+ -->
+
+  <joint name="frame_joint1" type="fixed">
+    <parent link="main_frame1"/>
+    <child link="main_frame2"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+  </joint>
+  <joint name="frame_joint2" type="fixed">
+    <parent link="main_frame1"/>
+    <child link="main_frame3"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+  </joint>
+  <!-- <joint name="frame_joint3" type="fixed">
+    <parent link="main_frame1"/>
+    <child link="main_frame4"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+  </joint>
+  <joint name="frame_joint4" type="fixed">
+    <parent link="main_frame1"/>
+    <child link="main_frame5"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+  </joint>
+  <joint name="frame_joint5" type="fixed">
+    <parent link="main_frame1"/>
+    <child link="main_frame6"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+  </joint> -->
+  <!-- <joint name="frame_joint6" type="fixed">
+    <parent link="main_frame1"/>
+    <child link="main_frame7"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+  </joint> -->
+
+  <!-- TODO: change friction rate to paramter -->
+  <!-- Noet: 0.13 corresponds to 3.5N -->
+  <gazebo reference="main_frame1">
+  <material>Gazebo/BlueTransparent</material>
+    <mu1>0.13</mu1>
+    <mu2>0.13</mu2>
+  </gazebo>
+
+  <gazebo reference="main_frame2">
+  <material>Gazebo/BlueTransparent</material>
+    <mu1>0.13</mu1>
+    <mu2>0.13</mu2>
+  </gazebo>
+
+  <!-- <gazebo reference="main_frame3">
+    <mu1>0.13</mu1>
+    <mu2>0.13</mu2>
+  </gazebo>
+
+  <gazebo reference="main_frame4">
+    <mu1>0.13</mu1>
+    <mu2>0.13</mu2>
+  </gazebo>
+
+  <gazebo reference="main_frame5">
+    <mu1>0.13</mu1>
+    <mu2>0.13</mu2>
+  </gazebo> -->
+
+  <!-- <gazebo reference="main_frame6">
+    <mu1>0.13</mu1>
+    <mu2>0.13</mu2>
+  </gazebo> -->
+
+  <!-- <gazebo reference="main_frame7">
+  <material>Gazebo/BlueTransparent</material>
+    <mu1>0.13</mu1>
+    <mu2>0.13</mu2>
+  </gazebo> -->
+
+  <gazebo>
+    <static>true</static>
+    <static>true</static>
+  </gazebo>
+
+
+</robot>

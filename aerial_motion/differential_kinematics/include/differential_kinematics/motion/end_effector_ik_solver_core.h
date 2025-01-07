@@ -51,7 +51,7 @@ using namespace differential_kinematics;
 class EndEffectorIKSolverCore
 {
 public:
-  EndEffectorIKSolverCore(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<aerial_robot_model::RobotModel> robot_model_ptr, bool simulation);
+  EndEffectorIKSolverCore(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<aerial_robot_model::transformable::RobotModel> robot_model_ptr, bool simulation);
   ~EndEffectorIKSolverCore(){}
 
   const std::string getParentSegName() const {return parent_seg_;}
@@ -84,7 +84,7 @@ private:
   ros::Subscriber env_collision_sub_;
   tf::TransformBroadcaster br_;
 
-  boost::shared_ptr<aerial_robot_model::RobotModel> robot_model_ptr_;
+  boost::shared_ptr<aerial_robot_model::transformable::RobotModel> robot_model_ptr_;
   std::string baselink_name_;
   std::string root_link_;
   std::string tf_prefix_;

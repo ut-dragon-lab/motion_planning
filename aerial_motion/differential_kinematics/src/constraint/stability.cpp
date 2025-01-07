@@ -220,7 +220,7 @@ namespace differential_kinematics
 
     public:
 
-      void numericalUpdate(boost::shared_ptr<aerial_robot_model::RobotModel> robot_model, Eigen::MatrixXd& A, Eigen::VectorXd& lb, Eigen::VectorXd& ub)
+      void numericalUpdate(boost::shared_ptr<aerial_robot_model::transformable::RobotModel> robot_model, Eigen::MatrixXd& A, Eigen::VectorXd& lb, Eigen::VectorXd& ub)
       {
           const auto& joint_indices = robot_model->getLinkJointIndices();
           const auto hydrus_robot_model = boost::dynamic_pointer_cast<HydrusRobotModel>(robot_model);

@@ -42,7 +42,7 @@
 #include <tf_conversions/tf_eigen.h>
 
 /* robot model */
-#include <aerial_robot_model/transformable_aerial_robot_model.h>
+#include <aerial_robot_model/model/transformable_aerial_robot_model.h>
 #include <aerial_motion_planning_msgs/multilink_state.h>
 
 /* for QP solution for force-closure */
@@ -66,7 +66,7 @@ namespace differential_kinematics
     using ConstraintContainer = std::vector<boost::shared_ptr<constraint::Base> >;
 
   public:
-    Planner(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<aerial_robot_model::RobotModel> robot_model_ptr);
+    Planner(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<aerial_robot_model::transformable::RobotModel> robot_model_ptr);
     ~Planner(){}
 
     bool solver(CostContainer cost_container, ConstraintContainer constraint_container, bool debug);
@@ -75,7 +75,7 @@ namespace differential_kinematics
     void registerMotionFunc(std::function<void(void)> new_func);
 
     /* kinematics */
-    boost::shared_ptr<aerial_robot_model::RobotModel> getRobotModelPtr() {return robot_model_ptr_;}
+    boost::shared_ptr<aerial_robot_model::transformable::RobotModel> getRobotModelPtr() {return robot_model_ptr_;}
     template<class T> const T getTargetRootPose() const ;
     template<class T> const T getTargetJointVector() const;
     template<class T> void setTargetRootPose(const T target_root_pose);
@@ -95,7 +95,7 @@ namespace differential_kinematics
     ros::Timer  motion_timer_;
 
     /* robot model for kinematics */
-    boost::shared_ptr<aerial_robot_model::RobotModel> robot_model_ptr_;
+    boost::shared_ptr<aerial_robot_model::transformable::RobotModel> robot_model_ptr_;
     std::string tf_prefix_;
     uint8_t multilink_type_;
     bool gimbal_module_flag_; // TODO: hard-coding

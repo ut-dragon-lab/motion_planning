@@ -45,7 +45,7 @@
 
 /* basic header */
 #include <aerial_motion_planning_msgs/multilink_state.h>
-#include <aerial_robot_model/transformable_aerial_robot_model.h>
+#include <aerial_robot_model/model/transformable_aerial_robot_model.h>
 
 /* moveit for FCL and visualization */
 #include <moveit/robot_model_loader/robot_model_loader.h>
@@ -84,7 +84,7 @@ namespace sampling_base
     {
 
     public:
-      MotionPlanning(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<aerial_robot_model::RobotModel> transform_controller);
+      MotionPlanning(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<aerial_robot_model::transformable::RobotModel> transform_controller);
       ~MotionPlanning(){}
 
       static const int RRT_START_MODE = 0;
@@ -130,7 +130,7 @@ namespace sampling_base
       collision_detection::AllowedCollisionMatrix acm_;
 
       /* robot */
-      boost::shared_ptr<aerial_robot_model::RobotModel> robot_model_ptr_; //TODO change to RobotModel
+      boost::shared_ptr<aerial_robot_model::transformable::RobotModel> robot_model_ptr_; //TODO change to RobotModel
       std::string baselink_name_;
 
       /* path */
