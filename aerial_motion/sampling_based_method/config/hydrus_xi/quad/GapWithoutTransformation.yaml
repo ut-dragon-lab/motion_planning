@@ -1,0 +1,15 @@
+start_state_x: -2
+start_state_y: 0
+start_state_theta: -1.57
+
+start_state_joint1: 0
+start_state_joint2: 1.57
+start_state_joint3: 0
+
+goal_state_x: 3
+goal_state_y: 1
+goal_state_theta: -1.57
+
+
+# planning cost 
+length_cost_thre: 10

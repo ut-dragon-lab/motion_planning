@@ -100,7 +100,8 @@ namespace differential_kinematics
     }
 
     bool CollisionAvoidance::getConstraint(Eigen::MatrixXd& A, Eigen::VectorXd& lb, Eigen::VectorXd& ub, bool debug)
-    {
+    {   
+       std::cout<<"col"<<std::endl;     
       const auto robot_model = planner_->getRobotModelPtr();
       const auto joint_positions =  planner_->getTargetJointVector<KDL::JntArray>();
       const auto& seg_frames = robot_model->getSegmentsTf();

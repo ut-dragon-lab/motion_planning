@@ -89,26 +89,23 @@ namespace differential_kinematics
 
       bool getConstraint(Eigen::MatrixXd& A, Eigen::VectorXd& lb, Eigen::VectorXd& ub, bool debug = false)
       {
+        std::cout<<"cod"<<std::endl;
         const auto robot_model = planner_->getRobotModelPtr();
         const auto inertia = robot_model->getInertia<Eigen::Matrix3d>();
 
         lb = Eigen::VectorXd::Constant(nc_, 0);
         ub = Eigen::VectorXd::Constant(nc_, 0);
-
         /* cog */
         ub.head(3) = Eigen::Map<Eigen::Vector3d>(velocity_limit_.data(), 3);
         lb.head(3) = - ub.head(3);
-
         /* L momentum: approximate to a rigid body has a inertial same with the robot model */
         ub.tail(3) = inertia * Eigen::Map<Eigen::Vector3d>(angular_limit_.data(), 3);
         lb.tail(3) = - ub.tail(3);
-
         A = Eigen::MatrixXd::Zero(nc_, robot_model->getLinkJointIndices().size() + 6);
         A.topRows(3) = robot_model->getCOGJacobian();
         A.bottomRows(3) = robot_model->getLMomentumJacobian();
         if(!full_body_) A.leftCols(6).setZero();
         if(planner_->getMultilinkType() == motion_type::SE2) A.middleRows(2, 3).setZero();
-
         if(debug)
           {
             std::cout << "constraint name: " << constraint_name_  << ", A: \n" << A << std::endl;

@@ -479,11 +479,12 @@ namespace squeeze_motion_planner
           pivot_frame.setRotation(pivot_frame.getRotation()
                                   * tf::createQuaternionFromRPY(0, M_PI/2, 0));
         }
-
+ std::cout<<"aa "<<planner_core_ptr_->getTargetRootPose<tf::Transform>().getOrigin().x()<<" "<<planner_core_ptr_->getTargetRootPose<tf::Transform>().getOrigin().y()<<" "<<planner_core_ptr_->getTargetRootPose<tf::Transform>().getOrigin().z()<<std::endl;
+          if(phase_ < PHASE3)
       /* check whether can shift PHASE4 */
       if((pivot_frame.inverse() * planner_core_ptr_->getTargetRootPose<tf::Transform>()).getOrigin().z() > -0.01)
         {
-          if(phase_ < PHASE3)
+         
             {
               ROS_ERROR_STREAM(prefix << " correct phase should be " << PHASE3);
               return false;

@@ -132,7 +132,6 @@ namespace differential_kinematics
 
       Eigen::MatrixXd jacobian;
       if(!calcJointJacobian(jacobian, debug)) return false;
-
       H = jacobian.transpose() * W_cartesian_err_constraint_ * jacobian;
       /* CAUTION: becuase of QP-OASES, the scale "2" is included inside the function */
       g = - delta_cartesian.transpose()  * W_cartesian_err_constraint_ * jacobian;
@@ -150,8 +149,10 @@ namespace differential_kinematics
     {
       const auto robot_model = planner_->getRobotModelPtr();
       const auto joint_positions = planner_->getTargetJointVector<KDL::JntArray>();
-
       jacobian = robot_model->getJacobian(joint_positions, parent_link_, reference_frame_.p);
+
+   
+   
       if(!full_body_) jacobian.leftCols(6) = Eigen::MatrixXd::Zero(jacobian.rows(), 6);
 
       /* change to reference frame */

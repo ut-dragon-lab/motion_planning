@@ -123,6 +123,7 @@ namespace sampling_base
       bool save_path_flag_;
       bool path_tf_debug_;
       int motion_type_;
+      std::string robot_type_;
 
       /* moveit */
       boost::shared_ptr<planning_scene::PlanningScene> planning_scene_;

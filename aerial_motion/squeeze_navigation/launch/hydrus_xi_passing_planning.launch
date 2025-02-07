@@ -3,12 +3,10 @@
   <arg name="headless" default="false" />
 
   <arg name="simulation" default="false" />
-  <arg name="robot_ns" value="dragon" />
+  <arg name="robot_ns" default="hydrus_xi" />
   <arg name="type" default="quad" />
 
   <arg name="discrete_path_search_method_name" default="differential_kinematics" />
-  <arg name="motion_type"  default="1" /> <!--SE2: 0, SE3: 1 -->
-
   <arg name="start_squeeze_path_from_real_state" default="true" />
   <arg name="overhead_opening" default="false" />
   <arg name="discrete_path_debug_flag" default="false" />
@@ -18,7 +16,10 @@
   <arg name="load_squeeze_path_flag" default="false" />
   <arg name="path_file_name" default="dragon_planning_log.txt" />
 
-  <arg name="robot_model" default="$(find dragon)/robots/quad/euclid_201709.urdf.xacro" />
+  <arg name="robot_model_dir" default="$(find hydrus_xi)/robots/quad" />
+  <arg name="robot_model" default="$(arg robot_model_dir)/upboard202007.urdf.xacro" />
+
+  <arg name="robot_config_dir" default="$(find hydrus_xi)/config/quad" />
 
   ###########  Robot Model  ###########
   <group unless="$(arg headless)">
@@ -26,16 +27,16 @@
       <arg name="headless" value="$(arg headless)" />
       <arg name="robot_model" value="$(arg robot_model)" />
       <arg name="robot_ns" value="$(arg robot_ns)" />
-      <arg name="rviz_config" value="$(find sampling_based_method)/config/dragon/planning.rviz" />
-      <arg name="rviz_init_pose" value="$(find dragon)/config/$(arg type)/RvizInit.yaml" />
+      <arg name="rviz_config" value="$(find sampling_based_method)/config/hydrus_xi/planning.rviz" />
+      <arg name="rviz_init_pose" value="$(find hydrus_xi)/config/$(arg type)/RvizInit.yaml" />
       <arg name="need_joint_state" value="false"/>
     </include>
   </group>
 
   ########## Sampling based method (Moveit) ###########
   <group ns="$(arg robot_ns)">
-    <param name="robot_description_semantic" textfile="$(find sampling_based_method)/config/dragon/$(arg type)/moveit.srdf" />
-    <rosparam file="$(find dragon)/config/$(arg type)/model/HydrusLikeRobotModel.yaml" command="load" />
+    <param name="robot_description_semantic" textfile="$(find sampling_based_method)/config/hydrus_xi/$(arg type)/moveit.srdf" />
+    <rosparam file="$(arg robot_config_dir)/RobotModel.yaml" command="load" />
   </group>
 
   ###########  Path Planning and Navigation  ###########
@@ -48,13 +49,12 @@
     <!-- discrete path search -->
     <param name="discrete_path_search_method_name" value="squeeze_navigation/$(arg discrete_path_search_method_name)" />
 
-    <rosparam file="$(find squeeze_navigation)/config/$(arg discrete_path_search_method_name)/dragon_$(arg type).yaml" command="load" />
-    <rosparam file="$(find squeeze_navigation)/config/$(arg discrete_path_search_method_name)/gap.yaml" command="load"/>
+    <rosparam file="$(find squeeze_navigation)/config/$(arg discrete_path_search_method_name)/hydrus_$(arg type).yaml" command="load" />
+    <rosparam file="$(find squeeze_navigation)/config/$(arg discrete_path_search_method_name)/2d_gap.yaml" command="load"/>
 
     <param name="discrete_path_debug_flag" value="$(arg discrete_path_debug_flag)" />
-    <param name="planning_mode" value="2" /> <!-- if="$(arg transformation)" -->
-    <param name="robot_type" value="$(arg robot_ns)" /> 
-    <param name="motion_type" value="$(arg motion_type)" />
+    <param name="robot_type" type="string" value="$(arg robot_ns)" /> 
+    <param name="motion_type" value="0" /> <!--SE2: 0, SE3: 1 -->
     <param name="gap_type" value="1" /> <!-- unless="$(arg horizontal_gap)" -->
     <param name="file_state_offset_x" type="double" value="0.0" />
     <param name="file_state_offset_y" type="double" value="0.0" />
@@ -82,7 +82,7 @@
   </node>
 
   <!-- <group if="$(eval arg('simulation'))">
-    <param name="opening/robot_description" command="$(find xacro)/xacro $(find squeeze_navigation)/urdf/opening.urdf" />
+    <param name="opening/robot_description" command="$(find xacro)/xacro $(find squeeze_navigation)/urdf/2d_opening.urdf" />
     <node pkg="gazebo_ros" type="spawn_model" name="valve_spawn" args="-param opening/robot_description -urdf -x 0 -y 0 -z 0 -model opening" />
   </group> -->
 

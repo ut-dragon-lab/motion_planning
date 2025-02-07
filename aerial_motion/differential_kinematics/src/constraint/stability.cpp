@@ -85,7 +85,7 @@ namespace differential_kinematics
 
       bool getConstraint(Eigen::MatrixXd& A, Eigen::VectorXd& lb, Eigen::VectorXd& ub, bool debug = false)
       {
-        //debug = true;
+         std::cout<<"sta"<<std::endl;
         const auto robot_model = boost::dynamic_pointer_cast<HydrusRobotModel>(planner_->getRobotModelPtr());
 
         A = Eigen::MatrixXd::Zero(nc_, robot_model->getLinkJointIndices().size() + 6);
@@ -96,12 +96,15 @@ namespace differential_kinematics
           {
             const auto& fc_rp_dists_jacobian = robot_model->getFeasibleControlRollPitchDistsJacobian();
             Eigen::VectorXd fc_rp_dists = robot_model->getFeasibleControlRollPitchDists();
+        
             for(int i = 0; i < rotor_num_; i++)
               {
+             
                 Eigen::MatrixXd::Index index;
                 double rp_min = fc_rp_dists.minCoeff(&index);
                 if(i == 0)
                   {
+                   
                     if(rp_min < fc_rp_min_)
                       {
                         fc_rp_min_ = rp_min;
@@ -109,11 +112,11 @@ namespace differential_kinematics
                       }
                   }
                 A.row(i) = fc_rp_dists_jacobian.row(index);
+                 
                 lb(i) = damplingBound(rp_min - fc_rp_min_thre_,
                                       fc_rp_dist_decrease_vel_thre_,
                                       fc_rp_dist_constraint_range_,
                                       fc_rp_dist_forbidden_range_);
-
                 fc_rp_dists(index) = 1e6; // reset
               }
 
@@ -146,7 +149,6 @@ namespace differential_kinematics
                     lb(i + rotor_num_) =  diff < fc_t_dist_decrease_vel_thre_? fc_t_dist_decrease_vel_thre_:diff;
                     fc_t_dists(index) = 1e6; // reset
                   }
-
                 if(debug)
                   {
                     std::cout << "constraint (" << constraint_name_.c_str()  << "): feasible control torque convex distances: \n" << robot_model->getFeasibleControlTDists().transpose() << std::endl;

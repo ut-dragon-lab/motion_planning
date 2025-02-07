@@ -79,6 +79,7 @@ namespace differential_kinematics
 
       bool getConstraint(Eigen::MatrixXd& A, Eigen::VectorXd& lb, Eigen::VectorXd& ub, bool debug = false)
       {
+         std::cout<<"state"<<std::endl;
         int j_ndof = planner_->getRobotModelPtr()->getLinkJointIndices().size();
         A = Eigen::MatrixXd::Zero(nc_, j_ndof + 6);
         lb = Eigen::VectorXd::Constant(nc_, 1);

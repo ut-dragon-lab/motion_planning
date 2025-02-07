@@ -97,6 +97,7 @@ namespace differential_kinematics
     /* robot model for kinematics */
     boost::shared_ptr<aerial_robot_model::transformable::RobotModel> robot_model_ptr_;
     std::string tf_prefix_;
+    std::string robot_type_;
     uint8_t multilink_type_;
     bool gimbal_module_flag_; // TODO: hard-coding
 

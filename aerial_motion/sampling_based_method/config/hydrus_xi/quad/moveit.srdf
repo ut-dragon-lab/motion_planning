@@ -1,0 +1,34 @@
+<?xml version="1.0" ?>
+
+<robot name="hydrus_xi">
+  <virtual_joint name="root" type="floating" parent_frame="world" child_link="root" />
+  <disable_collisions link1="link1" link2="link2" reason="Adjacent" />
+  <disable_collisions link1="link1" link2="link3" reason="Never" />
+  <disable_collisions link1="link1" link2="link4" reason="Never" />
+  <disable_collisions link1="link1" link2="thrust1" reason="Adjacent" />
+  <disable_collisions link1="link1" link2="thrust2" reason="Never" />
+  <disable_collisions link1="link1" link2="thrust3" reason="Never" />
+  <disable_collisions link1="link1" link2="thrust4" reason="Never" />
+  <disable_collisions link1="link2" link2="link3" reason="Adjacent" />
+  <disable_collisions link1="link2" link2="link4" reason="Never" />
+  <disable_collisions link1="link2" link2="thrust1" reason="Never" />
+  <disable_collisions link1="link2" link2="thrust2" reason="Adjacent" />
+  <disable_collisions link1="link2" link2="thrust3" reason="Never" />
+  <disable_collisions link1="link2" link2="thrust4" reason="Never" />
+  <disable_collisions link1="link3" link2="link4" reason="Adjacent" />
+  <disable_collisions link1="link3" link2="thrust1" reason="Never" />
+  <disable_collisions link1="link3" link2="thrust2" reason="Never" />
+  <disable_collisions link1="link3" link2="thrust3" reason="Adjacent" />
+  <disable_collisions link1="link3" link2="thrust4" reason="Never" />
+  <disable_collisions link1="link4" link2="thrust1" reason="Never" />
+  <disable_collisions link1="link4" link2="thrust2" reason="Never" />
+  <disable_collisions link1="link4" link2="thrust3" reason="Never" />
+  <disable_collisions link1="link4" link2="thrust4" reason="Adjacent" />
+  <disable_collisions link1="thrust1" link2="thrust2" reason="Never" />
+  <disable_collisions link1="thrust1" link2="thrust3" reason="Never" />
+  <disable_collisions link1="thrust1" link2="thrust4" reason="Never" />
+  <disable_collisions link1="thrust2" link2="thrust3" reason="Never" />
+  <disable_collisions link1="thrust2" link2="thrust4" reason="Never" />
+  <disable_collisions link1="thrust3" link2="thrust4" reason="Never" />
+
+</robot>

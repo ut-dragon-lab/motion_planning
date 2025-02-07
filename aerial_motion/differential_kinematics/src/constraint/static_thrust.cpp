@@ -64,6 +64,10 @@ namespace differential_kinematics
 
       bool getConstraint(Eigen::MatrixXd& A, Eigen::VectorXd& lb, Eigen::VectorXd& ub, bool debug = false)
       {
+         std::cout<<"lim"<<std::endl;
+          std::cout<<f_min_thre_<<std::endl;
+              std::cout<<f_max_thre_<<std::endl;
+          
         auto robot_model = planner_->getRobotModelPtr();
 
         const Eigen::VectorXd& static_thrust = robot_model->getStaticThrust();
@@ -75,6 +79,8 @@ namespace differential_kinematics
           {
             lb(index) = damplingBound(static_thrust(index) - f_min_thre_, -force_vel_thre_,  force_constraint_range_,  force_forbidden_range_);
             ub(index) = damplingBound(f_max_thre_ - static_thrust(index), force_vel_thre_,  force_constraint_range_,  force_forbidden_range_);
+            // lb(index) = damplingBound(10.0 - f_min_thre_, -force_vel_thre_,  force_constraint_range_,  force_forbidden_range_);
+            // ub(index) = damplingBound(f_max_thre_ - 10.0, force_vel_thre_,  force_constraint_range_,  force_forbidden_range_);
           }
 
         A = robot_model->getLambdaJacobian();
