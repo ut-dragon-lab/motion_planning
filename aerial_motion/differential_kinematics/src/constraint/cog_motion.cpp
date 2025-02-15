@@ -89,7 +89,6 @@ namespace differential_kinematics
 
       bool getConstraint(Eigen::MatrixXd& A, Eigen::VectorXd& lb, Eigen::VectorXd& ub, bool debug = false)
       {
-        std::cout<<"cod"<<std::endl;
         const auto robot_model = planner_->getRobotModelPtr();
         const auto inertia = robot_model->getInertia<Eigen::Matrix3d>();
 

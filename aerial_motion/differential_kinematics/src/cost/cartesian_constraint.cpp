@@ -132,10 +132,10 @@ namespace differential_kinematics
 
       Eigen::MatrixXd jacobian;
       if(!calcJointJacobian(jacobian, debug)) return false;
+   
       H = jacobian.transpose() * W_cartesian_err_constraint_ * jacobian;
       /* CAUTION: becuase of QP-OASES, the scale "2" is included inside the function */
       g = - delta_cartesian.transpose()  * W_cartesian_err_constraint_ * jacobian;
-
       if(debug)
         {
           std::cout << "the Weight Matrix of cartesian_err constraint: \n" << W_cartesian_err_constraint_ << std::endl;
@@ -150,9 +150,6 @@ namespace differential_kinematics
       const auto robot_model = planner_->getRobotModelPtr();
       const auto joint_positions = planner_->getTargetJointVector<KDL::JntArray>();
       jacobian = robot_model->getJacobian(joint_positions, parent_link_, reference_frame_.p);
-
-   
-   
       if(!full_body_) jacobian.leftCols(6) = Eigen::MatrixXd::Zero(jacobian.rows(), 6);
 
       /* change to reference frame */
@@ -166,7 +163,9 @@ namespace differential_kinematics
       if(planner_->getMultilinkType() == motion_type::SE2)
         {
           if(!orientation_)
+          {
             jacobian.middleRows(2, 4) = Eigen::MatrixXd::Zero(4, jacobian.cols());
+          }
           else
             jacobian.middleRows(2, 3) = Eigen::MatrixXd::Zero(3, jacobian.cols());
         }
@@ -175,7 +174,6 @@ namespace differential_kinematics
           if(!orientation_)
             jacobian.middleRows(3, 3) = Eigen::MatrixXd::Zero(3, jacobian.cols());
         }
-
       if(debug) std::cout << "jacobian: \n" << jacobian << std::endl;
       return true;
     }

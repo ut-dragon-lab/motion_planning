@@ -91,6 +91,7 @@ namespace differential_kinematics
     ros::NodeHandle nh_;
     ros::NodeHandle nhp_;
     ros::Publisher joint_state_pub_;
+    ros::Subscriber gimbals_ctrl_sub_;
     tf::TransformBroadcaster br_;
     ros::Timer  motion_timer_;
 
@@ -100,6 +101,7 @@ namespace differential_kinematics
     std::string robot_type_;
     uint8_t multilink_type_;
     bool gimbal_module_flag_; // TODO: hard-coding
+    sensor_msgs::JointState gimbals_ctrl_;
 
     /* result  */
     KDL::JntArray target_joint_vector_;
@@ -117,6 +119,7 @@ namespace differential_kinematics
     std::vector< std::function<void(void)> > motion_func_vector_;
 
     void motionFunc(const ros::TimerEvent & e);
+    void gimbalsCtrlCallback(const sensor_msgs::JointStateConstPtr& gimbals_ctrl_msg);
   };
 
 };

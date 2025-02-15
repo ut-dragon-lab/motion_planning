@@ -337,7 +337,8 @@ namespace squeeze_motion_planner
           /* sequeezing cartesian error constraint (cost) */
           if(cost.first == std::string("cartesian_constraint"))
             {
-              orientation = false;
+              //orientation = false;
+              orientation = true;
               cartersian_constraint_ = boost::reinterpret_pointer_cast<cost::CartersianConstraint>(cost_container.back());
               // NOTE: dynamic_pointer_cast include "undefined symbol" problem, so choose reinterpret_pointer_cast
             }
@@ -479,12 +480,11 @@ namespace squeeze_motion_planner
           pivot_frame.setRotation(pivot_frame.getRotation()
                                   * tf::createQuaternionFromRPY(0, M_PI/2, 0));
         }
- std::cout<<"aa "<<planner_core_ptr_->getTargetRootPose<tf::Transform>().getOrigin().x()<<" "<<planner_core_ptr_->getTargetRootPose<tf::Transform>().getOrigin().y()<<" "<<planner_core_ptr_->getTargetRootPose<tf::Transform>().getOrigin().z()<<std::endl;
-          if(phase_ < PHASE3)
+         
       /* check whether can shift PHASE4 */
       if((pivot_frame.inverse() * planner_core_ptr_->getTargetRootPose<tf::Transform>()).getOrigin().z() > -0.01)
         {
-         
+          if(phase_ < PHASE3)
             {
               ROS_ERROR_STREAM(prefix << " correct phase should be " << PHASE3);
               return false;
@@ -566,7 +566,6 @@ namespace squeeze_motion_planner
       double tail_z
         = (pivot_frame.inverse()
            * planner_core_ptr_->getTargetRootPose<tf::Transform>() * tail_pos_in_root_link).z();
-
       if (tail_z < 0)
         {
           /* phase 1 */

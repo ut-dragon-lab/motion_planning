@@ -101,7 +101,6 @@ namespace differential_kinematics
 
     bool CollisionAvoidance::getConstraint(Eigen::MatrixXd& A, Eigen::VectorXd& lb, Eigen::VectorXd& ub, bool debug)
     {   
-       std::cout<<"col"<<std::endl;     
       const auto robot_model = planner_->getRobotModelPtr();
       const auto joint_positions =  planner_->getTargetJointVector<KDL::JntArray>();
       const auto& seg_frames = robot_model->getSegmentsTf();
@@ -266,14 +265,12 @@ namespace differential_kinematics
             lb(index) = -1e6;
         }
       if(!full_body_) A.leftCols(6).setZero(); // good
-
       if(debug)
         {
           std::cout << "constraint (" << constraint_name_.c_str()  << "): matrix A: \n" << A << std::endl;
           std::cout << "constraint name: " << constraint_name_ << ", lb: \n" << lb << std::endl;
           std::cout << "constraint name: " << constraint_name_ << ", ub: \n" << ub.transpose() << std::endl;
         }
-
       return true;
     }
 

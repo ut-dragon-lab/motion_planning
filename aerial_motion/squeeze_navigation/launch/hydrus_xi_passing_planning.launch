@@ -16,10 +16,10 @@
   <arg name="load_squeeze_path_flag" default="false" />
   <arg name="path_file_name" default="dragon_planning_log.txt" />
 
-  <arg name="robot_model_dir" default="$(find hydrus_xi)/robots/quad" />
-  <arg name="robot_model" default="$(arg robot_model_dir)/upboard202007.urdf.xacro" />
+  <arg name="robot_model_dir" default="$(find hydrus)/robots/quad/default_mode_201907" />
+  <arg name="robot_model" default="$(arg robot_model_dir)/robot.urdf.xacro"  />
 
-  <arg name="robot_config_dir" default="$(find hydrus_xi)/config/quad" />
+  <arg name="robot_config_dir" default="$(find hydrus)/config/quad/default_mode_201907" />
 
   ###########  Robot Model  ###########
   <group unless="$(arg headless)">
@@ -40,7 +40,7 @@
   </group>
 
   ###########  Path Planning and Navigation  ###########
-  <node pkg="squeeze_navigation" type="squeeze_navigation_node" name="squeeze_navigation_node" output="screen" ns="$(arg robot_ns)" >
+  <node pkg="squeeze_navigation" type="squeeze_navigation_node" name="squeeze_navigation_node" output="screen" ns="$(arg robot_ns)">
     <param name="debug_verbose" value="false" />
     <param name="headless" value="$(arg headless)" />
 
@@ -81,9 +81,9 @@
     <param name="control_frequency" value="40.0" />
   </node>
 
-  <!-- <group if="$(eval arg('simulation'))">
+  <group if="$(eval arg('simulation'))">
     <param name="opening/robot_description" command="$(find xacro)/xacro $(find squeeze_navigation)/urdf/2d_opening.urdf" />
     <node pkg="gazebo_ros" type="spawn_model" name="valve_spawn" args="-param opening/robot_description -urdf -x 0 -y 0 -z 0 -model opening" />
-  </group> -->
+  </group>
 
 </launch>

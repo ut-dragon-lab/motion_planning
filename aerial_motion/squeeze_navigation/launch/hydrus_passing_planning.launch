@@ -81,9 +81,9 @@
     <param name="control_frequency" value="40.0" />
   </node>
 
-  <!-- <group if="$(eval arg('simulation'))">
+  <group if="$(eval arg('simulation'))">
     <param name="opening/robot_description" command="$(find xacro)/xacro $(find squeeze_navigation)/urdf/2d_opening.urdf" />
     <node pkg="gazebo_ros" type="spawn_model" name="valve_spawn" args="-param opening/robot_description -urdf -x 0 -y 0 -z 0 -model opening" />
-  </group> -->
+  </group>
 
 </launch>

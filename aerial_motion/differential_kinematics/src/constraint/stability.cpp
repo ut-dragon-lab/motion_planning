@@ -85,7 +85,6 @@ namespace differential_kinematics
 
       bool getConstraint(Eigen::MatrixXd& A, Eigen::VectorXd& lb, Eigen::VectorXd& ub, bool debug = false)
       {
-         std::cout<<"sta"<<std::endl;
         const auto robot_model = boost::dynamic_pointer_cast<HydrusRobotModel>(planner_->getRobotModelPtr());
 
         A = Eigen::MatrixXd::Zero(nc_, robot_model->getLinkJointIndices().size() + 6);
@@ -160,7 +159,6 @@ namespace differential_kinematics
           {
             numericalUpdate(robot_model, A, lb, ub);
           }
-
         if(debug)
           {
             std::cout << "constraint (" << constraint_name_.c_str()  << "): matrix A: \n" << A << std::endl;
