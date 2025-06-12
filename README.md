@@ -6,9 +6,20 @@ Motion planning for aerial robot and other robot
 
   https://github.com/jsk-ros-pkg/jsk_aerial_robot/tree/1.3.5
 
-- Add supplementary apt repository for Ubuntu 22.04 with ROS-O only:
+- (For Ubuntu 22.04 with ROS-O only) Add supplementary apt repository :
 
   https://github.com/ut-dragon-lab/ros-o-overlay/blob/main-jammy-one/README.md
+
+- (For Ubuntu 22.04 with ROS-O only) Manually install `fcl` from source for `libfcl.so.0.6`:
+
+```
+git clone --branch v0.6.1 --single-branch https://github.com/flexible-collision-library/fcl.git
+cd fcl
+mkdir build && cd build
+cmake ..
+sudo make install
+sudo ldconfig
+```
 
 ## Packages
 ### aerial_manipulation
