@@ -48,6 +48,7 @@
 #include <aerial_robot_msgs/PoseControlPid.h>
 #include <moveit_msgs/DisplayRobotState.h>
 #include <spinal/DesireCoord.h>
+#include <aerial_robot_control/util/joy_parser.h>
 
 /* robot model */
 #include <dragon/model/hydrus_like_robot_model.h> // TODO: change to full vectoring model
