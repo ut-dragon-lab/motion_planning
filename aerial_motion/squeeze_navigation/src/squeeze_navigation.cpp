@@ -625,15 +625,14 @@ void SqueezeNavigation::robotJointStatesCallback(const sensor_msgs::JointStateCo
 
 void SqueezeNavigation::joyStickControl(const sensor_msgs::JoyConstPtr & joy_msg)
 {
-  using namespace aerial_robot_navigation;
   sensor_msgs::Joy joy_cmd;
-  if(joy_msg->axes.size() == BaseNavigator::PS3_AXES && joy_msg->buttons.size() == BaseNavigator::PS3_BUTTONS)
+  if(joy_msg->axes.size() == PS3_AXIS_SIZE && joy_msg->buttons.size() == PS3_BUTTON_SIZE)
     {
       joy_cmd = (*joy_msg);
     }
-  else if(joy_msg->axes.size() == BaseNavigator::PS4_AXES && joy_msg->buttons.size() == BaseNavigator::PS4_BUTTONS)
+  else if(joy_msg->axes.size() == PS4_AXIS_SIZE && joy_msg->buttons.size() == PS4_BUTTON_SIZE)
     {
-      joy_cmd = BaseNavigator::ps4joyToPs3joyConvert(*joy_msg);
+      joy_cmd = joyParse(*joy_msg);
     }
   else
     {
@@ -642,7 +641,7 @@ void SqueezeNavigation::joyStickControl(const sensor_msgs::JoyConstPtr & joy_msg
     }
 
   /* force landing */
-  if(joy_cmd.buttons[BaseNavigator::PS3_BUTTON_SELECT] == 1 && move_flag_)
+  if(joy_cmd.buttons[JOY_BUTTON_STOP] == 1 && move_flag_)
     {
       ROS_INFO("[SqueezeNavigation] Receive force landing command, stop navigation.");
       move_flag_ = false;
@@ -650,7 +649,7 @@ void SqueezeNavigation::joyStickControl(const sensor_msgs::JoyConstPtr & joy_msg
     }
 
   /* landing */
-  if(joy_cmd.buttons[BaseNavigator::PS3_BUTTON_CROSS_RIGHT] == 1 || joy_cmd.buttons[BaseNavigator::PS3_BUTTON_ACTION_SQUARE] == 1 && move_flag_)
+  if(joy_cmd.buttons[JOY_BUTTON_CROSS_RIGHT] == 1 || joy_cmd.buttons[JOY_BUTTON_ACTION_SQUARE] == 1 && move_flag_)
     {
       ROS_INFO("[SqueezeNavigation] Receive normal landing command, stop navigation.");
       move_flag_ = false;
