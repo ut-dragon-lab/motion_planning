@@ -19,24 +19,28 @@ find_package(catkin REQUIRED COMPONENTS
   aerial_motion_planning_msgs
 )
 
-find_package(ompl)
-
 add_message_files(FILES PlanningMode.msg)
 
 generate_messages(DEPENDENCIES std_msgs)
 
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
 
+
+find_package(ompl)
+set(OMPL_INCLUDE_DIRS "/opt/ros/$ENV{ROS_DISTRO}/include/ompl-1.6")
+if("$ENV{ROS_DISTRO}" STREQUAL "debian")
+  set(OMPL_INCLUDE_DIRS "/opt/ros/one/include/ompl-1.6")
+endif()
+
 catkin_package(
   INCLUDE_DIRS include ${OMPL_INCLUDE_DIRS}
   LIBRARIES motion_planning
-  CATKIN_DEPENDS  dragon   moveit_msgs moveit_core moveit_ros_planning_interface
+  CATKIN_DEPENDS  dragon moveit_msgs moveit_core moveit_ros_planning_interface
 )
 
 include_directories(
   include ${Boost_INCLUDE_DIR} ${catkin_INCLUDE_DIRS} ${OMPL_INCLUDE_DIRS}
 )
-
 
 Add_library (motion_planning src/motion_planning.cpp )
 add_dependencies(motion_planning  ${PROJECT_NAME}_gencpp)
