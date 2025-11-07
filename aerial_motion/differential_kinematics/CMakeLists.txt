@@ -16,7 +16,7 @@ find_package(catkin REQUIRED COMPONENTS
   tf_conversions
   kdl_conversions)
 
-SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
+add_compile_options(-std=c++17)
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
