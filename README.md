@@ -2,24 +2,29 @@
 Motion planning for aerial robot and other robot
 
 ## Dependency
-- jsk_aerial_robot (verison 1.3.5):
+- jsk_aerial_robot (verison 1.3.6):
 
-  https://github.com/jsk-ros-pkg/jsk_aerial_robot/tree/1.3.5
+  https://github.com/jsk-ros-pkg/jsk_aerial_robot/tree/1.3.6
 
-- (For Ubuntu 22.04 with ROS-O only) Add supplementary apt repository :
+  This project is compatible with jsk_aerial_robot 1.3.3 to 1.3.6.
 
-  https://github.com/ut-dragon-lab/ros-o-overlay/blob/main-jammy-one/README.md
+- For Ubuntu 22.04 with ROS-O, perform both of the following steps:
 
-- (For Ubuntu 22.04 with ROS-O only) Manually install `fcl` from source for `libfcl.so.0.6`:
+  - For `fcl_catkin` , add the supplementary apt repository:
 
-```
-git clone --branch v0.6.1 --single-branch https://github.com/flexible-collision-library/fcl.git
-cd fcl
-mkdir build && cd build
-cmake ..
-sudo make install
-sudo ldconfig
-```
+    https://github.com/ut-dragon-lab/ros-o-overlay/blob/main-jammy-one/README.md
+
+  - For `libfcl.so.0.6`, manually install `fcl` from source:
+
+    ```bash
+    git clone --branch v0.6.1 --single-branch https://github.com/flexible-collision-library/fcl.git
+    cd fcl
+    mkdir build && cd build
+    cmake ..
+    sudo make install
+    sudo ldconfig
+    ```
+
 
 ## Packages
 ### aerial_manipulation
@@ -37,7 +42,7 @@ Manipulation planning for aerial robot.
 
 ## How to compile
 
-```
+```bash
 source ~/ros/jsk_aerial_robot_ws/devel/setup.bash # Please make sure the path to repository of jsk_aerial_robot
 mkdir -p ~/ros/motion_planning_ws
 cd ~/ros/motion_planning_ws
