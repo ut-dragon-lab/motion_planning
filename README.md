@@ -2,11 +2,11 @@
 Motion planning for aerial robot and other robot
 
 ## Dependency
-- jsk_aerial_robot (verison 1.3.6):
+- jsk_aerial_robot:
 
-  https://github.com/jsk-ros-pkg/jsk_aerial_robot/tree/1.3.6
+  https://github.com/jsk-ros-pkg/jsk_aerial_robot
 
-  This project is compatible with jsk_aerial_robot 1.3.3 to 1.3.6.
+  This project is compatible with jsk_aerial_robot 1.3.3 and newer.
 
 - For Ubuntu 22.04 with ROS-O, perform both of the following steps:
 
