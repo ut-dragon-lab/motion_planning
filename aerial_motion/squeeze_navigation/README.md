@@ -43,6 +43,49 @@ Then first click botton `/hydrus/plan_start`, and then click botton `/hydrus/mov
   ```
   You can also try with `start_squeeze_path_from_real_state:=false`
 
+## 1.5 Hydrus_xi:
+
+### sampling based methods (e.g., RRT*): TODO
+
+### differential kinematics
+
+#### - do online planning and check the planning discrete path
+```
+$ roslaunch squeeze_navigation hydrus_xi_passing_planning.launch  discrete_path_debug_flag:=true
+```
+Then first click botton `/hydrus_xi/plan_start`, and then click botton `/hydrus_xi/move_start` in rviz. 
+
+
+#### - do online planning and check the planning continuous path
+```
+$ roslaunch squeeze_navigation hydrus_xi_passing_planning.launch start_squeeze_path_from_real_state:=false
+```
+Then first click botton `/hydrus_xi/plan_start`, and then click botton `/hydrus_xi/move_start` in rviz. 
+
+#### - online planing and do path tracking
+
+  **1. for simulation**:
+  ```
+  $ roslaunch squeeze_navigation hydrus_xi_bringup.launch headless:=false simulation:=true real_machine:=false
+  $ roslaunch squeeze_navigation hydrus_xi_passing_planning.launch start_squeeze_path_from_real_state:=true simulation:=true
+  ```
+  Then click botton `/hydrus_xi/plan_start` in rviz, robot will move.
+
+  **1.5 for simulation (another mode)**
+  ```
+  $ roslaunch squeeze_navigation hydrus_xi_bringup.launch headless:=false simulation:=true real_machine:=false
+  $ roslaunch squeeze_navigation hydrus_xi_passing_planning.launch start_squeeze_path_from_real_state:=false simulation:=true
+  ```
+  Then first click botton `/hydrus_xi/plan_start`, and then click botton `/hydrus_xi/move_start` in rviz. In this mode, robot will first move to a pre-defined initial pose and then start squeeze.
+
+  **2. for real machine**:
+  ```
+  $ roslaunch squeeze_navigation hydrus_xi_bringup.launch
+  $ roslaunch squeeze_navigation hydrus_xi_passing_planning.launch start_squeeze_path_from_real_state:=true headless:=true
+  $ rostopic pub -1 /hydrus_xi/plan_start std_msgs/Empty "{}"
+  ```
+  You can also try with `start_squeeze_path_from_real_state:=false`
+
 ## 2. Dragon
 
 ### sampling based methods (e.g., RRT*): TODO
