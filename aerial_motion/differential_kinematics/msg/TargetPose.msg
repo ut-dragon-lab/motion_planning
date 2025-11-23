@@ -1,0 +1,8 @@
+geometry_msgs/Vector3 target_pos
+geometry_msgs/Vector3 target_rot
+bool orientation
+bool full_body
+bool collision_avoidance
+string tran_free_axis
+string rot_free_axis
+bool debug

@@ -14,7 +14,8 @@ find_package(catkin REQUIRED COMPONENTS
   aerial_motion_planning_msgs
   pluginlib
   tf_conversions
-  kdl_conversions)
+  kdl_conversions
+  message_generation)
 
 add_compile_options(-std=c++17)
 
@@ -50,9 +51,10 @@ if (NOT EXISTS ${QPOASES_INSTALL_DIR})
   file(MAKE_DIRECTORY ${QPOASES_INSTALL_DIR}/include)
 endif()
 
-add_service_files(
+
+add_message_files(
   FILES
-  TargetPose.srv
+  TargetPose.msg
 )
 
 generate_messages(
@@ -64,7 +66,7 @@ generate_messages(
 catkin_package(
   INCLUDE_DIRS include ${QPOASES_INSTALL_DIR}/include
   LIBRARIES  differential_kinematics_planner_core end_effector_ik_solver_core
-  CATKIN_DEPENDS hydrus dragon kdl_conversions
+  CATKIN_DEPENDS hydrus dragon kdl_conversions message_runtime
   DEPENDS fcl
 )
 

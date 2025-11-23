@@ -80,7 +80,7 @@ private:
 
   ros::NodeHandle nh_;
   ros::NodeHandle nhp_;
-  ros::ServiceServer end_effector_ik_service_;
+  ros::Subscriber target_pose_sub_;
   ros::Subscriber env_collision_sub_;
   tf::TransformBroadcaster br_;
 
@@ -101,8 +101,7 @@ private:
   bool collision_avoidance_;
   visualization_msgs::MarkerArray env_collision_;
 
-  bool endEffectorIkCallback(differential_kinematics::TargetPose::Request  &req,
-                             differential_kinematics::TargetPose::Response &res);
+  void targetPoseCallback(const differential_kinematics::TargetPoseConstPtr& pose_msg);
 
   void envCollision(const visualization_msgs::MarkerArrayConstPtr& env_msg);
   void motionFunc();

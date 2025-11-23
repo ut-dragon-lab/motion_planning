@@ -74,7 +74,7 @@ EndEffectorIKSolverCore::EndEffectorIKSolverCore(ros::NodeHandle nh, ros::NodeHa
             init_joint_vector_.position.push_back(angle);
           }
 
-        end_effector_ik_service_ = nh_.advertiseService("end_effector_ik", &EndEffectorIKSolverCore::endEffectorIkCallback, this);
+        target_pose_sub_ = nh_.subscribe("end_effector_ik", 1, &EndEffectorIKSolverCore::targetPoseCallback, this);
         env_collision_sub_ = nh_.subscribe("/env_collision", 1, &EndEffectorIKSolverCore::envCollision, this);
       }
 
@@ -82,13 +82,13 @@ EndEffectorIKSolverCore::EndEffectorIKSolverCore(ros::NodeHandle nh, ros::NodeHa
     continuous_path_generator_ = boost::make_shared<ContinuousPathGenerator>(nh_, nhp_, robot_model_ptr_);
   }
 
-bool EndEffectorIKSolverCore::endEffectorIkCallback(differential_kinematics::TargetPose::Request  &req,
-                                                    differential_kinematics::TargetPose::Response &res)
+void EndEffectorIKSolverCore::targetPoseCallback(const differential_kinematics::TargetPoseConstPtr& pose_msg)
 {
-  collision_avoidance_ = req.collision_avoidance;
+  collision_avoidance_ = pose_msg->collision_avoidance;
+
   /* start IK */
-  tf::Quaternion q; q.setRPY(req.target_rot.x, req.target_rot.y, req.target_rot.z);
-  tf::Transform target_ee_pose(q, tf::Vector3(req.target_pos.x, req.target_pos.y, req.target_pos.z));
+  tf::Quaternion q; q.setRPY(pose_msg->target_rot.x, pose_msg->target_rot.y, pose_msg->target_rot.z);
+  tf::Transform target_ee_pose(q, tf::Vector3(pose_msg->target_pos.x, pose_msg->target_pos.y, pose_msg->target_pos.z));
 
   tf::Transform init_root_pose;
   init_root_pose.setIdentity();
@@ -98,12 +98,12 @@ bool EndEffectorIKSolverCore::endEffectorIkCallback(differential_kinematics::Tar
                      tf::Transform(tf::createIdentityQuaternion(),
                                    tf::Vector3(planner_core_ptr_->getRobotModelPtr()->getLinkLength(), 0, 0)));
 
-  if(!inverseKinematics(target_ee_pose, init_joint_vector_, init_root_pose,
-                        req.orientation, req.full_body, req.tran_free_axis, req.rot_free_axis,
-                        req.collision_avoidance, req.debug))
-    return false;
+  bool ret = inverseKinematics(target_ee_pose, init_joint_vector_, init_root_pose,
+                               pose_msg->orientation, pose_msg->full_body,
+                               pose_msg->tran_free_axis, pose_msg->rot_free_axis,
+                               pose_msg->collision_avoidance, pose_msg->debug);
 
-  return true;
+  if(!ret) ROS_ERROR("Failed to solve IK");
 }
 
 void EndEffectorIKSolverCore::setEndEffectorPose(std::string parent_seg, tf::Transform pose)
