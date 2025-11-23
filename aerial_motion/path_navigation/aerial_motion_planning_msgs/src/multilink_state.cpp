@@ -82,18 +82,29 @@ void MultilinkState::setStatesFromCog(boost::shared_ptr<aerial_robot_model::Robo
 }
 
 void MultilinkState::convertBaselinkPose2RootPose(boost::shared_ptr<aerial_robot_model::RobotModel> robot_model_ptr,
+                                                  const tf::Transform& baselink_tf,
+                                                  const KDL::JntArray& joint_state,
+                                                  tf::Transform& root_tf)
+{
+  tf::Transform root2baselink_tf;
+  tf::transformKDLToTF(robot_model_ptr->forwardKinematics<KDL::Frame>(robot_model_ptr->getBaselinkName(), joint_state), root2baselink_tf);
+  root_tf = baselink_tf * root2baselink_tf.inverse();
+}
+
+
+void MultilinkState::convertBaselinkPose2RootPose(boost::shared_ptr<aerial_robot_model::RobotModel> robot_model_ptr,
                                                   const geometry_msgs::Pose& baselink_pose,
                                                   const KDL::JntArray& joint_state,
                                                   geometry_msgs::Pose& root_pose)
 {
   tf::Transform baselink_tf;
   tf::poseMsgToTF(baselink_pose, baselink_tf);
-  tf::Transform root2baselink_tf;
-  tf::transformKDLToTF(robot_model_ptr->forwardKinematics<KDL::Frame>(robot_model_ptr->getBaselinkName(), joint_state), root2baselink_tf);
-  tf::Transform root_tf = baselink_tf * root2baselink_tf.inverse();
-
+  tf::Transform root_tf;
+  convertBaselinkPose2RootPose(robot_model_ptr, baselink_tf, joint_state, root_tf);
   tf::poseTFToMsg(root_tf, root_pose);
 }
+
+
 
 void MultilinkState::convertRootPose2CogPose(boost::shared_ptr<aerial_robot_model::RobotModel> robot_model_ptr,
                                              const geometry_msgs::Pose& root_pose,
