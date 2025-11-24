@@ -28,9 +28,6 @@ SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
 
 find_package(ompl)
 set(OMPL_INCLUDE_DIRS "/opt/ros/$ENV{ROS_DISTRO}/include/ompl-1.6")
-if("$ENV{ROS_DISTRO}" STREQUAL "debian")
-  set(OMPL_INCLUDE_DIRS "/opt/ros/one/include/ompl-1.6")
-endif()
 
 catkin_package(
   INCLUDE_DIRS include ${OMPL_INCLUDE_DIRS}
