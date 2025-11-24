@@ -46,7 +46,7 @@ using CostContainer = std::vector<boost::shared_ptr<cost::Base> >;
 using ConstraintContainer = std::vector<boost::shared_ptr<constraint::Base> >;
 
 
-EndEffectorIKSolverCore::EndEffectorIKSolverCore(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<aerial_robot_model::RobotModel> robot_model_ptr, bool simulation): nh_(nh), nhp_(nhp), robot_model_ptr_(robot_model_ptr)
+EndEffectorIKSolverCore::EndEffectorIKSolverCore(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<aerial_robot_model::transformable::RobotModel> robot_model_ptr, bool simulation): nh_(nh), nhp_(nhp), robot_model_ptr_(robot_model_ptr)
   {
     planner_core_ptr_ = boost::shared_ptr<Planner> (new Planner(nh, nhp, robot_model_ptr));
 

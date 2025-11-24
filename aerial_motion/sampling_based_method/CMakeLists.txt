@@ -23,7 +23,7 @@ add_message_files(FILES PlanningMode.msg)
 
 generate_messages(DEPENDENCIES std_msgs)
 
-SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
+add_compile_options(-std=c++17)
 
 
 find_package(ompl)

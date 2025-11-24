@@ -46,7 +46,7 @@ namespace
 
 namespace sampling_base
 {
-  MotionPlanning::MotionPlanning(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<aerial_robot_model::RobotModel> robot_model_ptr):
+  MotionPlanning::MotionPlanning(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<aerial_robot_model::transformable::RobotModel> robot_model_ptr):
     nh_(nh), nhp_(nhp), robot_model_ptr_(robot_model_ptr),
     path_(0), calculation_time_(0),
     best_cost_(-1), min_var_(1e6),

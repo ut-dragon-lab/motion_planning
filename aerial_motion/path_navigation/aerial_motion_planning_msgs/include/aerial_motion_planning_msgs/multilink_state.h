@@ -45,7 +45,7 @@
 #include <tf_conversions/tf_kdl.h>
 
 /* robot model */
-#include <aerial_robot_model/transformable_aerial_robot_model.h>
+#include <aerial_robot_model/model/transformable_aerial_robot_model.h>
 
 /* utils */
 #include <algorithm>
@@ -63,7 +63,7 @@ class MultilinkState
 public:
   MultilinkState() {}
 
-  MultilinkState(boost::shared_ptr<aerial_robot_model::RobotModel> robot_model_ptr):
+  MultilinkState(boost::shared_ptr<aerial_robot_model::transformable::RobotModel> robot_model_ptr):
     cog_pose_(), root_pose_(), cog_twist_(), gimbal_module_flag_(false)
   {
     joint_index_map_ = robot_model_ptr->getJointIndexMap();
@@ -85,7 +85,7 @@ public:
 
   }
 
-  MultilinkState(boost::shared_ptr<aerial_robot_model::RobotModel> robot_model_ptr,
+  MultilinkState(boost::shared_ptr<aerial_robot_model::transformable::RobotModel> robot_model_ptr,
                         const tf::Quaternion& baselink_desired_att,
                         const geometry_msgs::Pose& cog_pose,
                         const KDL::JntArray& joint_state): MultilinkState(robot_model_ptr)
@@ -93,7 +93,7 @@ public:
     setStatesFromCog(robot_model_ptr, baselink_desired_att, cog_pose, joint_state);
   }
 
-  MultilinkState(boost::shared_ptr<aerial_robot_model::RobotModel> robot_model_ptr,
+  MultilinkState(boost::shared_ptr<aerial_robot_model::transformable::RobotModel> robot_model_ptr,
                  const geometry_msgs::Pose& root_pose,
                  const KDL::JntArray& joint_state): MultilinkState(robot_model_ptr)
   {
@@ -102,24 +102,24 @@ public:
 
   ~MultilinkState(){}
 
-  void setStatesFromCog(boost::shared_ptr<aerial_robot_model::RobotModel> robot_model_ptr,
+  void setStatesFromCog(boost::shared_ptr<aerial_robot_model::transformable::RobotModel> robot_model_ptr,
                         const tf::Quaternion& baselink_desired_att,
                         const geometry_msgs::Pose& cog_pose,
                         const KDL::JntArray& joint_state);
 
-  void setStatesFromRoot(boost::shared_ptr<aerial_robot_model::RobotModel> robot_model_ptr,
+  void setStatesFromRoot(boost::shared_ptr<aerial_robot_model::transformable::RobotModel> robot_model_ptr,
                         const geometry_msgs::Pose& root_pose,
                         const KDL::JntArray& joint_state);
 
 
-  static void convertCogPose2RootPose(boost::shared_ptr<aerial_robot_model::RobotModel> robot_model_ptr,
+  static void convertCogPose2RootPose(boost::shared_ptr<aerial_robot_model::transformable::RobotModel> robot_model_ptr,
                                const tf::Quaternion& baselink_desired_att,
                                const geometry_msgs::Pose& cog_pose,
                                const KDL::JntArray& joint_state,
                                geometry_msgs::Pose& root_pose);
 
 
-  static void convertRootPose2CogPose(boost::shared_ptr<aerial_robot_model::RobotModel> robot_model_ptr,
+  static void convertRootPose2CogPose(boost::shared_ptr<aerial_robot_model::transformable::RobotModel> robot_model_ptr,
                                const geometry_msgs::Pose& root_pose,
                                const KDL::JntArray& joint_state,
                                tf::Quaternion& baselink_desired_att,
@@ -127,7 +127,7 @@ public:
 
 
 
-  static void convertBaselinkPose2RootPose(boost::shared_ptr<aerial_robot_model::RobotModel> robot_model_ptr,
+  static void convertBaselinkPose2RootPose(boost::shared_ptr<aerial_robot_model::transformable::RobotModel> robot_model_ptr,
                                     const geometry_msgs::Pose& baselink_pose,
                                     const KDL::JntArray& joint_state,
                                     geometry_msgs::Pose& root_pose);

@@ -48,7 +48,7 @@ class ContinuousPathGenerator
 {
 public:
   ContinuousPathGenerator() {}
-  ContinuousPathGenerator(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<aerial_robot_model::RobotModel> robot_model_ptr);
+  ContinuousPathGenerator(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<aerial_robot_model::transformable::RobotModel> robot_model_ptr);
   ~ContinuousPathGenerator() {}
 
   const double getPathDuration() const { return bspline_->getEndTime();}
@@ -69,7 +69,7 @@ protected:
 
   bool debug_verbose_;
 
-  boost::shared_ptr<aerial_robot_model::RobotModel> robot_model_ptr_;
+  boost::shared_ptr<aerial_robot_model::transformable::RobotModel> robot_model_ptr_;
 
   /* continuous path generator */
   boost::shared_ptr<BsplineRos> bspline_;
