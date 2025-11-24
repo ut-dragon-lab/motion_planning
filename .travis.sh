@@ -8,7 +8,8 @@ echo 'debconf debconf/frontend select Noninteractive' | sudo debconf-set-selecti
 # Install ROS
 if [[ "$ROS_DISTRO" ==  "one" ]]; then
     git clone https://github.com/jsk-ros-pkg/jsk_aerial_robot.git
-    cd jsk_aerial_robot && ./configure.sh
+    ./jsk_aerial_robot/configure.sh
+    rm -rf jsk_aerial_robot
 else
     sudo sh -c "echo \"deb ${REPOSITORY} `lsb_release -cs` main\" > /etc/apt/sources.list.d/ros-latest.list"
     curl -s https://raw.githubusercontent.com/ros/rosdistro/master/ros.asc | sudo apt-key add -
