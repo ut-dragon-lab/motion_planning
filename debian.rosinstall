@@ -1,0 +1,5 @@
+# dynamixel libraries
+- git:
+    local-name: dynamixel_motor
+    uri: https://github.com/arebgun/dynamixel_motor.git
+    version: master
