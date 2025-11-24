@@ -37,7 +37,8 @@
 #define DRAGON_IK_BASE_NAV_H_
 
 /* ros */
-#include <differential_kinematics/TargetPose.h>
+#include <actionlib/server/simple_action_server.h>
+#include <ik_base_nav/TargetPoseAction.h>
 #include <ros/ros.h>
 #include <sensor_msgs/JointState.h>
 #include <nav_msgs/Odometry.h>
@@ -68,17 +69,23 @@ namespace Dragon
 
     ros::Subscriber baselink_odom_sub_;
     ros::Subscriber joint_states_sub_;
-    ros::Subscriber target_pose_sub_;
 
     ros::Publisher joints_ctrl_pub_;
     ros::Publisher flight_nav_pub_;
     ros::Publisher rot_nav_pub_;
+
+    actionlib::SimpleActionServer<ik_base_nav::TargetPoseAction> as_;
+    ik_base_nav::TargetPoseFeedback feedback_;
+    ik_base_nav::TargetPoseResult result_;
 
     /* navigation */
     ros::Timer navigate_timer_;
     double controller_freq_;
     bool robot_connect_;
     double nav_start_time_;
+
+    std::vector<double> des_pos_;
+    std::vector<double> des_vel_;
 
     tf::Transform baselink_pose_;
     KDL::JntArray joint_state_;
@@ -96,13 +103,12 @@ namespace Dragon
 
     bool generateTraj(const tf::Transform target_ee_pose, const bool orientation_flag, const std::string tran_free_axis, const std::string rot_free_axis);
     void process(const ros::TimerEvent& event);
-    void navigate();
+    void stopNavigate();
     void sendCommand(const std::vector<double>& des_pos, const std::vector<double>& des_vel);
 
     void odomCallback(const nav_msgs::OdometryConstPtr& msg);
     void jointStatesCallback(const sensor_msgs::JointStateConstPtr& joint_msg);
-    void targetPoseCallback(const differential_kinematics::TargetPoseConstPtr& pose_msg);
-
+    void executeCallback(const ik_base_nav::TargetPoseGoalConstPtr &goal);
 
   };
 

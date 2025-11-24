@@ -4,16 +4,31 @@ project(ik_base_nav)
 add_compile_options(-std=c++17)
 
 find_package(catkin REQUIRED COMPONENTS
+  actionlib
+  actionlib_msgs
   aerial_motion_planning_msgs
   bspline_ros
   differential_kinematics
   dragon
+  message_generation
   roscpp
+)
+
+add_action_files(
+  FILES
+  TargetPose.action
+)
+
+generate_messages(
+  DEPENDENCIES
+  std_msgs
+  differential_kinematics
+  actionlib_msgs
 )
 
 catkin_package(
   INCLUDE_DIRS include
-  CATKIN_DEPENDS aerial_motion_planning_msgs bspline_ros dragon roscpp differential_kinematics
+  CATKIN_DEPENDS aerial_motion_planning_msgs bspline_ros dragon roscpp differential_kinematics message_runtime
   LIBRARIES dragon_navigation
 )
 

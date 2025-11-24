@@ -37,8 +37,13 @@
 
 using namespace Dragon;
 
-IKBaseNavigator::IKBaseNavigator(ros::NodeHandle nh, ros::NodeHandle nhp): nh_(nh), nhp_(nhp), robot_connect_(false), nav_start_time_(-1)
+IKBaseNavigator::IKBaseNavigator(ros::NodeHandle nh, ros::NodeHandle nhp):
+  nh_(nh), nhp_(nhp),
+  as_(nh_, "target_end_effector_pose", boost::bind(&IKBaseNavigator::executeCallback, this, _1), false),
+  robot_connect_(false)
 {
+  /* rosparam */
+  nhp_.param("control_frequency", controller_freq_, 40.0);
 
   /* publisher */
   joints_ctrl_pub_ = nh_.advertise<sensor_msgs::JointState>("joints_ctrl", 1);
@@ -61,24 +66,101 @@ IKBaseNavigator::IKBaseNavigator(ros::NodeHandle nh, ros::NodeHandle nhp): nh_(n
       angle_max_vec_.push_back(joint_ptr->limits->upper);
     }
 
-  target_pose_sub_ = nh_.subscribe("end_effector_ik", 1, &IKBaseNavigator::targetPoseCallback, this);
-
-  /* navigation timer */
-  nhp_.param("control_frequency", controller_freq_, 40.0);
-  if(controller_freq_ <= 0) return;
-  navigate_timer_ = nh_.createTimer(ros::Duration(1.0 / controller_freq_), &IKBaseNavigator::process, this);
+  /* start action server */
+  as_.start();
 }
 
-void IKBaseNavigator::targetPoseCallback(const differential_kinematics::TargetPoseConstPtr& pose_msg)
+void IKBaseNavigator::executeCallback(const ik_base_nav::TargetPoseGoalConstPtr &goal)
 {
-  tf::Quaternion q; q.setRPY(pose_msg->target_rot.x, pose_msg->target_rot.y, pose_msg->target_rot.z);
-  tf::Transform target_ee_pose(q, tf::Vector3(pose_msg->target_pos.x, pose_msg->target_pos.y, pose_msg->target_pos.z));
+  ros::Rate r(controller_freq_);
+
+  tf::Quaternion q;
+  q.setRPY(goal->target_ee_pose.target_rot.x, goal->target_ee_pose.target_rot.y, goal->target_ee_pose.target_rot.z);
+  tf::Transform target_ee_pose(q,
+                               tf::Vector3(goal->target_ee_pose.target_pos.x,
+                                           goal->target_ee_pose.target_pos.y,
+                                           goal->target_ee_pose.target_pos.z));
+
+  bool ret = generateTraj(target_ee_pose,
+                          goal->target_ee_pose.orientation,
+                          goal->target_ee_pose.tran_free_axis,
+                          goal->target_ee_pose.rot_free_axis);
+
+  if (!ret)
+    {
+      ROS_ERROR("cannot solve the trajectory for the goal");
+      as_.setPreempted();
+      return;
+    }
+
+  while(nh_.ok())
+    {
+      if(as_.isPreemptRequested()){
+        if(as_.isNewGoalAvailable()){
+          //if we're active and a new goal is available, we'll accept it, but we won't shut anything down
+          ik_base_nav::TargetPoseGoal new_goal = *(as_.acceptNewGoal());
+          ROS_INFO("got new goal");
+
+          tf::Quaternion q;
+          q.setRPY(new_goal.target_ee_pose.target_rot.x,
+                   new_goal.target_ee_pose.target_rot.y,
+                   new_goal.target_ee_pose.target_rot.z);
+          tf::Transform target_ee_pose(q,
+                                       tf::Vector3(new_goal.target_ee_pose.target_pos.x,
+                                                   new_goal.target_ee_pose.target_pos.y,
+                                                   new_goal.target_ee_pose.target_pos.z));
+
+          ret = generateTraj(target_ee_pose, new_goal.target_ee_pose.orientation,
+                             new_goal.target_ee_pose.tran_free_axis,
+                             new_goal.target_ee_pose.rot_free_axis);
+
+          if (!ret)
+            {
+              ROS_WARN("cannot solve the trajectory for the goal");
+              as_.setPreempted();
+              return;
+            }
+
+        }
+        else {
+          //if we've been preempted explicitly we need to shut things down
+          ROS_INFO("stop navigate");
+          stopNavigate();
+
+          as_.setPreempted();
+
+          //we'll actually return from execute after preempting
+          return;
+        }
+      }
+
+      double cur_time = ros::Time::now().toSec() - nav_start_time_;
+      des_pos_ = traj_ptr_->getPositionVector(cur_time + 1.0 / controller_freq_);
+      des_vel_ = traj_ptr_->getVelocityVector(cur_time);
+
+      /* send navigation command */
+      sendCommand(des_pos_, des_vel_);
+
+      /* check the end of navigation */
+      if(cur_time > traj_ptr_->getPathDuration() + 1.0) // margin: 1.0 [sec]
+        {
+          ROS_INFO("[IKBaseNavigator] Finish Navigation");
+
+          ik_base_nav::TargetPoseResult result;
+          result.done = true;
+          as_.setSucceeded(result);
+          return;
+        }
 
 
-  bool ret = generateTraj(target_ee_pose, pose_msg->orientation,
-                          pose_msg->tran_free_axis, pose_msg->rot_free_axis);
+      double comp_rate = cur_time / traj_ptr_->getPathDuration();
+      ROS_INFO_THROTTLE(1.0, "complete rate: %f", comp_rate);
+      ik_base_nav::TargetPoseFeedback feedback;
+      feedback.rate = comp_rate;
+      as_.publishFeedback(feedback);
 
-  if(!ret) ROS_ERROR("Failed to solve IK");
+      r.sleep();
+    }
 }
 
 bool IKBaseNavigator::generateTraj(const tf::Transform target_ee_pose, const bool orientation_flag, const std::string tran_free_axis, const std::string rot_free_axis)
@@ -120,33 +202,12 @@ bool IKBaseNavigator::generateTraj(const tf::Transform target_ee_pose, const boo
   return true;
 }
 
-
-void IKBaseNavigator::process(const ros::TimerEvent& event)
+void IKBaseNavigator::stopNavigate()
 {
-  if (nav_start_time_ < 0) return;
+  std::vector<double> stop_pos = des_pos_;
+  std::vector<double> stop_vel(des_vel_.size(), 0);
 
-  navigate();
-}
-
-
-void IKBaseNavigator::navigate()
-{
-
-  moveit_msgs::DisplayRobotState display_robot_state;
-
-  double cur_time = ros::Time::now().toSec() - nav_start_time_;
-  std::vector<double> des_pos = traj_ptr_->getPositionVector(cur_time + 1.0 / controller_freq_);
-  std::vector<double> des_vel = traj_ptr_->getVelocityVector(cur_time);
-
-  /* send navigation command */
-  sendCommand(des_pos, des_vel);
-
-  /* check the end of navigation */
-  if(cur_time > traj_ptr_->getPathDuration() + 1.0) // margin: 1.0 [sec]
-    {
-      ROS_INFO("[IKBaseNavigator] Finish Navigation");
-      nav_start_time_ = -1;
-    }
+  sendCommand(stop_pos, stop_vel);
 }
 
 void IKBaseNavigator::sendCommand(const std::vector<double>& des_pos, const std::vector<double>& des_vel)
