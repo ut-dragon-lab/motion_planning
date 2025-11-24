@@ -22,7 +22,7 @@ if __name__ == "__main__":
     time.sleep(1)
     env_obj = MarkerArray()
     env_obj.markers.append(Marker())
-    env_obj.markers[0].header.frame_id = "/world"
+    env_obj.markers[0].header.frame_id = "world"
     env_obj.markers[0].type = obj_type
     env_obj.markers[0].action = 0
     env_obj.markers[0].pose.position.x = position_x
