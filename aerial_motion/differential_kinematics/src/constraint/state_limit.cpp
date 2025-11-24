@@ -121,7 +121,6 @@ namespace differential_kinematics
             if(planner_->getRobotModelPtr()->getLinkJointUpperLimits().at(i) - joint_vector(index)  < joint_vel_constraint_range_)
               ub(i + 6) *= (planner_->getRobotModelPtr()->getLinkJointUpperLimits().at(i) - joint_vector(index) - joint_vel_forbidden_range_) / (joint_vel_constraint_range_ - joint_vel_forbidden_range_);
           }
-
         if(debug)
           {
             std::cout << "constraint name: " << constraint_name_ << ", lb: \n" << lb.transpose() << std::endl;

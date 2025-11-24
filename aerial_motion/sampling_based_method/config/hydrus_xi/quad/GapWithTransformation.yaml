@@ -1,0 +1,17 @@
+start_state_x: -1
+start_state_y: 0
+start_state_theta: -1.57
+start_state_joint1: 1.57
+start_state_joint2: 1.57
+start_state_joint3: 1.57
+
+goal_state_x: 1
+goal_state_y: 1
+goal_state_theta: -1.57
+goal_state_joint1: 1.57
+goal_state_joint2: 1.57
+goal_state_joint3: 1.57
+
+# planning cost 
+length_cost_thre: 8 # 16
+var_thre: 0.45 # ku: 0.35

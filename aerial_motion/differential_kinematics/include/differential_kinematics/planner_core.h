@@ -42,7 +42,7 @@
 #include <tf_conversions/tf_eigen.h>
 
 /* robot model */
-#include <aerial_robot_model/transformable_aerial_robot_model.h>
+#include <aerial_robot_model/model/transformable_aerial_robot_model.h>
 #include <aerial_motion_planning_msgs/multilink_state.h>
 
 /* for QP solution for force-closure */
@@ -66,7 +66,7 @@ namespace differential_kinematics
     using ConstraintContainer = std::vector<boost::shared_ptr<constraint::Base> >;
 
   public:
-    Planner(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<aerial_robot_model::RobotModel> robot_model_ptr);
+    Planner(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<aerial_robot_model::transformable::RobotModel> robot_model_ptr);
     ~Planner(){}
 
     bool solver(CostContainer cost_container, ConstraintContainer constraint_container, bool debug);
@@ -75,7 +75,7 @@ namespace differential_kinematics
     void registerMotionFunc(std::function<void(void)> new_func);
 
     /* kinematics */
-    boost::shared_ptr<aerial_robot_model::RobotModel> getRobotModelPtr() {return robot_model_ptr_;}
+    boost::shared_ptr<aerial_robot_model::transformable::RobotModel> getRobotModelPtr() {return robot_model_ptr_;}
     template<class T> const T getTargetRootPose() const ;
     template<class T> const T getTargetJointVector() const;
     template<class T> void setTargetRootPose(const T target_root_pose);
@@ -91,14 +91,17 @@ namespace differential_kinematics
     ros::NodeHandle nh_;
     ros::NodeHandle nhp_;
     ros::Publisher joint_state_pub_;
+    ros::Subscriber gimbals_ctrl_sub_;
     tf::TransformBroadcaster br_;
     ros::Timer  motion_timer_;
 
     /* robot model for kinematics */
-    boost::shared_ptr<aerial_robot_model::RobotModel> robot_model_ptr_;
+    boost::shared_ptr<aerial_robot_model::transformable::RobotModel> robot_model_ptr_;
     std::string tf_prefix_;
+    std::string robot_type_;
     uint8_t multilink_type_;
     bool gimbal_module_flag_; // TODO: hard-coding
+    sensor_msgs::JointState gimbals_ctrl_;
 
     /* result  */
     KDL::JntArray target_joint_vector_;
@@ -116,6 +119,7 @@ namespace differential_kinematics
     std::vector< std::function<void(void)> > motion_func_vector_;
 
     void motionFunc(const ros::TimerEvent & e);
+    void gimbalsCtrlCallback(const sensor_msgs::JointStateConstPtr& gimbals_ctrl_msg);
   };
 
 };

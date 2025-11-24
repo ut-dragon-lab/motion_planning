@@ -68,7 +68,7 @@ namespace squeeze_motion_planner
     DifferentialKinematics() {}
     ~DifferentialKinematics(){}
 
-    void initialize(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<aerial_robot_model::RobotModel> robot_model_ptr)
+    void initialize(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<aerial_robot_model::transformable::RobotModel> robot_model_ptr)
     {
       Base::initialize(nh, nhp, robot_model_ptr);
 
@@ -135,14 +135,14 @@ namespace squeeze_motion_planner
 
     void setCollisionEnv()
     {
-      /* hard-coding to set env */
+     /* hard-coding to set env */
       double wall_thickness;
       nhp_.param("wall_thickness", wall_thickness, 0.05);
       if(planner_core_ptr_->getMultilinkType() == motion_type::SE2)
         {
           /* setup env */
           double openning_width, env_width, env_length, openning_yaw;
-          nhp_.param("openning_width", openning_width, 0.8);
+          nhp_.param("openning_width", openning_width, 0.7);
           nhp_.param("openning_yaw", openning_yaw, 0.0);
           nhp_.param("env_width", env_width, 4.0);
           nhp_.param("env_length", env_length, 6.0);
@@ -155,7 +155,7 @@ namespace squeeze_motion_planner
           wall.color.g = 1;
           wall.color.a = 1;
 
-          wall.scale.z = 2;
+          wall.scale.z = 3;
 
           wall.scale.x = env_length;
           wall.scale.y = wall_thickness;
@@ -186,6 +186,78 @@ namespace squeeze_motion_planner
                           wall.pose);
           env_collision_.markers.push_back(wall);
         }
+        // {
+        //   /* setup env */
+        //   double openning_width, env_width, env_length, openning_yaw;
+        //   nhp_.param("openning_width", openning_width, 0.7);
+        //   nhp_.param("openning_yaw", openning_yaw, 0.0);
+        //   nhp_.param("env_width", env_width, 4.0);
+        //   nhp_.param("env_length", env_length, 6.0);
+
+        //   /* openning side wall(s) */
+        //   visualization_msgs::Marker wall;
+        //   wall.type = visualization_msgs::Marker::CUBE;
+        //   wall.action = visualization_msgs::Marker::ADD;
+        //   wall.header.frame_id = "world";
+        //   wall.color.g = 1;
+        //   wall.color.a = 1;
+
+        //   wall.scale.z = 3;
+
+        //   wall.scale.x = env_length;
+        //   wall.scale.y = wall_thickness;
+
+        //   wall.id = 1;
+        //   tf::poseTFToMsg(tf::Transform(openning_center_frame_.getRotation(),
+        //                                 openning_center_frame_ * tf::Vector3(0, -env_width / 2, -0.4)),
+        //                   wall.pose);
+        //   //env_collision_.markers.push_back(wall);
+        //   wall.id = 2;
+        //   tf::poseTFToMsg(tf::Transform(openning_center_frame_.getRotation(),
+        //                                 openning_center_frame_ * tf::Vector3(0, env_width / 2, -0.4)),
+        //                   wall.pose);
+        //   env_collision_.markers.push_back(wall);
+
+
+        //   wall.scale.x = wall_thickness;
+        //   wall.scale.y = env_width / 2;
+        //   wall.scale.z = 0.5;
+        //   wall.id = 3;
+        //   tf::poseTFToMsg(tf::Transform(openning_center_frame_.getRotation(),
+        //                                 openning_center_frame_ * tf::Vector3(0,  env_width/4, -0.4)),
+        //                    wall.pose);
+        //   env_collision_.markers.push_back(wall);
+
+        //   wall.id = 4;
+        //   tf::poseTFToMsg(tf::Transform(openning_center_frame_.getRotation(),
+        //                                 openning_center_frame_ * tf::Vector3(0, -env_width/4, -0.4)),
+        //                   wall.pose);
+        //   env_collision_.markers.push_back(wall);
+
+        //   wall.scale.y = env_width / 2 - openning_width / 2;
+        //   wall.scale.z = 1;
+        //   wall.id = 5;
+        //   tf::poseTFToMsg(tf::Transform(openning_center_frame_.getRotation(),
+        //                                 openning_center_frame_ * tf::Vector3(0, env_width/4 + openning_width/4, 0.75-0.4)),
+        //                    wall.pose);
+        //   env_collision_.markers.push_back(wall);
+
+        //   wall.id = 6;
+        //   tf::poseTFToMsg(tf::Transform(openning_center_frame_.getRotation(),
+        //                                 openning_center_frame_ * tf::Vector3(0, -env_width/4 - openning_width/4, 0.75-0.4)),
+        //                   wall.pose);
+        //   env_collision_.markers.push_back(wall);
+          
+        //   wall.scale.x = env_length;
+        //   wall.scale.y = env_width;
+        //   wall.scale.z = wall_thickness;
+        //   wall.id = 7;
+        //   tf::poseTFToMsg(tf::Transform(openning_center_frame_.getRotation(),
+        //                                 openning_center_frame_ * tf::Vector3(0, 0, 1.5-0.4)),
+        //                   wall.pose);
+        //   env_collision_.markers.push_back(wall);
+
+        // }
       else if(planner_core_ptr_->getMultilinkType() == motion_type::SE3)
         {
           /* setup env */
@@ -265,7 +337,8 @@ namespace squeeze_motion_planner
           /* sequeezing cartesian error constraint (cost) */
           if(cost.first == std::string("cartesian_constraint"))
             {
-              orientation = false;
+              //orientation = false;
+              orientation = true;
               cartersian_constraint_ = boost::reinterpret_pointer_cast<cost::CartersianConstraint>(cost_container.back());
               // NOTE: dynamic_pointer_cast include "undefined symbol" problem, so choose reinterpret_pointer_cast
             }
@@ -407,7 +480,7 @@ namespace squeeze_motion_planner
           pivot_frame.setRotation(pivot_frame.getRotation()
                                   * tf::createQuaternionFromRPY(0, M_PI/2, 0));
         }
-
+         
       /* check whether can shift PHASE4 */
       if((pivot_frame.inverse() * planner_core_ptr_->getTargetRootPose<tf::Transform>()).getOrigin().z() > -0.01)
         {
@@ -493,7 +566,6 @@ namespace squeeze_motion_planner
       double tail_z
         = (pivot_frame.inverse()
            * planner_core_ptr_->getTargetRootPose<tf::Transform>() * tail_pos_in_root_link).z();
-
       if (tail_z < 0)
         {
           /* phase 1 */

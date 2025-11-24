@@ -64,10 +64,18 @@ SqueezeNavigation::SqueezeNavigation(ros::NodeHandle nh, ros::NodeHandle nhp):
 
   /* robot model */
   nhp_.param("motion_type", motion_type_, 0);
-  if (motion_type_ == motion_type::SE2) //SE2
+  nhp_.param("robot_type", robot_type_, std::string("hydrus"));
+
+  if (robot_type_ == "hydrus" ) 
     robot_model_ptr_ = boost::shared_ptr<HydrusRobotModel>(new HydrusRobotModel(true));
-  else //SE3
+  else if (robot_type_ == "hydrus_xi") 
+    robot_model_ptr_ = boost::shared_ptr<HydrusRobotModel>(new HydrusRobotModel(true));
+  else if (robot_type_ == "dragon") 
     robot_model_ptr_ = boost::shared_ptr<HydrusRobotModel>(new Dragon::HydrusLikeRobotModel(true));
+  // if (motion_type_ == motion_type::SE2) //SE2
+  //   robot_model_ptr_ = boost::shared_ptr<HydrusRobotModel>(new HydrusRobotModel(true));
+  // else //SE3
+  //   robot_model_ptr_ = boost::shared_ptr<HydrusRobotModel>(new Dragon::HydrusLikeRobotModel(true));
   /* set the joint angle limit */
   for(auto itr : robot_model_ptr_->getLinkJointNames())
     {
@@ -86,7 +94,6 @@ SqueezeNavigation::SqueezeNavigation(ros::NodeHandle nh, ros::NodeHandle nhp):
 
   /* navigation timer */
   navigate_timer_ = nh_.createTimer(ros::Duration(1.0 / controller_freq_), &SqueezeNavigation::process, this);
-
   reset();
 }
 
@@ -633,7 +640,7 @@ void SqueezeNavigation::joyStickControl(const sensor_msgs::JoyConstPtr & joy_msg
     }
   else if(joy_msg->axes.size() == BaseNavigator::PS4_AXES && joy_msg->buttons.size() == BaseNavigator::PS4_BUTTONS)
     {
-      joy_cmd = BaseNavigator::ps4joyToPs3joyConvert(*joy_msg);
+      //joy_cmd = BaseNavigator::ps4joyToPs3joyConvert(*joy_msg);
     }
   else
     {

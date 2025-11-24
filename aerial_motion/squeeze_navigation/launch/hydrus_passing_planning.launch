@@ -53,6 +53,7 @@
     <rosparam file="$(find squeeze_navigation)/config/$(arg discrete_path_search_method_name)/2d_gap.yaml" command="load"/>
 
     <param name="discrete_path_debug_flag" value="$(arg discrete_path_debug_flag)" />
+    <param name="robot_type" value="$(arg robot_ns)" /> 
     <param name="motion_type" value="0" /> <!--SE2: 0, SE3: 1 -->
     <param name="gap_type" value="1" /> <!-- unless="$(arg horizontal_gap)" -->
     <param name="file_state_offset_x" type="double" value="0.0" />

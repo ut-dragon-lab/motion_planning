@@ -42,6 +42,9 @@
 /* TODO: this is an workaround */
 #include <dragon/model/hydrus_like_robot_model.h> // TODO: change to full vectoring robot model
 
+#include <hydrus/hydrus_tilted_robot_model.h> 
+
+
 
 namespace differential_kinematics
 {
@@ -49,7 +52,7 @@ namespace differential_kinematics
   using CostContainer = std::vector<boost::shared_ptr<cost::Base> >;
   using ConstraintContainer = std::vector<boost::shared_ptr<constraint::Base> >;
 
-  Planner::Planner(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<aerial_robot_model::RobotModel> robot_model_ptr): nh_(nh), nhp_(nhp), robot_model_ptr_(robot_model_ptr), multilink_type_(motion_type::SE2), gimbal_module_flag_(false), motion_func_vector_(), solved_(false)
+  Planner::Planner(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<aerial_robot_model::transformable::RobotModel> robot_model_ptr): nh_(nh), nhp_(nhp), robot_model_ptr_(robot_model_ptr), multilink_type_(motion_type::SE2), gimbal_module_flag_(false), motion_func_vector_(), solved_(false)
   {
     target_joint_vector_.resize(robot_model_ptr_->getTree().getNrOfJoints());
     for(auto tree_itr : robot_model_ptr_->getTree().getSegments())
@@ -65,11 +68,15 @@ namespace differential_kinematics
                 multilink_type_ = motion_type::SE3;
               }
           }
-
         /* TODO: workaround to detect whether this is a model with gimbal moduel (e.g. dragon) */
+         // if(joint_name.find("gimbal") == 0 &&
+        //    (joint_name.find("roll") != std::string::npos ||
+        //     joint_name.find("pitch") != std::string::npos) &&
+        //    tree_itr.second.segment.getJoint().getType() != KDL::Joint::JointType::None)
+
+        // Delete the roll or pitch condition, for accept hydrus_xi's gimbals
+        // TODO need to check if it would cause other problems.
         if(joint_name.find("gimbal") == 0 &&
-           (joint_name.find("roll") != std::string::npos ||
-            joint_name.find("pitch") != std::string::npos) &&
            tree_itr.second.segment.getJoint().getType() != KDL::Joint::JointType::None)
           {
             gimbal_module_flag_ = true;
@@ -81,8 +88,10 @@ namespace differential_kinematics
     /* publisher for joint state */
     std::string joint_state_pub_name;
     nhp_.param("joint_state_pub_name", joint_state_pub_name, std::string("joint_states"));
+    gimbals_ctrl_sub_ = nh_.subscribe("gimbals_ctrl", 1, &Planner::gimbalsCtrlCallback, this);
     joint_state_pub_ = nh_.advertise<sensor_msgs::JointState>(joint_state_pub_name, 1);
     nhp_.param("tf_prefix", tf_prefix_, std::string(""));
+    nhp_.param("robot_type", robot_type_, std::string("hydrus"));
 
     /* motion timer */
     double rate;
@@ -142,6 +151,7 @@ namespace differential_kinematics
         robot_model_ptr_->updateRobotModel(target_joint_vector_);
         robot_model_ptr_->updateJacobians();
 
+
         if(!robot_model_ptr_->stabilityCheck()) ROS_ERROR("[differential kinematics]: invalid stability");
 
         /* update each cost or constraint (e.g. changable ik), if necessary */
@@ -155,14 +165,21 @@ namespace differential_kinematics
             }
           }
 
+
+        /* workaround: special process for model which has gimbal module (e.g. dragon or hydrus_xi) */
+      
+
         /* workaround: special process for model which has gimbal module (e.g. dragon) */
         if(gimbal_module_flag_)
           {
-            auto dragon_model_ptr = boost::dynamic_pointer_cast<Dragon::HydrusLikeRobotModel>(robot_model_ptr_);
-            assert(target_joint_vector_.rows() == dragon_model_ptr->getGimbalProcessedJoint<KDL::JntArray>().rows());
-            target_joint_vector_ = dragon_model_ptr->getGimbalProcessedJoint<KDL::JntArray>();
-          }
-
+            if (robot_type_ == "dragon")
+            {
+              auto dragon_model_ptr = boost::dynamic_pointer_cast<Dragon::HydrusLikeRobotModel>(robot_model_ptr_);
+              assert(target_joint_vector_.rows() == dragon_model_ptr->getGimbalProcessedJoint<KDL::JntArray>().rows());
+              target_joint_vector_ = dragon_model_ptr->getGimbalProcessedJoint<KDL::JntArray>();
+            }
+          }        
+       
         /* considering the non-joint modules such as gimbal are updated after forward-kinemtics */
         /* the correct target_joint vector should be added here */
         target_root_pose_sequence_.push_back(target_root_pose_);
@@ -201,7 +218,6 @@ namespace differential_kinematics
     qp_options.enableEqualities = BT_TRUE;
     qp_options.printLevel = PL_LOW;
     qp_solver->setOptions(qp_options);
-
     /* inverse kinematics loop */
     for(int l = 0; l < differential_kinematics_count_; l++)
       {
@@ -215,8 +231,6 @@ namespace differential_kinematics
         Eigen::VectorXd qp_lA = Eigen::VectorXd::Constant(qp_solver->getNC(), -INFTY);
         Eigen::VectorXd qp_uA = Eigen::VectorXd::Constant(qp_solver->getNC(), INFTY);
 
-        // if(debug) std::cout << "the init qp lb is: \n" << qp_lb << std::endl;
-        // if(debug) std::cout << "the init qp ub is: \n" << qp_ub << std::endl;
         if(l == 0) modelUpdate(); // store the init state
         /* step2: check convergence & update Hessian and Gradient */
         bool convergence = true;
@@ -239,21 +253,20 @@ namespace differential_kinematics
             solved_ = true;
             return true;
           }
-
         /* step3: update Constaint Matrix and Bounds */
         size_t offset = 0;
+        int i = 0;
+  
         for(auto itr = constraint_container.begin(); itr != constraint_container.end(); itr++)
           {
             Eigen::MatrixXd single_A;
             Eigen::VectorXd single_lb;
             Eigen::VectorXd single_ub;
-
-            if(!(*itr)->getConstraint(single_A, single_lb, single_ub, debug))
+             if(!(*itr)->getConstraint(single_A, single_lb, single_ub, debug))
               {
                 ROS_ERROR("constraint: %s is invalid", (*itr)->getConstraintName().c_str());
                 return false;
               }
-
             /* for qpoasese */
             if((*itr)->directConstraint()) /* without constraint matrix */
               {
@@ -265,8 +278,9 @@ namespace differential_kinematics
 
                 for(size_t i = 0; i < qp_solver->getNV(); i++)
                   {
+           
                     if(single_lb(i) > qp_lb(i)) qp_lb(i) = single_lb(i);
-                    if(single_ub(i) < qp_ub(i)) qp_ub(i) = single_ub(i);
+                    if(single_ub(i) < qp_ub(i)) qp_ub(i) = single_ub(i);                    
                   }
               }
             else /* with constraint matrix */
@@ -275,8 +289,10 @@ namespace differential_kinematics
                 qp_uA.segment(offset, (*itr)->getNc()) = single_ub;
                 qp_A.block(offset, 0, single_A.rows(), single_A.cols()) = single_A;
                 offset += (*itr)->getNc();
-              }
+          
+             }         
           }
+
         if(debug)
           {
             std::cout << "qp H \n" << qp_H << std::endl;
@@ -284,8 +300,11 @@ namespace differential_kinematics
             std::cout << "qp A \n" << qp_A << std::endl;
             std::cout << "qp lA \n" << qp_lA.transpose() << std::endl;
             std::cout << "qp uA \n" << qp_uA.transpose() << std::endl;
+            std::cout << "qp lb \n" << qp_lb.transpose() << std::endl;
+            std::cout << "qp ub \n" << qp_ub.transpose() << std::endl;
+            std::cout << "qp lb \n" << qp_lb.transpose() << std::endl;
+            std::cout << "qp ub \n" << qp_ub.transpose() << std::endl;
           }
-
         /* step4: calculate the QP using qp-oases  */
         int solver_result;
         n_wsr = 100; /* this value have to be updated every time, otherwise it will decrease every loop */
@@ -306,7 +325,6 @@ namespace differential_kinematics
                                                 qp_lb.data(), qp_ub.data(),
                                                 qp_lA.data(), qp_uA.data(), n_wsr);
           }
-
         if(solver_result != 0)
           {
             ROS_ERROR("can not solve QP the solver_result is %d", solver_result);
@@ -327,18 +345,18 @@ namespace differential_kinematics
         KDL::Vector delta_pos, delta_rot;
         tf::vectorEigenToKDL(delta_state_vector.head(3), delta_pos);
         tf::vectorEigenToKDL(delta_state_vector.segment(3, 3), delta_rot);
-
+        double r, p, y;
+        target_root_pose_.M.GetRPY(r, p, y);
         if(delta_rot.Norm() == 0)
           target_root_pose_ = target_root_pose_ *  KDL::Frame(KDL::Rotation::Identity(), delta_pos);
         else
           target_root_pose_ = target_root_pose_ *  KDL::Frame(KDL::Rotation::Rot(delta_rot, delta_rot.Norm()), delta_pos);
-
         /* udpate the joint angles */
-        for(size_t i = 0; i < robot_model_ptr_->getLinkJointIndices().size(); i++) target_joint_vector_(robot_model_ptr_->getLinkJointIndices().at(i)) += delta_state_vector(i + 6);
-
+        for(size_t i = 0; i < robot_model_ptr_->getLinkJointIndices().size(); i++) 
+        {target_joint_vector_(robot_model_ptr_->getLinkJointIndices().at(i)) += delta_state_vector(i + 6);
+        }
         /* step6: update the kinematics by forward kinemtiacs, along with the modelling with current kinematics  */
         modelUpdate();
-
         if(debug)
           {
             ROS_WARN("finish loop %d", l);
@@ -385,6 +403,11 @@ namespace differential_kinematics
         for(auto func_itr = motion_func_vector_.begin(); func_itr != motion_func_vector_.end(); func_itr++)
           (*func_itr)();
       }
+  }
+
+  void Planner::gimbalsCtrlCallback(const sensor_msgs::JointStateConstPtr& gimbals_ctrl_msg)
+  {
+    gimbals_ctrl_ = *gimbals_ctrl_msg;
   }
 
 };
