@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>ik_base_nav</name>
+  <version>1.0.0</version>
+  <description>The ik_base_nav package</description>
+
+  <maintainer email="chou@dragon.t.u-tokyo.ac.jp">Moju Zhao</maintainer>
+
+  <license>BSD</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+  <depend>actionlib</depend>
+  <depend>actionlib_msgs</depend>
+  <depend>aerial_motion_planning_msgs</depend>
+  <depend>bspline_ros</depend>
+  <depend>differential_kinematics</depend>
+  <depend>dragon</depend>
+  <depend>roscpp</depend>
+
+  <build_depend>message_generation</build_depend>
+  <exec_depend>message_runtime</exec_depend>
+
+</package>

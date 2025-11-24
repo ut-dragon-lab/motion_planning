@@ -126,12 +126,15 @@ public:
                                geometry_msgs::Pose& cog_pose);
 
 
+  static void convertBaselinkPose2RootPose(boost::shared_ptr<aerial_robot_model::transformable::RobotModel> robot_model_ptr,
+                                           const tf::Transform& baselink_tf,
+                                           const KDL::JntArray& joint_state,
+                                           tf::Transform& root_tf);
 
   static void convertBaselinkPose2RootPose(boost::shared_ptr<aerial_robot_model::transformable::RobotModel> robot_model_ptr,
                                     const geometry_msgs::Pose& baselink_pose,
                                     const KDL::JntArray& joint_state,
                                     geometry_msgs::Pose& root_pose);
-
 
   inline geometry_msgs::Pose& getCogPoseNonConst() { return cog_pose_; }
   const geometry_msgs::Pose& getCogPoseConst() const { return cog_pose_; }
