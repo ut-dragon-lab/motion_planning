@@ -15,7 +15,7 @@ Then first click botton `/hydrus/plan_start`, and then click botton `/hydrus/mov
 
 #### - do online planning and check the planning continuous path
 ```
-$ roslaunch squeeze_navigation hydrus_passing_planning.launch start_squeeze_path_from_real_state:=false
+$ roslaunch squeeze_navigation hydrus_passing_planning.launch continuous_traj_debug_flag:=true
 ```
 Then first click botton `/hydrus/plan_start`, and then click botton `/hydrus/move_start` in rviz. 
 
@@ -24,16 +24,18 @@ Then first click botton `/hydrus/plan_start`, and then click botton `/hydrus/mov
   **1. for simulation**:
   ```
   $ roslaunch squeeze_navigation hydrus_bringup.launch headless:=false simulation:=true real_machine:=false
-  $ roslaunch squeeze_navigation hydrus_passing_planning.launch start_squeeze_path_from_real_state:=true simulation:=true
+  $ roslaunch squeeze_navigation hydrus_passing_planning.launch start_squeeze_path_from_real_state:=true simulation:=true # simulation for visualize openning in gazebo
+  $ rviz -d `rospack find sampling_based_method`/config/hydrus/planning.rviz # independent rviz for operate
   ```
-  Then click botton `/hydrus/plan_start` in rviz, robot will move.
+  First use keyboard or jotstick to make robot takeoff, then click botton `/hydrus/plan_start` in rviz, robot will move.
 
   **1.5 for simulation (another mode)**
   ```
   $ roslaunch squeeze_navigation hydrus_bringup.launch headless:=false simulation:=true real_machine:=false
-  $ roslaunch squeeze_navigation hydrus_passing_planning.launch start_squeeze_path_from_real_state:=false simulation:=true
+  $ roslaunch squeeze_navigation hydrus_passing_planning.launch simulation:=true
+  $ rviz -d `rospack find sampling_based_method`/config/hydrus/planning.rviz # independent rviz for operate
   ```
-  Then first click botton `/hydrus/plan_start`, and then click botton `/hydrus/move_start` in rviz. In this mode, robot will first move to a pre-defined initial pose and then start squeeze.
+  First use keyboard or jotstick to make robot takeoff, then click botton `/hydrus/plan_start`, and then click botton `/hydrus/move_start` in rviz. In this mode, robot will first move to a pre-defined initial pose and then start squeeze.
 
   **2. for real machine**:
   ```
@@ -92,13 +94,13 @@ $ rostopic pub -1 /dragon/move_start std_msgs/Empty "{}"
 
 #### - do online planning and check the planning discrete path
 ```
-$ roslaunch squeeze_navigation dragon_passing_planning.launch  discrete_path_debug_flag:=true
+$ roslaunch squeeze_navigation dragon_passing_planning.launch discrete_path_debug_flag:=true
 ```
 Then first click botton `/dragon/plan_start`, and then click botton `/dragon/move_start` in rviz. 
 
 #### - do online planning and check the planning continuous path
 ```
-$ roslaunch squeeze_navigation dragon_passing_planning.launch start_squeeze_path_from_real_state:=false
+$ roslaunch squeeze_navigation dragon_passing_planning.launch continuous_traj_debug_flag:=true
 ```
 Then first click botton `/dragon/plan_start`, and then click botton `/dragon/move_start` in rviz. 
 
@@ -107,22 +109,24 @@ Then first click botton `/dragon/plan_start`, and then click botton `/dragon/mov
   **1. for simualtion**:
   ```
   $ roslaunch squeeze_navigation dragon_bringup.launch headless:=false simulation:=true real_machine:=false
-  $ roslaunch squeeze_navigation dragon_passing_planning.launch start_squeeze_path_from_real_state:=false
+  $ roslaunch squeeze_navigation dragon_passing_planning.launch start_squeeze_path_from_real_state:=true
+  $ rviz -d `rospack find sampling_based_method`/config/dragon/planning.rviz # independent rviz for operate
   ```
-  Then click botton `/dragon/plan_start` in rviz, robot will move.
+  First use keyboard or jotstick to make robot takeoff, and click botton `/dragon/plan_start` in rviz, robot will move.
 
   **1.5 for simulation (another mode)**
   ```
   $ roslaunch squeeze_navigation dragon_bringup.launch headless:=false simulation:=true real_machine:=false
-  $ roslaunch squeeze_navigation dragon_passing_planning.launch start_squeeze_path_from_real_state:=false simulation:=true
+  $ roslaunch squeeze_navigation dragon_passing_planning.launch simulation:=true # simulation for visualize openning in gazebo
+  $ rviz -d `rospack find sampling_based_method`/config/dragon/planning.rviz # independent rviz for operate
   ```
-  Then first click botton `/dragon/plan_start`, and then click botton `/dragon/move_start` in rviz. In this mode, robot will first move to a pre-defined initial pose and then start squeeze.
+  First use keyboard or jotstick to make robot takeoff, then first click botton `/dragon/plan_start`, and then click botton `/dragon/move_start` in rviz. In this mode, robot will first move to a pre-defined initial pose and then start squeeze.
 
 
   **2. for real machine**:
   ```
-  $ roslaunch squeeze_navigation dragon_bringup.launch
-  $ roslaunch squeeze_navigation dragon_passing_planning.launch start_squeeze_path_from_real_state:=false headless:=true
+  $ roslaunch squeeze_navigation dragon_bringup.launch # use keyboard or joystick to make robot takeoff
+  $ roslaunch squeeze_navigation dragon_passing_planning.launch headless:=true
   $ rostopic pub -1 /dragon/plan_start std_msgs/Empty "{}"
   $ rostopic pub -1 /dragon/move_start std_msgs/Empty "{}"
   ```
