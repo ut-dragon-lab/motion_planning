@@ -47,7 +47,8 @@ source ~/ros/jsk_aerial_robot_ws/devel/setup.bash # Please make sure the path to
 mkdir -p ~/ros/motion_planning_ws
 cd ~/ros/motion_planning_ws
 wstool init src
-wstool set -u -t src motion_planning https://github.com/ut-dragon-lab/motion_planning.git --git
+wstool set -u -t src motion_planning https://github.com/Amos-Chen98/dragon_lab_planning.git --git -v ros-one-compatible
+# Replace the repository URL and version above with the actual ones.
 wstool merge -t src src/motion_planning/${ROS_DISTRO}.rosinstall
 wstool update -t src
 rosdep install -y -r --from-paths src --ignore-src --rosdistro $ROS_DISTRO
