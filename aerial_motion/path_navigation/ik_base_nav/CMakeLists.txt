@@ -27,9 +27,9 @@ include_directories(
  ${catkin_INCLUDE_DIRS}
 )
 
-add_library(dragon_navigation src/dragon_navigation.cpp)
-target_link_libraries(dragon_navigation ${catkin_LIBRARIES})
-add_dependencies(dragon_navigation ${catkin_EXPORTED_TARGETS})
+add_library(dragon_ik_base_navigation src/dragon_navigation.cpp)
+target_link_libraries(dragon_ik_base_navigation ${catkin_LIBRARIES})
+add_dependencies(dragon_ik_base_navigation ${catkin_EXPORTED_TARGETS})
 
-add_executable(dragon_navigation_node src/dragon_navigation_node.cpp)
-target_link_libraries(dragon_navigation_node dragon_navigation ${catkin_LIBRARIES})
+add_executable(dragon_ik_base_navigation_node src/dragon_navigation_node.cpp)
+target_link_libraries(dragon_ik_base_navigation_node dragon_ik_base_navigation ${catkin_LIBRARIES})
