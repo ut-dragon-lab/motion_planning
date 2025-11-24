@@ -7,7 +7,7 @@ echo 'debconf debconf/frontend select Noninteractive' | sudo debconf-set-selecti
 
 echo "Testing branch $TRAVIS_BRANCH of $REPOSITORY_NAME"
 sudo sh -c "echo \"deb ${REPOSITORY} `lsb_release -cs` main\" > /etc/apt/sources.list.d/ros-latest.list"
-wget http://packages.ros.org/ros.key -O - | sudo apt-key add -
+curl -s https://raw.githubusercontent.com/ros/rosdistro/master/ros.asc | sudo apt-key add -
 sudo apt-get update -qq
 
 # Install ROS
