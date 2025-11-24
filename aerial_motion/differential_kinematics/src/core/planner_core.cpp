@@ -49,7 +49,7 @@ namespace differential_kinematics
   using CostContainer = std::vector<boost::shared_ptr<cost::Base> >;
   using ConstraintContainer = std::vector<boost::shared_ptr<constraint::Base> >;
 
-  Planner::Planner(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<aerial_robot_model::RobotModel> robot_model_ptr): nh_(nh), nhp_(nhp), robot_model_ptr_(robot_model_ptr), multilink_type_(motion_type::SE2), gimbal_module_flag_(false), motion_func_vector_(), solved_(false)
+  Planner::Planner(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<aerial_robot_model::transformable::RobotModel> robot_model_ptr): nh_(nh), nhp_(nhp), robot_model_ptr_(robot_model_ptr), multilink_type_(motion_type::SE2), gimbal_module_flag_(false), motion_func_vector_(), solved_(false)
   {
     target_joint_vector_.resize(robot_model_ptr_->getTree().getNrOfJoints());
     for(auto tree_itr : robot_model_ptr_->getTree().getSegments())
