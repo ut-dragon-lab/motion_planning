@@ -9,7 +9,6 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   aerial_robot_model
   bspline_ros
-  fcl_catkin
   hydrus
   dragon
   aerial_motion_planning_msgs
@@ -21,10 +20,10 @@ SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
-
+find_package(fcl REQUIRED)
+include_directories(${FCL_INCLUDE_DIRS})
 
 include(ExternalProject)
-
 # QP OASES
 set(QPOASES_INSTALL_DIR ${PROJECT_SOURCE_DIR}/qpoases)
 ExternalProject_Add(QPOASES
@@ -51,15 +50,6 @@ if (NOT EXISTS ${QPOASES_INSTALL_DIR})
   file(MAKE_DIRECTORY ${QPOASES_INSTALL_DIR}/include)
 endif()
 
-find_package(fcl_catkin)
-string(FIND "${fcl_catkin_INCLUDE_DIRS}" "fcl_catkin" OUTPUT)
-if (${OUTPUT} EQUAL -1)
-  set(FCL_INCLUDE_DIRS ${fcl_catkin_INCLUDE_DIRS}/fcl_catkin)
-else ()
-  set(FCL_INCLUDE_DIRS ${fcl_catkin_INCLUDE_DIRS})
-endif ()
-include_directories(${FCL_INCLUDE_DIRS})
-
 add_service_files(
   FILES
   TargetPose.srv
@@ -72,10 +62,10 @@ generate_messages(
 )
 
 catkin_package(
-  INCLUDE_DIRS include ${QPOASES_INSTALL_DIR}/include ${FCL_INCLUDE_DIRS}
+  INCLUDE_DIRS include ${QPOASES_INSTALL_DIR}/include
   LIBRARIES  differential_kinematics_planner_core end_effector_ik_solver_core
   CATKIN_DEPENDS hydrus dragon kdl_conversions
-  DEPENDS fcl_catkin
+  DEPENDS fcl
 )
 
 # Eigen requires optimization to get good performance
@@ -112,17 +102,17 @@ add_library (differential_kinematics_constraint_pluginlib
   src/constraint/cog_motion.cpp
   src/constraint/joint_torque.cpp
   )
-target_link_libraries (differential_kinematics_constraint_pluginlib ${catkin_LIBRARIES} differential_kinematics_planner_core ${fcl_catkin_LIBRARIES})
+target_link_libraries (differential_kinematics_constraint_pluginlib ${catkin_LIBRARIES} ${FCL_LIBRARIES} differential_kinematics_planner_core)
 
 # se3 specified differential kinematics constraints
 add_library (dragon_differential_kinematics_constraint_pluginlib
   src/constraint/se3/link_attitude.cpp
   src/constraint/se3/overlap.cpp)
-target_link_libraries (dragon_differential_kinematics_constraint_pluginlib ${catkin_LIBRARIES} differential_kinematics_planner_core)
+target_link_libraries (dragon_differential_kinematics_constraint_pluginlib ${catkin_LIBRARIES} ${FCL_LIBRARIES} differential_kinematics_planner_core)
 
 # end-effector IK solver core
 add_library (end_effector_ik_solver_core src/motion/end_effector_ik_solver_core.cpp)
-target_link_libraries (end_effector_ik_solver_core ${catkin_LIBRARIES} differential_kinematics_planner_core)
+target_link_libraries (end_effector_ik_solver_core ${catkin_LIBRARIES} ${FCL_LIBRARIES} differential_kinematics_planner_core)
 add_dependencies(end_effector_ik_solver_core ${PROJECT_NAME}_generate_messages_cpp)
 
 ## specific robots:

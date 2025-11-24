@@ -17,7 +17,7 @@
   <build_depend>dragon</build_depend>
   <build_depend>pluginlib</build_depend>
   <build_depend>aerial_motion_planning_msgs</build_depend>
-  <build_depend>fcl_catkin</build_depend>
+  <build_depend>libfcl-dev</build_depend>
   <build_depend>tf_conversions</build_depend>
   <build_depend>kdl_conversions</build_depend>
 
@@ -27,7 +27,7 @@
   <run_depend>hydrus</run_depend>
   <run_depend>dragon</run_depend>
   <run_depend>pluginlib</run_depend>
-  <run_depend>fcl_catkin</run_depend>
+  <run_depend>libfcl-dev</run_depend>
   <run_depend>tf_conversions</run_depend>
   <run_depend>kdl_conversions</run_depend>
 
