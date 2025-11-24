@@ -9,9 +9,10 @@
   <arg name="discrete_path_search_method_name" default="differential_kinematics" />
   <arg name="motion_type"  default="1" /> <!--SE2: 0, SE3: 1 -->
 
-  <arg name="start_squeeze_path_from_real_state" default="true" />
+  <arg name="start_squeeze_path_from_real_state" default="false" />
   <arg name="overhead_opening" default="false" />
   <arg name="discrete_path_debug_flag" default="false" />
+  <arg name="continuous_traj_debug_flag" default="false" />
   <arg name="trajectory_period" default="50.0" />
 
   <arg name="save_squeeze_path_flag" default="false" />
@@ -21,7 +22,7 @@
   <arg name="robot_model" default="$(find dragon)/robots/quad/euclid_201709.urdf.xacro" />
 
   ###########  Robot Model  ###########
-  <group unless="$(arg headless)">
+  <group if="$(eval arg('discrete_path_debug_flag') or arg('continuous_traj_debug_flag'))">
     <include file="$(find aerial_robot_model)/launch/aerial_robot_model.launch" >
       <arg name="headless" value="$(arg headless)" />
       <arg name="robot_model" value="$(arg robot_model)" />
