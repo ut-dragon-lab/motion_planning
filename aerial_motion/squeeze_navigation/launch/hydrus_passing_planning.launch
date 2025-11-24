@@ -7,9 +7,10 @@
   <arg name="type" default="quad" />
 
   <arg name="discrete_path_search_method_name" default="differential_kinematics" />
-  <arg name="start_squeeze_path_from_real_state" default="true" />
+  <arg name="start_squeeze_path_from_real_state" default="false" />
   <arg name="overhead_opening" default="false" />
   <arg name="discrete_path_debug_flag" default="false" />
+  <arg name="continuous_traj_debug_flag" default="false" />
   <arg name="trajectory_period" default="50.0" />
 
   <arg name="save_squeeze_path_flag" default="false" />
@@ -22,7 +23,7 @@
   <arg name="robot_config_dir" default="$(find hydrus)/config/quad/default_mode_201907" />
 
   ###########  Robot Model  ###########
-  <group unless="$(arg headless)">
+  <group if="$(eval arg('discrete_path_debug_flag') or arg('continuous_traj_debug_flag'))">
     <include file="$(find aerial_robot_model)/launch/aerial_robot_model.launch" >
       <arg name="headless" value="$(arg headless)" />
       <arg name="robot_model" value="$(arg robot_model)" />

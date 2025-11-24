@@ -68,7 +68,7 @@ namespace squeeze_motion_planner
     DifferentialKinematics() {}
     ~DifferentialKinematics(){}
 
-    void initialize(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<aerial_robot_model::RobotModel> robot_model_ptr)
+    void initialize(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<aerial_robot_model::transformable::RobotModel> robot_model_ptr)
     {
       Base::initialize(nh, nhp, robot_model_ptr);
 

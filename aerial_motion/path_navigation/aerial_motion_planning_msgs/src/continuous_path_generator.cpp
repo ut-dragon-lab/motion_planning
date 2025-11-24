@@ -35,7 +35,7 @@
 
 #include <aerial_motion_planning_msgs/continuous_path_generator.h>
 
-ContinuousPathGenerator:: ContinuousPathGenerator(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<aerial_robot_model::RobotModel> robot_model_ptr): nh_(nh), nhp_(nhp), robot_model_ptr_(robot_model_ptr)
+ContinuousPathGenerator:: ContinuousPathGenerator(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<aerial_robot_model::transformable::RobotModel> robot_model_ptr): nh_(nh), nhp_(nhp), robot_model_ptr_(robot_model_ptr)
 {
   nhp_.param("debug_verbose", debug_verbose_, false);
 

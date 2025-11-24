@@ -49,7 +49,7 @@ namespace squeeze_motion_planner
     Base(): discrete_path_(0) {}
     ~Base() {}
 
-    void virtual initialize(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<aerial_robot_model::RobotModel> robot_model_ptr)
+    void virtual initialize(ros::NodeHandle nh, ros::NodeHandle nhp, boost::shared_ptr<aerial_robot_model::transformable::RobotModel> robot_model_ptr)
     {
       nh_ = nh;
       nhp_ = nhp;
@@ -122,7 +122,7 @@ namespace squeeze_motion_planner
 
     bool debug_verbose_;
 
-    boost::shared_ptr<aerial_robot_model::RobotModel> robot_model_ptr_;
+    boost::shared_ptr<aerial_robot_model::transformable::RobotModel> robot_model_ptr_;
     std::string baselink_name_;
     tf::Transform openning_center_frame_;
 

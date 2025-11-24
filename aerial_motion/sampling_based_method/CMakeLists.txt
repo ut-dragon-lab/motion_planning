@@ -41,7 +41,6 @@ catkin_package(
 include_directories(
   include ${Boost_INCLUDE_DIR} ${catkin_INCLUDE_DIRS} ${OMPL_INCLUDE_DIRS}
 )
-message(WARNING ${OMPL_LIBRARIES})
 
 Add_library (motion_planning src/motion_planning.cpp )
 add_dependencies(motion_planning  ${PROJECT_NAME}_gencpp)

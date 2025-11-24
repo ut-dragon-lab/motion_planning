@@ -39,7 +39,7 @@
 /* TODO1: the orientation of CoG frame is not resolved!! */
 /* TODO2: provide a funcion of nominal_joint_angles for aerial_robot_mode, this does not only benefit dragon, but also other robot model. */
 
-void MultilinkState::convertCogPose2RootPose(boost::shared_ptr<aerial_robot_model::RobotModel> robot_model_ptr,
+void MultilinkState::convertCogPose2RootPose(boost::shared_ptr<aerial_robot_model::transformable::RobotModel> robot_model_ptr,
                                              const tf::Quaternion& baselink_desired_att,
                                              const geometry_msgs::Pose& cog_pose,
                                              const KDL::JntArray& joint_state,
@@ -60,7 +60,7 @@ void MultilinkState::convertCogPose2RootPose(boost::shared_ptr<aerial_robot_mode
 
 }
 
-void MultilinkState::setStatesFromCog(boost::shared_ptr<aerial_robot_model::RobotModel> robot_model_ptr,
+void MultilinkState::setStatesFromCog(boost::shared_ptr<aerial_robot_model::transformable::RobotModel> robot_model_ptr,
                                       const tf::Quaternion& baselink_desired_att,
                                       const geometry_msgs::Pose& cog_pose,
                                       const KDL::JntArray& joint_state)
@@ -81,7 +81,8 @@ void MultilinkState::setStatesFromCog(boost::shared_ptr<aerial_robot_model::Robo
   if(gimbal_module_flag_) joint_state_ = boost::dynamic_pointer_cast<Dragon::HydrusLikeRobotModel>(robot_model_ptr)->getGimbalProcessedJoint<KDL::JntArray>();
 }
 
-void MultilinkState::convertBaselinkPose2RootPose(boost::shared_ptr<aerial_robot_model::RobotModel> robot_model_ptr,
+
+void MultilinkState::convertBaselinkPose2RootPose(boost::shared_ptr<aerial_robot_model::transformable::RobotModel> robot_model_ptr,
                                                   const tf::Transform& baselink_tf,
                                                   const KDL::JntArray& joint_state,
                                                   tf::Transform& root_tf)
@@ -91,8 +92,7 @@ void MultilinkState::convertBaselinkPose2RootPose(boost::shared_ptr<aerial_robot
   root_tf = baselink_tf * root2baselink_tf.inverse();
 }
 
-
-void MultilinkState::convertBaselinkPose2RootPose(boost::shared_ptr<aerial_robot_model::RobotModel> robot_model_ptr,
+void MultilinkState::convertBaselinkPose2RootPose(boost::shared_ptr<aerial_robot_model::transformable::RobotModel> robot_model_ptr,
                                                   const geometry_msgs::Pose& baselink_pose,
                                                   const KDL::JntArray& joint_state,
                                                   geometry_msgs::Pose& root_pose)
@@ -104,9 +104,7 @@ void MultilinkState::convertBaselinkPose2RootPose(boost::shared_ptr<aerial_robot
   tf::poseTFToMsg(root_tf, root_pose);
 }
 
-
-
-void MultilinkState::convertRootPose2CogPose(boost::shared_ptr<aerial_robot_model::RobotModel> robot_model_ptr,
+void MultilinkState::convertRootPose2CogPose(boost::shared_ptr<aerial_robot_model::transformable::RobotModel> robot_model_ptr,
                                              const geometry_msgs::Pose& root_pose,
                                              const KDL::JntArray& joint_state,
                                              tf::Quaternion& baselink_desired_att,
@@ -128,7 +126,7 @@ void MultilinkState::convertRootPose2CogPose(boost::shared_ptr<aerial_robot_mode
   tf::pointTFToMsg(root_tf * root2cog_tf.getOrigin(), cog_pose.position);
 }
 
-void MultilinkState::setStatesFromRoot(boost::shared_ptr<aerial_robot_model::RobotModel> robot_model_ptr,
+void MultilinkState::setStatesFromRoot(boost::shared_ptr<aerial_robot_model::transformable::RobotModel> robot_model_ptr,
                                        const geometry_msgs::Pose& root_pose,
                                        const KDL::JntArray& joint_state)
 {

@@ -51,7 +51,6 @@ if (NOT EXISTS ${QPOASES_INSTALL_DIR})
   file(MAKE_DIRECTORY ${QPOASES_INSTALL_DIR}/include)
 endif()
 
-
 add_message_files(
   FILES
   TargetPose.msg
